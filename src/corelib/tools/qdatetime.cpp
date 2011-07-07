@@ -4817,7 +4817,7 @@ QDateTime QDateTime::fromString(const QString& string, Qt::DateFormat format)
             return QDateTime(date, time, Qt::LocalTime);
 
         QStringRef tz = parts.at(5);
-        if (!tz.startsWith(QLatin1String("GMT"), Qt::CaseInsensitive))
+        if (!tz.startsWith(QStringLiteral("GMT"), Qt::CaseInsensitive))
             return QDateTime();
         tz = tz.mid(3);
         if (!tz.isEmpty()) {

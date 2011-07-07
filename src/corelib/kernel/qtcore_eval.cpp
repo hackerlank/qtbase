@@ -453,7 +453,7 @@ class EvalMessageBox : public QDialog
 public:
     EvalMessageBox(bool expired)
     {
-        setWindowTitle(QLatin1String(" "));
+        setWindowTitle(QStringLiteral(" "));
 
         QString str = expired ? QLatin1String(boilerplate_expired) : qt_eval_string();
         str = str.trimmed();
@@ -478,7 +478,7 @@ public:
         border_layout->addWidget(border);
 
         if (expired) {
-            QPushButton *cmd = new QPushButton(QLatin1String("OK"), border);
+            QPushButton *cmd = new QPushButton(QStringLiteral("OK"), border);
             cmd->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
             cmd->setDefault(true);
 
@@ -506,11 +506,11 @@ public:
     void timerEvent(QTimerEvent *e) {
         if (e->timerId() == warn) {
             killTimer(warn);
-            QMessageBox::information(0, QLatin1String("Automatic Timeout"), QLatin1String(will_shutdown_1min));
+            QMessageBox::information(0, QStringLiteral("Automatic Timeout"), QLatin1String(will_shutdown_1min));
             kill = startTimer(KILL_DELAY);
         } else if (e->timerId() == kill) {
             killTimer(kill);
-            QMessageBox::information(0, QLatin1String("Automatic Timeout"), QLatin1String(will_shutdown_now));
+            QMessageBox::information(0, QStringLiteral("Automatic Timeout"), QLatin1String(will_shutdown_now));
             qApp->quit();
         }
     }
@@ -535,7 +535,7 @@ void qt_gui_eval_init(QCoreApplicationPrivate::Type type)
 
 static QString qt_eval_title_prefix()
 {
-    return QLatin1String("[Qt Evaluation] ");
+    return QStringLiteral("[Qt Evaluation] ");
 }
 
 QString qt_eval_adapt_window_title(const QString &title)
@@ -550,7 +550,7 @@ void qt_eval_init_widget(QWidget *w)
     if (!qt_eval_is_supported())
         return;
     if (w->isTopLevel() && w->windowTitle().isEmpty() && w->windowType() != Qt::Desktop ) {
-        w->setWindowTitle(QLatin1String(" "));
+        w->setWindowTitle(QStringLiteral(" "));
     }
 }
 #endif

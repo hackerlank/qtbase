@@ -175,7 +175,7 @@ QSettings *QLibraryInfoPrivate::findConfiguration()
     CFBundleRef bundleRef = CFBundleGetMainBundle();
     if (bundleRef) {
         QCFType<CFURLRef> urlRef = CFBundleCopyResourceURL(bundleRef,
-                                                           QCFString(QLatin1String("qt.conf")),
+                                                           QCFString(QStringLiteral("qt.conf")),
                                                            0,
                                                            0);
         if (urlRef) {
@@ -188,7 +188,7 @@ QSettings *QLibraryInfoPrivate::findConfiguration()
 #endif
     if (QCoreApplication::instance()) {
         QDir pwd(QCoreApplication::applicationDirPath());
-        qtconfig = pwd.filePath(QLatin1String("qt.conf"));
+        qtconfig = pwd.filePath(QStringLiteral("qt.conf"));
         if (QFile::exists(qtconfig))
             return new QSettings(qtconfig, QSettings::IniFormat);
     }
@@ -510,7 +510,7 @@ QLibraryInfo::rawLocation(LibraryLocation loc, PathGroup group)
 
             // expand environment variables in the form $(ENVVAR)
             int rep;
-            QRegExp reg_var(QLatin1String("\\$\\(.*\\)"));
+            QRegExp reg_var(QStringLiteral("\\$\\(.*\\)"));
             reg_var.setMinimal(true);
             while((rep = reg_var.indexIn(ret)) != -1) {
                 ret.replace(rep, reg_var.matchedLength(),

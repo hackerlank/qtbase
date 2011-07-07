@@ -188,7 +188,7 @@ bool QSharedMemoryPrivate::attach(QSharedMemory::AccessMode mode)
         // Windows doesn't set an error code on this one,
         // it should only be a kernel memory error.
         error = QSharedMemory::UnknownError;
-        errorString = QSharedMemory::tr("%1: size query failed").arg(QLatin1String("QSharedMemory::attach: "));
+        errorString = QSharedMemory::tr("%1: size query failed").arg(QStringLiteral("QSharedMemory::attach: "));
         return false;
     }
     size = info.RegionSize;

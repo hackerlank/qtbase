@@ -773,27 +773,27 @@ static QString wc2rx(const QString &wc_str, const bool enableEscaping)
         case '\\':
             if (enableEscaping) {
                 if (isEscaping) {
-                    rx += QLatin1String("\\\\");
+                    rx += QStringLiteral("\\\\");
                 } // we insert the \\ later if necessary
                 if (i == wclen) { // the end
-                    rx += QLatin1String("\\\\");
+                    rx += QStringLiteral("\\\\");
                 }
             } else {
-                rx += QLatin1String("\\\\");
+                rx += QStringLiteral("\\\\");
             }
             isEscaping = true;
             break;
         case '*':
             if (isEscaping) {
-                rx += QLatin1String("\\*");
+                rx += QStringLiteral("\\*");
                 isEscaping = false;
             } else {
-                rx += QLatin1String(".*");
+                rx += QStringLiteral(".*");
             }
             break;
         case '?':
             if (isEscaping) {
-                rx += QLatin1String("\\?");
+                rx += QStringLiteral("\\?");
                 isEscaping = false;
             } else {
                 rx += QLatin1Char('.');
@@ -811,7 +811,7 @@ static QString wc2rx(const QString &wc_str, const bool enableEscaping)
         case '}':
             if (isEscaping) {
                 isEscaping = false;
-                rx += QLatin1String("\\\\");
+                rx += QStringLiteral("\\\\");
             }
             rx += QLatin1Char('\\');
             rx += c;
@@ -819,7 +819,7 @@ static QString wc2rx(const QString &wc_str, const bool enableEscaping)
          case '[':
             if (isEscaping) {
                 isEscaping = false;
-                rx += QLatin1String("\\[");
+                rx += QStringLiteral("\\[");
             } else {
                 rx += c;
                 if (wc[i] == QLatin1Char('^'))
@@ -839,7 +839,7 @@ static QString wc2rx(const QString &wc_str, const bool enableEscaping)
         case ']':
             if(isEscaping){
                 isEscaping = false;
-                rx += QLatin1String("\\");
+                rx += QStringLiteral("\\");
             }
             rx += c;
             break;
@@ -847,7 +847,7 @@ static QString wc2rx(const QString &wc_str, const bool enableEscaping)
         default:
             if(isEscaping){
                 isEscaping = false;
-                rx += QLatin1String("\\\\");
+                rx += QStringLiteral("\\\\");
             }
             rx += c;
         }
@@ -4405,7 +4405,7 @@ QStringList QRegExp::capturedTexts() const
         for (int i = 0; i < n; i += 2) {
             QString m;
             if (captured[i + 1] == 0)
-                m = QLatin1String(""); // ### Qt 5: don't distinguish between null and empty
+                m = QStringLiteral(""); // ### Qt 5: don't distinguish between null and empty
             else if (captured[i] >= 0)
                 m = priv->t.mid(captured[i], captured[i + 1]);
             priv->capturedCache.append(m);

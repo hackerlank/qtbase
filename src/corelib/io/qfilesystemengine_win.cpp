@@ -157,7 +157,7 @@ QT_BEGIN_NAMESPACE
 Q_CORE_EXPORT int qt_ntfs_permission_lookup = 0;
 
 #if defined(Q_OS_WINRT)
-static QString qfsPrivateCurrentDir = QLatin1String("");
+static QString qfsPrivateCurrentDir = QStringLiteral("");
 // As none of the functions we try to resolve do exist on WinRT
 // we use QT_NO_LIBRARY to shorten everything up a little bit.
 #  ifndef QT_NO_LIBRARY
@@ -345,7 +345,7 @@ static QString readSymLink(const QFileSystemEntry &link)
 
 #if !defined(QT_NO_LIBRARY)
         resolveLibs();
-        QRegExp matchVolName(QLatin1String("^Volume\\{([a-z]|[0-9]|-)+\\}\\\\"), Qt::CaseInsensitive);
+        QRegExp matchVolName(QStringLiteral("^Volume\\{([a-z]|[0-9]|-)+\\}\\\\"), Qt::CaseInsensitive);
         if (matchVolName.indexIn(result) == 0) {
             DWORD len;
             wchar_t buffer[MAX_PATH];
@@ -411,7 +411,7 @@ static bool uncShareExists(const QString &server)
     const QVector<QStringRef> parts = server.splitRef(QLatin1Char('\\'), QString::SkipEmptyParts);
     if (parts.count() >= 3) {
         QStringList shares;
-        if (QFileSystemEngine::uncListSharesOnServer(QLatin1String("\\\\") + parts.at(2), &shares))
+        if (QFileSystemEngine::uncListSharesOnServer(QStringLiteral("\\\\") + parts.at(2), &shares))
             return parts.count() < 4 || shares.contains(parts.at(3).toString(), Qt::CaseInsensitive);
     }
     return false;
@@ -783,8 +783,8 @@ bool QFileSystemEngine::fillPermissions(const QFileSystemEntry &entry, QFileSyst
         QString fname = entry.filePath();
         QString ext = fname.right(4).toLower();
         if (data.isDirectory() ||
-            ext == QLatin1String(".exe") || ext == QLatin1String(".com") || ext == QLatin1String(".bat") ||
-            ext == QLatin1String(".pif") || ext == QLatin1String(".cmd")) {
+            ext == QStringLiteral(".exe") || ext == QStringLiteral(".com") || ext == QStringLiteral(".bat") ||
+            ext == QStringLiteral(".pif") || ext == QStringLiteral(".cmd")) {
             data.entryFlags |= QFileSystemMetaData::OwnerExecutePermission | QFileSystemMetaData::GroupExecutePermission
                                | QFileSystemMetaData::OtherExecutePermission | QFileSystemMetaData::UserExecutePermission;
         }
@@ -825,7 +825,7 @@ static bool tryDriveUNCFallback(const QFileSystemEntry &fname, QFileSystemMetaDa
 #endif
         const QString &path = fname.nativeFilePath();
         bool is_dir = false;
-        if (path.startsWith(QLatin1String("\\\\?\\UNC"))) {
+        if (path.startsWith(QStringLiteral("\\\\?\\UNC"))) {
             // UNC - stat doesn't work for all cases (Windows bug)
             int s = path.indexOf(path.at(0),7);
             if (s > 0) {
@@ -1047,7 +1047,7 @@ bool QFileSystemEngine::createDirectory(const QFileSystemEntry &entry, bool crea
         dirName = QDir::toNativeSeparators(QDir::cleanPath(dirName));
         // We spefically search for / so \ would break it..
         int oldslash = -1;
-        if (dirName.startsWith(QLatin1String("\\\\"))) {
+        if (dirName.startsWith(QStringLiteral("\\\\"))) {
             // Don't try to create the root path of a UNC path;
             // CreateDirectory() will just return ERROR_INVALID_NAME.
             for (int i = 0; i < dirName.size(); ++i) {
@@ -1152,7 +1152,7 @@ QString QFileSystemEngine::rootPath()
 #else
     QString ret = QString::fromLatin1(qgetenv("SystemDrive"));
     if (ret.isEmpty())
-        ret = QLatin1String("c:");
+        ret = QStringLiteral("c:");
     ret.append(QLatin1Char('/'));
 #endif
     return ret;
@@ -1239,7 +1239,7 @@ QString QFileSystemEngine::tempPath()
     ret = QDir::fromNativeSeparators(QString::fromWCharArray(path.GetRawBuffer(nullptr)));
 #endif // Q_OS_WINRT
     if (ret.isEmpty()) {
-        ret = QLatin1String("C:/tmp");
+        ret = QStringLiteral("C:/tmp");
     } else if (ret.length() >= 2 && ret[1] == QLatin1Char(':'))
         ret[0] = ret.at(0).toUpper(); // Force uppercase drive letters.
     return ret;

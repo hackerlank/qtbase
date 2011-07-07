@@ -8761,7 +8761,7 @@ QDataStream &operator>>(QDataStream &in, QString &str)
                 }
             }
         } else {
-            str = QString(QLatin1String(""));
+            str = QString(QStringLiteral(""));
         }
     }
     return in;

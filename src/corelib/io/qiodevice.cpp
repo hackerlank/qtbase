@@ -2027,20 +2027,20 @@ QDebug operator<<(QDebug debug, QIODevice::OpenMode modes)
     debug << "OpenMode(";
     QStringList modeList;
     if (modes == QIODevice::NotOpen) {
-        modeList << QLatin1String("NotOpen");
+        modeList << QStringLiteral("NotOpen");
     } else {
         if (modes & QIODevice::ReadOnly)
-            modeList << QLatin1String("ReadOnly");
+            modeList << QStringLiteral("ReadOnly");
         if (modes & QIODevice::WriteOnly)
-            modeList << QLatin1String("WriteOnly");
+            modeList << QStringLiteral("WriteOnly");
         if (modes & QIODevice::Append)
-            modeList << QLatin1String("Append");
+            modeList << QStringLiteral("Append");
         if (modes & QIODevice::Truncate)
-            modeList << QLatin1String("Truncate");
+            modeList << QStringLiteral("Truncate");
         if (modes & QIODevice::Text)
-            modeList << QLatin1String("Text");
+            modeList << QStringLiteral("Text");
         if (modes & QIODevice::Unbuffered)
-            modeList << QLatin1String("Unbuffered");
+            modeList << QStringLiteral("Unbuffered");
     }
     std::sort(modeList.begin(), modeList.end());
     debug << modeList.join(QLatin1Char('|'));

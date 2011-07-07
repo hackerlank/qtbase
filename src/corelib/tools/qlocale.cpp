@@ -172,7 +172,7 @@ QString QLocalePrivate::languageToCode(QLocale::Language language)
     if (language == QLocale::AnyLanguage)
         return QString();
     if (language == QLocale::C)
-        return QLatin1String("C");
+        return QStringLiteral("C");
 
     const unsigned char *c = language_code_list + 3*(uint(language));
 
@@ -496,7 +496,7 @@ QString qt_readEscapedFormatString(const QString &format, int *idx)
         return QString();
     if (format.at(i).unicode() == '\'') { // "''" outside of a quoted stirng
         ++i;
-        return QLatin1String("'");
+        return QStringLiteral("'");
     }
 
     QString result;
@@ -1140,7 +1140,7 @@ QString QLocale::bcp47Name() const
 QString QLocale::languageToString(Language language)
 {
     if (uint(language) > uint(QLocale::LastLanguage))
-        return QLatin1String("Unknown");
+        return QStringLiteral("Unknown");
     return QLatin1String(language_name_list + language_name_index[language]);
 }
 
@@ -1153,7 +1153,7 @@ QString QLocale::languageToString(Language language)
 QString QLocale::countryToString(Country country)
 {
     if (uint(country) > uint(QLocale::LastCountry))
-        return QLatin1String("Unknown");
+        return QStringLiteral("Unknown");
     return QLatin1String(country_name_list + country_name_index[country]);
 }
 
@@ -1167,7 +1167,7 @@ QString QLocale::countryToString(Country country)
 QString QLocale::scriptToString(QLocale::Script script)
 {
     if (uint(script) > uint(QLocale::LastScript))
-        return QLatin1String("Unknown");
+        return QStringLiteral("Unknown");
     return QLatin1String(script_name_list + script_name_index[script]);
 }
 

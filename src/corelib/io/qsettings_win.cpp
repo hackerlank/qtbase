@@ -93,8 +93,8 @@ static QString keyName(const QString &rKey)
     else
         res = rKey.mid(idx + 1);
 
-    if (res == QLatin1String("Default") || res == QLatin1String("."))
-        res = QLatin1String("");
+    if (res == QStringLiteral("Default") || res == QStringLiteral("."))
+        res = QStringLiteral("");
 
     return res;
 }
@@ -262,7 +262,7 @@ static QStringList childKeysOrGroups(HKEY parentHandle, QSettingsPrivate::ChildS
             continue;
         }
         if (item.isEmpty())
-            item = QLatin1String(".");
+            item = QStringLiteral(".");
         result.append(item);
     }
     return result;
@@ -424,8 +424,8 @@ QWinSettingsPrivate::QWinSettingsPrivate(QSettings::Scope scope, const QString &
     deleteWriteHandleOnExit = false;
 
     if (!organization.isEmpty()) {
-        QString prefix = QLatin1String("Software\\") + organization;
-        QString orgPrefix = prefix + QLatin1String("\\OrganizationDefaults");
+        QString prefix = QStringLiteral("Software\\") + organization;
+        QString orgPrefix = prefix + QStringLiteral("\\OrganizationDefaults");
         QString appPrefix = prefix + QLatin1Char('\\') + application;
 
         if (scope == QSettings::UserScope) {
@@ -836,9 +836,9 @@ QString QWinSettingsPrivate::fileName() const
     const RegistryKey &key = regList.at(0);
     QString result;
     if (key.parentHandle() == HKEY_CURRENT_USER)
-        result = QLatin1String("\\HKEY_CURRENT_USER\\");
+        result = QStringLiteral("\\HKEY_CURRENT_USER\\");
     else
-        result = QLatin1String("\\HKEY_LOCAL_MACHINE\\");
+        result = QStringLiteral("\\HKEY_LOCAL_MACHINE\\");
 
     return result + regList.at(0).key();
 }

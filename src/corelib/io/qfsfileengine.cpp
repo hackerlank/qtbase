@@ -198,7 +198,7 @@ bool QFSFileEngine::open(QIODevice::OpenMode openMode)
     Q_D(QFSFileEngine);
     if (d->fileEntry.isEmpty()) {
         qWarning("QFSFileEngine::open: No file name specified");
-        setError(QFile::OpenError, QLatin1String("No file name specified"));
+        setError(QFile::OpenError, QStringLiteral("No file name specified"));
         return false;
     }
 

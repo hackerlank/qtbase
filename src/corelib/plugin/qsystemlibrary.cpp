@@ -112,7 +112,7 @@ HINSTANCE QSystemLibrary::load(const wchar_t *libraryName, bool onlySystemDirect
         searchOrder << PATH.split(QLatin1Char(';'), QString::SkipEmptyParts);
     }
     QString fileName = QString::fromWCharArray(libraryName);
-    fileName.append(QLatin1String(".dll"));
+    fileName.append(QStringLiteral(".dll"));
 
     // Start looking in the order specified
     for (int i = 0; i < searchOrder.count(); ++i) {

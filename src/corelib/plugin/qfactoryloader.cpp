@@ -105,7 +105,7 @@ void QFactoryLoader::update()
         if (qt_debug_component())
             qDebug() << "QFactoryLoader::QFactoryLoader() checking directory path" << path << "...";
 
-        if (!QDir(path).exists(QLatin1String(".")))
+        if (!QDir(path).exists(QStringLiteral(".")))
             continue;
 
         QStringList plugins = QDir(path).entryList(

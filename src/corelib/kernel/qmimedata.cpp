@@ -154,7 +154,7 @@ QVariant QMimeDataPrivate::retrieveTypedData(const QString &format, QVariant::Ty
         case QVariant::String: {
             const QByteArray ba = data.toByteArray();
             QTextCodec *codec = QTextCodec::codecForName("utf-8");
-            if (format == QLatin1String("text/html"))
+            if (format == QStringLiteral("text/html"))
                 codec = QTextCodec::codecForHtml(ba, codec);
             return codec->toUnicode(ba);
         }
@@ -165,7 +165,7 @@ QVariant QMimeDataPrivate::retrieveTypedData(const QString &format, QVariant::Ty
             return newData;
         }
         case QVariant::List: {
-            if (format != QLatin1String("text/uri-list"))
+            if (format != QStringLiteral("text/uri-list"))
                 break;
             Q_FALLTHROUGH();
         }

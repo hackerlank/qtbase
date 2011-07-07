@@ -309,13 +309,13 @@ static QString comify(const QString &organization)
         if (ch == QLatin1Char('.') || ch == QChar(0x3002) || ch == QChar(0xff0e)
                 || ch == QChar(0xff61)) {
             QString suffix = organization.mid(i + 1).toLower();
-            if (suffix.size() == 2 || suffix == QLatin1String("com")
-                    || suffix == QLatin1String("org") || suffix == QLatin1String("net")
-                    || suffix == QLatin1String("edu") || suffix == QLatin1String("gov")
-                    || suffix == QLatin1String("mil") || suffix == QLatin1String("biz")
-                    || suffix == QLatin1String("info") || suffix == QLatin1String("name")
-                    || suffix == QLatin1String("pro") || suffix == QLatin1String("aero")
-                    || suffix == QLatin1String("coop") || suffix == QLatin1String("museum")) {
+            if (suffix.size() == 2 || suffix == QStringLiteral("com")
+                    || suffix == QStringLiteral("org") || suffix == QStringLiteral("net")
+                    || suffix == QStringLiteral("edu") || suffix == QStringLiteral("gov")
+                    || suffix == QStringLiteral("mil") || suffix == QStringLiteral("biz")
+                    || suffix == QStringLiteral("info") || suffix == QStringLiteral("name")
+                    || suffix == QStringLiteral("pro") || suffix == QStringLiteral("aero")
+                    || suffix == QStringLiteral("coop") || suffix == QStringLiteral("museum")) {
                 QString result = organization;
                 result.replace(QLatin1Char('/'), QLatin1Char(' '));
                 return result;
@@ -342,7 +342,7 @@ static QString comify(const QString &organization)
     domain = domain.simplified();
     domain.replace(QLatin1Char(' '), QLatin1Char('-'));
     if (!domain.isEmpty())
-        domain.append(QLatin1String(".com"));
+        domain.append(QStringLiteral(".com"));
     return domain;
 }
 
@@ -408,7 +408,7 @@ QMacSettingsPrivate::QMacSettingsPrivate(QSettings::Scope scope, const QString &
     }
     // if no bundle identifier yet. use a hard coded string.
     if (domainName.isEmpty()) {
-        domainName = QLatin1String("unknown-organization.trolltech.com");
+        domainName = QStringLiteral("unknown-organization.trolltech.com");
     }
 
     while ((nextDot = domainName.indexOf(QLatin1Char('.'), curPos)) != -1) {
@@ -419,7 +419,7 @@ QMacSettingsPrivate::QMacSettingsPrivate(QSettings::Scope scope, const QString &
     javaPackageName.prepend(domainName.midRef(curPos));
     javaPackageName = javaPackageName.toLower();
     if (curPos == 0)
-        javaPackageName.prepend(QLatin1String("com."));
+        javaPackageName.prepend(QStringLiteral("com."));
     suiteId = javaPackageName;
 
     if (scope == QSettings::SystemScope)
@@ -558,7 +558,7 @@ void QMacSettingsPrivate::flush()
 bool QMacSettingsPrivate::isWritable() const
 {
     QMacSettingsPrivate *that = const_cast<QMacSettingsPrivate *>(this);
-    QString impossibleKey(QLatin1String("qt_internal/"));
+    QString impossibleKey(QStringLiteral("qt_internal/"));
 
     QSettings::Status oldStatus = that->status;
     that->status = QSettings::NoError;
@@ -578,9 +578,9 @@ QString QMacSettingsPrivate::fileName() const
     QString result;
     if ((spec & F_System) == 0)
         result = QDir::homePath();
-    result += QLatin1String("/Library/Preferences/");
+    result += QStringLiteral("/Library/Preferences/");
     result += QString::fromCFString(domains[0].applicationOrSuiteId);
-    result += QLatin1String(".plist");
+    result += QStringLiteral(".plist");
     return result;
 }
 

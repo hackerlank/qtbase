@@ -628,9 +628,9 @@ bool QLibrary::isLibrary(const QString &fileName)
     const QStringRef &lastSuffix = suffixes.at(suffixes.count() - 1);
     const QStringRef &firstSuffix = suffixes.at(0);
 
-    bool valid = (lastSuffix == QLatin1String("dylib")
-            || firstSuffix == QLatin1String("so")
-            || firstSuffix == QLatin1String("bundle"));
+    bool valid = (lastSuffix == QStringLiteral("dylib")
+            || firstSuffix == QStringLiteral("so")
+            || firstSuffix == QStringLiteral("bundle"));
 
     return valid;
 # else  // Generic Unix
@@ -642,14 +642,14 @@ bool QLibrary::isLibrary(const QString &fileName)
     "In PA-RISC (PA-32 and PA-64) shared libraries are suffixed with .sl. In IPF (32-bit and 64-bit),
     the shared libraries are suffixed with .so. For compatibility, the IPF linker also supports the .sl suffix."
  */
-    validSuffixList << QLatin1String("sl");
+    validSuffixList << QStringLiteral("sl");
 #   if defined __ia64
-    validSuffixList << QLatin1String("so");
+    validSuffixList << QStringLiteral("so");
 #   endif
 #  elif defined(Q_OS_AIX)
-    validSuffixList << QLatin1String("a") << QLatin1String("so");
+    validSuffixList << QStringLiteral("a") << QStringLiteral("so");
 #  elif defined(Q_OS_UNIX)
-    validSuffixList << QLatin1String("so");
+    validSuffixList << QStringLiteral("so");
 #  endif
 
     // Examples of valid library names:
@@ -710,7 +710,7 @@ void QLibraryPrivate::updatePluginState()
     bool success = false;
 
 #if defined(Q_OS_UNIX) && !defined(Q_OS_MAC)
-    if (fileName.endsWith(QLatin1String(".debug"))) {
+    if (fileName.endsWith(QStringLiteral(".debug"))) {
         // refuse to load a file that ends in .debug
         // these are the debug symbols from the libraries
         // the problem is that they are valid shared library files
@@ -762,7 +762,7 @@ void QLibraryPrivate::updatePluginState()
             .arg((qt_version&0xff0000) >> 16)
             .arg((qt_version&0xff00) >> 8)
             .arg(qt_version&0xff)
-            .arg(debug ? QLatin1String("debug") : QLatin1String("release"));
+            .arg(debug ? QString(QStringLiteral("debug")) : QString(QStringLiteral("release")));
 #ifndef QT_NO_DEBUG_PLUGIN_CHECK
     } else if(debug != QLIBRARY_AS_DEBUG) {
         //don't issue a qWarning since we will hopefully find a non-debug? --Sam

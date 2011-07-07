@@ -353,7 +353,7 @@ static QString qt_create_commandline(const QString &program, const QStringList &
     for (int i=0; i<arguments.size(); ++i) {
         QString tmp = arguments.at(i);
         // Quotes are escaped and their preceding backslashes are doubled.
-        tmp.replace(QRegExp(QLatin1String("(\\\\*)\"")), QLatin1String("\\1\\1\\\""));
+        tmp.replace(QRegExp(QStringLiteral("(\\\\*)\"")), QStringLiteral("\\1\\1\\\""));
         if (tmp.isEmpty() || tmp.contains(QLatin1Char(' ')) || tmp.contains(QLatin1Char('\t'))) {
             // The argument must not end with a \ since this would be interpreted
             // as escaping the quote -- rather put the \ behind the quote: e.g.
@@ -398,7 +398,7 @@ static QByteArray qt_create_environment(const QProcessEnvironmentPrivate::Hash &
         QProcessEnvironmentPrivate::Hash copy = environment;
 
         // add PATH if necessary (for DLL loading)
-        QProcessEnvironmentPrivate::Key pathKey(QLatin1String("PATH"));
+        QProcessEnvironmentPrivate::Key pathKey(QStringLiteral("PATH"));
         if (!copy.contains(pathKey)) {
             QByteArray path = qgetenv("PATH");
             if (!path.isEmpty())
@@ -406,7 +406,7 @@ static QByteArray qt_create_environment(const QProcessEnvironmentPrivate::Hash &
         }
 
         // add systemroot if needed
-        QProcessEnvironmentPrivate::Key rootKey(QLatin1String("SystemRoot"));
+        QProcessEnvironmentPrivate::Key rootKey(QStringLiteral("SystemRoot"));
         if (!copy.contains(rootKey)) {
             QByteArray systemRoot = qgetenv("SystemRoot");
             if (!systemRoot.isEmpty())

@@ -1940,9 +1940,9 @@ static void replacePercentN(QString *result, int n)
             QString fmt;
             if (result->at(percentPos + len) == QLatin1Char('L')) {
                 ++len;
-                fmt = QLatin1String("%L1");
+                fmt = QStringLiteral("%L1");
             } else {
-                fmt = QLatin1String("%1");
+                fmt = QStringLiteral("%1");
             }
             if (result->at(percentPos + len) == QLatin1Char('n')) {
                 fmt = fmt.arg(n);

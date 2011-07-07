@@ -934,12 +934,12 @@ QUuid QUuid::createUuid()
 #  if !defined(QT_BOOTSTRAPPED)
     devUrandom = devUrandomStorage()->localData();
     if (!devUrandom) {
-        devUrandom = new QFile(QLatin1String("/dev/urandom"));
+        devUrandom = new QFile(QStringLiteral("/dev/urandom"));
         devUrandom->open(QIODevice::ReadOnly | QIODevice::Unbuffered);
         devUrandomStorage()->setLocalData(devUrandom);
     }
 # else
-    QFile file(QLatin1String("/dev/urandom"));
+    QFile file(QStringLiteral("/dev/urandom"));
     devUrandom = &file;
     devUrandom->open(QIODevice::ReadOnly | QIODevice::Unbuffered);
 # endif

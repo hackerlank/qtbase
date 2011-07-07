@@ -775,8 +775,8 @@ QXmlStreamPrivateTagStack::QXmlStreamPrivateTagStack()
     tagStackStringStorage.reserve(32);
     tagStackStringStorageSize = 0;
     NamespaceDeclaration &namespaceDeclaration = namespaceDeclarations.push();
-    namespaceDeclaration.prefix = addToStringStorage(QLatin1String("xml"));
-    namespaceDeclaration.namespaceUri = addToStringStorage(QLatin1String("http://www.w3.org/XML/1998/namespace"));
+    namespaceDeclaration.prefix = addToStringStorage(QStringLiteral("xml"));
+    namespaceDeclaration.namespaceUri = addToStringStorage(QStringLiteral("http://www.w3.org/XML/1998/namespace"));
     initialTagStackStringStorageSize = tagStackStringStorageSize;
 }
 
@@ -796,11 +796,11 @@ QXmlStreamReaderPrivate::QXmlStreamReaderPrivate(QXmlStreamReader *q)
     reallocateStack();
     entityResolver = 0;
     init();
-    entityHash.insert(QLatin1String("lt"), Entity::createLiteral(QLatin1String("<")));
-    entityHash.insert(QLatin1String("gt"), Entity::createLiteral(QLatin1String(">")));
-    entityHash.insert(QLatin1String("amp"), Entity::createLiteral(QLatin1String("&")));
-    entityHash.insert(QLatin1String("apos"), Entity::createLiteral(QLatin1String("'")));
-    entityHash.insert(QLatin1String("quot"), Entity::createLiteral(QLatin1String("\"")));
+    entityHash.insert(QStringLiteral("lt"), Entity::createLiteral(QStringLiteral("<")));
+    entityHash.insert(QStringLiteral("gt"), Entity::createLiteral(QStringLiteral(">")));
+    entityHash.insert(QStringLiteral("amp"), Entity::createLiteral(QStringLiteral("&")));
+    entityHash.insert(QStringLiteral("apos"), Entity::createLiteral(QStringLiteral("'")));
+    entityHash.insert(QStringLiteral("quot"), Entity::createLiteral(QStringLiteral("\"")));
 }
 
 void QXmlStreamReaderPrivate::init()
@@ -1584,25 +1584,25 @@ void QXmlStreamReaderPrivate::resolveTag()
                 ++i;
             if (i != n)
                 continue;
-            if (dtdAttribute.attributePrefix.isEmpty() && dtdAttribute.attributeName == QLatin1String("xmlns")) {
+            if (dtdAttribute.attributePrefix.isEmpty() && dtdAttribute.attributeName == QStringLiteral("xmlns")) {
                 NamespaceDeclaration &namespaceDeclaration = namespaceDeclarations.push();
                 namespaceDeclaration.prefix.clear();
 
                 const QStringRef ns(dtdAttribute.defaultValue);
-                if(ns == QLatin1String("http://www.w3.org/2000/xmlns/") ||
-                   ns == QLatin1String("http://www.w3.org/XML/1998/namespace"))
+                if(ns == QStringLiteral("http://www.w3.org/2000/xmlns/") ||
+                   ns == QStringLiteral("http://www.w3.org/XML/1998/namespace"))
                     raiseWellFormedError(QXmlStream::tr("Illegal namespace declaration."));
                 else
                     namespaceDeclaration.namespaceUri = ns;
-            } else if (dtdAttribute.attributePrefix == QLatin1String("xmlns")) {
+            } else if (dtdAttribute.attributePrefix == QStringLiteral("xmlns")) {
                 NamespaceDeclaration &namespaceDeclaration = namespaceDeclarations.push();
                 QStringRef namespacePrefix = dtdAttribute.attributeName;
                 QStringRef namespaceUri = dtdAttribute.defaultValue;
-                if (((namespacePrefix == QLatin1String("xml"))
-                     ^ (namespaceUri == QLatin1String("http://www.w3.org/XML/1998/namespace")))
-                    || namespaceUri == QLatin1String("http://www.w3.org/2000/xmlns/")
+                if (((namespacePrefix == QStringLiteral("xml"))
+                     ^ (namespaceUri == QStringLiteral("http://www.w3.org/XML/1998/namespace")))
+                    || namespaceUri == QStringLiteral("http://www.w3.org/2000/xmlns/")
                     || namespaceUri.isEmpty()
-                    || namespacePrefix == QLatin1String("xmlns"))
+                    || namespacePrefix == QStringLiteral("xmlns"))
                     raiseWellFormedError(QXmlStream::tr("Illegal namespace declaration."));
 
                 namespaceDeclaration.prefix = namespacePrefix;
@@ -1777,7 +1777,7 @@ bool QXmlStreamReaderPrivate::checkStartDocument()
 void QXmlStreamReaderPrivate::startDocument()
 {
     QString err;
-    if (documentVersion != QLatin1String("1.0")) {
+    if (documentVersion != QStringLiteral("1.0")) {
         if (documentVersion.contains(QLatin1Char(' ')))
             err = QXmlStream::tr("Invalid XML version string.");
         else
@@ -1797,7 +1797,7 @@ void QXmlStreamReaderPrivate::startDocument()
         QStringRef key(symString(attrib.key));
         QStringRef value(symString(attrib.value));
 
-        if (prefix.isEmpty() && key == QLatin1String("encoding")) {
+        if (prefix.isEmpty() && key == QStringLiteral("encoding")) {
             const QString name(value.toString());
             documentEncoding = value;
 
@@ -1820,11 +1820,11 @@ void QXmlStreamReaderPrivate::startDocument()
                 }
 #endif // QT_NO_TEXTCODEC
             }
-        } else if (prefix.isEmpty() && key == QLatin1String("standalone")) {
+        } else if (prefix.isEmpty() && key == QStringLiteral("standalone")) {
             hasStandalone = true;
-            if (value == QLatin1String("yes"))
+            if (value == QStringLiteral("yes"))
                 standalone = true;
-            else if (value == QLatin1String("no"))
+            else if (value == QStringLiteral("no"))
                 standalone = false;
             else
                 err = QXmlStream::tr("Standalone accepts only yes or no.");
@@ -1894,17 +1894,17 @@ void QXmlStreamReaderPrivate::parseError()
                 error_message += QLatin1String (", ");
 
             first = false;
-            error_message += QLatin1String("\'");
+            error_message += QStringLiteral("\'");
             error_message += QLatin1String (spell [expected[s]]);
-            error_message += QLatin1String("\'");
+            error_message += QStringLiteral("\'");
         }
         error_message += QXmlStream::tr(", but got \'");
         error_message += QLatin1String(spell [token]);
-        error_message += QLatin1String("\'");
+        error_message += QStringLiteral("\'");
     } else {
         error_message += QXmlStream::tr("Unexpected \'");
         error_message += QLatin1String(spell [token]);
-        error_message += QLatin1String("\'");
+        error_message += QStringLiteral("\'");
     }
     error_message += QLatin1Char('.');
 
@@ -3087,20 +3087,20 @@ void QXmlStreamWriterPrivate::writeEscaped(const QString &s, bool escapeWhitespa
     for ( int i = 0; i < s.size(); ++i ) {
         QChar c = s.at(i);
         if (c.unicode() == '<' )
-            escaped.append(QLatin1String("&lt;"));
+            escaped.append(QStringLiteral("&lt;"));
         else if (c.unicode() == '>' )
-            escaped.append(QLatin1String("&gt;"));
+            escaped.append(QStringLiteral("&gt;"));
         else if (c.unicode() == '&' )
-            escaped.append(QLatin1String("&amp;"));
+            escaped.append(QStringLiteral("&amp;"));
         else if (c.unicode() == '\"' )
-            escaped.append(QLatin1String("&quot;"));
+            escaped.append(QStringLiteral("&quot;"));
         else if (escapeWhitespace && c.isSpace()) {
             if (c.unicode() == '\n')
-                escaped.append(QLatin1String("&#10;"));
+                escaped.append(QStringLiteral("&#10;"));
             else if (c.unicode() == '\r')
-                escaped.append(QLatin1String("&#13;"));
+                escaped.append(QStringLiteral("&#13;"));
             else if (c.unicode() == '\t')
-                escaped.append(QLatin1String("&#9;"));
+                escaped.append(QStringLiteral("&#9;"));
             else
                 escaped += c;
         } else {
@@ -3510,7 +3510,7 @@ void QXmlStreamWriter::writeCDATA(const QString &text)
     Q_D(QXmlStreamWriter);
     d->finishStartElement();
     QString copy(text);
-    copy.replace(QLatin1String("]]>"), QLatin1String("]]]]><![CDATA[>"));
+    copy.replace(QStringLiteral("]]>"), QStringLiteral("]]]]><![CDATA[>"));
     d->write("<![CDATA[");
     d->write(copy);
     d->write("]]>");
@@ -3538,7 +3538,7 @@ void QXmlStreamWriter::writeCharacters(const QString &text)
 void QXmlStreamWriter::writeComment(const QString &text)
 {
     Q_D(QXmlStreamWriter);
-    Q_ASSERT(!text.contains(QLatin1String("--")) && !text.endsWith(QLatin1Char('-')));
+    Q_ASSERT(!text.contains(QStringLiteral("--")) && !text.endsWith(QLatin1Char('-')));
     if (!d->finishStartElement(false) && d->autoFormatting)
         d->indent(d->tagStack.size());
     d->write("<!--");
@@ -3709,12 +3709,12 @@ void QXmlStreamWriter::writeNamespace(const QString &namespaceUri, const QString
 {
     Q_D(QXmlStreamWriter);
     Q_ASSERT(!namespaceUri.isEmpty());
-    Q_ASSERT(prefix != QLatin1String("xmlns"));
+    Q_ASSERT(prefix != QStringLiteral("xmlns"));
     if (prefix.isEmpty()) {
         d->findNamespace(namespaceUri, d->inStartElement);
     } else {
-        Q_ASSERT(!((prefix == QLatin1String("xml")) ^ (namespaceUri == QLatin1String("http://www.w3.org/XML/1998/namespace"))));
-        Q_ASSERT(namespaceUri != QLatin1String("http://www.w3.org/2000/xmlns/"));
+        Q_ASSERT(!((prefix == QStringLiteral("xml")) ^ (namespaceUri == QStringLiteral("http://www.w3.org/XML/1998/namespace"))));
+        Q_ASSERT(namespaceUri != QStringLiteral("http://www.w3.org/2000/xmlns/"));
         QXmlStreamWriterPrivate::NamespaceDeclaration &namespaceDeclaration = d->namespaceDeclarations.push();
         namespaceDeclaration.prefix = d->addToStringStorage(prefix);
         namespaceDeclaration.namespaceUri = d->addToStringStorage(namespaceUri);
@@ -3737,8 +3737,8 @@ void QXmlStreamWriter::writeNamespace(const QString &namespaceUri, const QString
 void QXmlStreamWriter::writeDefaultNamespace(const QString &namespaceUri)
 {
     Q_D(QXmlStreamWriter);
-    Q_ASSERT(namespaceUri != QLatin1String("http://www.w3.org/XML/1998/namespace"));
-    Q_ASSERT(namespaceUri != QLatin1String("http://www.w3.org/2000/xmlns/"));
+    Q_ASSERT(namespaceUri != QStringLiteral("http://www.w3.org/XML/1998/namespace"));
+    Q_ASSERT(namespaceUri != QStringLiteral("http://www.w3.org/2000/xmlns/"));
     QXmlStreamWriterPrivate::NamespaceDeclaration &namespaceDeclaration = d->namespaceDeclarations.push();
     namespaceDeclaration.prefix.clear();
     namespaceDeclaration.namespaceUri = d->addToStringStorage(namespaceUri);
@@ -3754,7 +3754,7 @@ void QXmlStreamWriter::writeDefaultNamespace(const QString &namespaceUri)
 void QXmlStreamWriter::writeProcessingInstruction(const QString &target, const QString &data)
 {
     Q_D(QXmlStreamWriter);
-    Q_ASSERT(!data.contains(QLatin1String("?>")));
+    Q_ASSERT(!data.contains(QStringLiteral("?>")));
     if (!d->finishStartElement(false) && d->autoFormatting)
         d->indent(d->tagStack.size());
     d->write("<?");
@@ -3778,7 +3778,7 @@ void QXmlStreamWriter::writeProcessingInstruction(const QString &target, const Q
  */
 void QXmlStreamWriter::writeStartDocument()
 {
-    writeStartDocument(QLatin1String("1.0"));
+    writeStartDocument(QStringLiteral("1.0"));
 }
 
 

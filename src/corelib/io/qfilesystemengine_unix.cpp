@@ -694,7 +694,7 @@ QString QFileSystemEngine::homePath()
 
 QString QFileSystemEngine::rootPath()
 {
-    return QLatin1String("/");
+    return QStringLiteral("/");
 }
 
 QString QFileSystemEngine::tempPath()
@@ -704,7 +704,7 @@ QString QFileSystemEngine::tempPath()
 #else
     QString temp = QFile::decodeName(qgetenv("TMPDIR"));
     if (temp.isEmpty())
-        temp = QLatin1String("/tmp");
+        temp = QStringLiteral("/tmp");
     return QDir::cleanPath(temp);
 #endif
 }

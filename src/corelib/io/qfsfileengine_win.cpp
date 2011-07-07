@@ -76,7 +76,7 @@ QT_BEGIN_NAMESPACE
 static inline bool isUncPath(const QString &path)
 {
     // Starts with \\, but not \\.
-    return (path.startsWith(QLatin1String("\\\\"))
+    return (path.startsWith(QStringLiteral("\\\\"))
             && path.size() > 2 && path.at(2) != QLatin1Char('.'));
 }
 
@@ -85,14 +85,14 @@ static inline bool isUncPath(const QString &path)
 */
 QString QFSFileEnginePrivate::longFileName(const QString &path)
 {
-    if (path.startsWith(QLatin1String("\\\\.\\")))
+    if (path.startsWith(QStringLiteral("\\\\.\\")))
         return path;
 
     QString absPath = QFileSystemEngine::nativeAbsoluteFilePath(path);
 #if !defined(Q_OS_WINRT)
-    QString prefix = QLatin1String("\\\\?\\");
+    QString prefix = QStringLiteral("\\\\?\\");
     if (isUncPath(absPath)) {
-        prefix.append(QLatin1String("UNC\\")); // "\\\\?\\UNC\\"
+        prefix.append(QStringLiteral("UNC\\")); // "\\\\?\\UNC\\"
         absPath.remove(0, 2);
     }
     return prefix + absPath;
@@ -563,7 +563,7 @@ QFileInfoList QFSFileEngine::drives()
     }
     return ret;
 #else // !Q_OS_WINRT
-    ret.append(QFileInfo(QLatin1String("/")));
+    ret.append(QFileInfo(QStringLiteral("/")));
     return ret;
 #endif // Q_OS_WINRT
 }
@@ -718,8 +718,8 @@ QString QFSFileEngine::fileName(FileName file) const
             if (d->fileEntry.filePath().startsWith(QLatin1Char('/')) || // It's a absolute path to the current drive, so \a.txt -> Z:\a.txt
                 d->fileEntry.filePath().size() == 2 ||                  // It's a drive letter that needs to get a working dir appended
                 (d->fileEntry.filePath().size() > 2 && d->fileEntry.filePath().at(2) != QLatin1Char('/')) || // It's a drive-relative path, so Z:a.txt -> Z:\currentpath\a.txt
-                d->fileEntry.filePath().contains(QLatin1String("/../")) || d->fileEntry.filePath().contains(QLatin1String("/./")) ||
-                d->fileEntry.filePath().endsWith(QLatin1String("/..")) || d->fileEntry.filePath().endsWith(QLatin1String("/.")))
+                d->fileEntry.filePath().contains(QStringLiteral("/../")) || d->fileEntry.filePath().contains(QStringLiteral("/./")) ||
+                d->fileEntry.filePath().endsWith(QStringLiteral("/..")) || d->fileEntry.filePath().endsWith(QStringLiteral("/.")))
             {
                 ret = QDir::fromNativeSeparators(QFileSystemEngine::nativeAbsoluteFilePath(d->fileEntry.filePath()));
             } else {

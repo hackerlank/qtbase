@@ -449,7 +449,7 @@ QVariant QSystemLocalePrivate::measurementSystem()
 
     if (getLocaleInfo(LOCALE_IMEASURE, output, 2)) {
         QString iMeasure = QString::fromWCharArray(output);
-        if (iMeasure == QLatin1String("1")) {
+        if (iMeasure == QStringLiteral("1")) {
             return QLocale::ImperialSystem;
         }
     }
@@ -688,8 +688,8 @@ QString QSystemLocalePrivate::winToQtFormat(const QString &sys_fmt)
     while (i < sys_fmt.size()) {
         if (sys_fmt.at(i).unicode() == QLatin1Char('\'')) {
             QString text = qt_readEscapedFormatString(sys_fmt, &i);
-            if (text == QLatin1String("'"))
-                result += QLatin1String("''");
+            if (text == QStringLiteral("'"))
+                result += QStringLiteral("''");
             else
                 result += QString(QLatin1Char('\'') + text + QLatin1Char('\''));
             continue;
@@ -707,10 +707,10 @@ QString QSystemLocalePrivate::winToQtFormat(const QString &sys_fmt)
                     repeat = 2;
                 switch (repeat) {
                     case 1:
-                        result += QLatin1String("yy"); // "y" unsupported by Qt, use "yy"
+                        result += QStringLiteral("yy"); // "y" unsupported by Qt, use "yy"
                         break;
                     case 5:
-                        result += QLatin1String("yyyy"); // "yyyyy" same as "yyyy" on Windows
+                        result += QStringLiteral("yyyy"); // "yyyyy" same as "yyyy" on Windows
                         break;
                     default:
                         result += QString(repeat, QLatin1Char('y'));
@@ -731,7 +731,7 @@ QString QSystemLocalePrivate::winToQtFormat(const QString &sys_fmt)
             case 't':
                 if (repeat > 2)
                     repeat = 2;
-                result += QLatin1String("AP"); // "t" unsupported, use "AP"
+                result += QStringLiteral("AP"); // "t" unsupported, use "AP"
                 break;
             default:
                 result += QString(repeat, c);
@@ -1042,7 +1042,7 @@ static QString winIso639LangName(LPWSTR id)
         if (ok && *endptr == '\0') {
             switch (i) {
                 case 0x814:
-                    result = QLatin1String("nn"); // Nynorsk
+                    result = QStringLiteral("nn"); // Nynorsk
                     break;
                 default:
                     break;

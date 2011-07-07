@@ -157,7 +157,7 @@ QString QSystemError::toString() const
         qWarning("invalid error scope");
         Q_FALLTHROUGH();
     case NoError:
-        return QLatin1String("No error");
+        return QStringLiteral("No error");
     }
 }
 

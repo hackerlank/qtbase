@@ -54,7 +54,7 @@ Q_CORE_EXPORT bool qDecodeDataUrl(const QUrl &uri, QString &mimeType, QByteArray
     if (uri.scheme() != QLatin1String("data") || !uri.host().isEmpty())
         return false;
 
-    mimeType = QLatin1String("text/plain;charset=US-ASCII");
+    mimeType = QStringLiteral("text/plain;charset=US-ASCII");
 
     // the following would have been the correct thing, but
     // reality often differs from the specification. People have

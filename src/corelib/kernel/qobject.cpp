@@ -3950,7 +3950,7 @@ static void dumpRecursive(int level, QObject *object)
         if (level % 2)
             buf += "    ";
         QString name = object->objectName();
-        QString flags = QLatin1String("");
+        QString flags = QStringLiteral("");
 #if 0
         if (qApp->focusWidget() == object)
             flags += 'F';

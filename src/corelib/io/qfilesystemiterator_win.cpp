@@ -59,7 +59,7 @@ QFileSystemIterator::QFileSystemIterator(const QFileSystemEntry &entry, QDir::Fi
 {
     Q_UNUSED(nameFilters)
     Q_UNUSED(flags)
-    if (nativePath.endsWith(QLatin1String(".lnk"))) {
+    if (nativePath.endsWith(QStringLiteral(".lnk"))) {
         QFileSystemMetaData metaData;
         QFileSystemEntry link = QFileSystemEngine::getLinkTarget(entry, metaData);
         nativePath = link.nativeFilePath();
@@ -103,10 +103,10 @@ bool QFileSystemIterator::advance(QFileSystemEntry &fileEntry, QFileSystemMetaDa
         findFileHandle = FindFirstFileEx((const wchar_t *)nativePath.utf16(), FINDEX_INFO_LEVELS(infoLevel), &findData,
                                          FINDEX_SEARCH_OPS(searchOps), 0, dwAdditionalFlags);
         if (findFileHandle == INVALID_HANDLE_VALUE) {
-            if (nativePath.startsWith(QLatin1String("\\\\?\\UNC\\"))) {
+            if (nativePath.startsWith(QStringLiteral("\\\\?\\UNC\\"))) {
                 const QVector<QStringRef> parts = nativePath.splitRef(QLatin1Char('\\'), QString::SkipEmptyParts);
                 if (parts.count() == 4 && QFileSystemEngine::uncListSharesOnServer(
-                        QLatin1String("\\\\") + parts.at(2), &uncShares)) {
+                        QStringLiteral("\\\\") + parts.at(2), &uncShares)) {
                     if (uncShares.isEmpty())
                         return false; // No shares found in the server
                     else
@@ -136,7 +136,7 @@ bool QFileSystemIterator::advance(QFileSystemEntry &fileEntry, QFileSystemMetaDa
         QString fileName = QString::fromWCharArray(findData.cFileName);
         fileEntry = QFileSystemEntry(dirPath + fileName);
         metaData = QFileSystemMetaData();
-        if (!fileName.endsWith(QLatin1String(".lnk"))) {
+        if (!fileName.endsWith(QStringLiteral(".lnk"))) {
             metaData.fillFromFindData(findData, true);
         }
         return true;

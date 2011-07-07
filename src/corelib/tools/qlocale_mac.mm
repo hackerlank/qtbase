@@ -177,8 +177,8 @@ static QString macToQtFormat(const QString &sys_fmt)
     while (i < sys_fmt.size()) {
         if (sys_fmt.at(i).unicode() == '\'') {
             QString text = qt_readEscapedFormatString(sys_fmt, &i);
-            if (text == QLatin1String("'"))
-                result += QLatin1String("''");
+            if (text == QStringLiteral("'"))
+                result += QStringLiteral("''");
             else
                 result += QLatin1Char('\'') + text + QLatin1Char('\'');
             continue;

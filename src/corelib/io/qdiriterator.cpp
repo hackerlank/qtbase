@@ -286,7 +286,7 @@ void QDirIteratorPrivate::checkAndPushDirectory(const QFileInfo &fileInfo)
 
     // Never follow . and ..
     QString fileName = fileInfo.fileName();
-    if (QLatin1String(".") == fileName || QLatin1String("..") == fileName)
+    if (fileName == QStringLiteral(".") || fileName == QStringLiteral(".."))
         return;
 
     // No hidden directories unless requested

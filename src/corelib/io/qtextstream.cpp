@@ -563,7 +563,7 @@ void QTextStreamPrivate::flushWriteBuffer()
     bool textModeEnabled = device->isTextModeEnabled();
     if (textModeEnabled) {
         device->setTextModeEnabled(false);
-        writeBuffer.replace(QLatin1Char('\n'), QLatin1String("\r\n"));
+        writeBuffer.replace(QLatin1Char('\n'), QStringLiteral("\r\n"));
     }
 #endif
 

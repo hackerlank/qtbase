@@ -52,7 +52,7 @@ QT_BEGIN_NAMESPACE
 static bool isUncRoot(const QString &server)
 {
     QString localPath = QDir::toNativeSeparators(server);
-    if (!localPath.startsWith(QLatin1String("\\\\")))
+    if (!localPath.startsWith(QStringLiteral("\\\\")))
         return false;
 
     int idx = localPath.indexOf(QLatin1Char('\\'), 2);
@@ -65,7 +65,7 @@ static bool isUncRoot(const QString &server)
 static inline QString fixIfRelativeUncPath(const QString &path)
 {
     QString currentPath = QDir::currentPath();
-    if (currentPath.startsWith(QLatin1String("//")))
+    if (currentPath.startsWith(QStringLiteral("//")))
         return currentPath % QChar(QLatin1Char('/')) % path;
     return path;
 }
@@ -143,9 +143,9 @@ void QFileSystemEntry::resolveFilePath() const
 #if defined(QFILESYSTEMENTRY_NATIVE_PATH_IS_UTF16)
         m_filePath = QDir::fromNativeSeparators(m_nativeFilePath);
 #ifdef Q_OS_WIN
-        if (m_filePath.startsWith(QLatin1String("//?/UNC/")))
+        if (m_filePath.startsWith(QStringLiteral("//?/UNC/")))
             m_filePath = m_filePath.remove(2,6);
-        if (m_filePath.startsWith(QLatin1String("//?/")))
+        if (m_filePath.startsWith(QStringLiteral("//?/")))
             m_filePath = m_filePath.remove(0,4);
 #endif
 #else
@@ -312,7 +312,7 @@ bool QFileSystemEntry::isDriveRoot() const
 bool QFileSystemEntry::isRoot() const
 {
     resolveFilePath();
-    if (m_filePath == QLatin1String("/")
+    if (m_filePath == QStringLiteral("/")
 #if defined(Q_OS_WIN)
             || isDriveRoot()
             || isUncRoot(m_filePath)

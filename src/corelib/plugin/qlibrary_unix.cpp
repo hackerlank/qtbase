@@ -93,14 +93,14 @@ QStringList QLibraryPrivate::suffixes_sys(const QString& fullVersion)
     if (!fullVersion.isEmpty()) {
         suffixes << QString::fromLatin1(".so.%1").arg(fullVersion);
     } else {
-        suffixes << QLatin1String(".so");
+        suffixes << QStringLiteral(".so");
     }
 # endif
     if (!fullVersion.isEmpty()) {
         suffixes << QString::fromLatin1(".sl.%1").arg(fullVersion);
         suffixes << QString::fromLatin1(".%1").arg(fullVersion);
     } else {
-        suffixes << QLatin1String(".sl");
+        suffixes << QStringLiteral(".sl");
     }
 #elif defined(Q_OS_AIX)
     suffixes << ".a";
@@ -109,7 +109,7 @@ QStringList QLibraryPrivate::suffixes_sys(const QString& fullVersion)
     if (!fullVersion.isEmpty()) {
         suffixes << QString::fromLatin1(".so.%1").arg(fullVersion);
     } else {
-        suffixes << QLatin1String(".so");
+        suffixes << QStringLiteral(".so");
     }
 #endif
 # ifdef Q_OS_MAC
@@ -117,7 +117,7 @@ QStringList QLibraryPrivate::suffixes_sys(const QString& fullVersion)
         suffixes << QString::fromLatin1(".%1.bundle").arg(fullVersion);
         suffixes << QString::fromLatin1(".%1.dylib").arg(fullVersion);
     } else {
-        suffixes << QLatin1String(".bundle") << QLatin1String(".dylib");
+        suffixes << QStringLiteral(".bundle") << QStringLiteral(".dylib");
     }
 #endif
     return suffixes;

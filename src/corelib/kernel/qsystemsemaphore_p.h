@@ -71,7 +71,7 @@ public:
 
     QString makeKeyFileName()
     {
-        return QSharedMemoryPrivate::makePlatformSafeKey(key, QLatin1String("qipc_systemsem_"));
+        return QSharedMemoryPrivate::makePlatformSafeKey(key, QStringLiteral("qipc_systemsem_"));
     }
 
     inline void setError(QSystemSemaphore::SystemSemaphoreError e, const QString &message)

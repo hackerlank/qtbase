@@ -141,7 +141,7 @@ static QString cleanPath(const QString &_path)
     QString path = QDir::cleanPath(_path);
     // QDir::cleanPath does not remove two trailing slashes under _Windows_
     // due to support for UNC paths. Remove those manually.
-    if (path.startsWith(QLatin1String("//")))
+    if (path.startsWith(QStringLiteral("//")))
         path.remove(0, 1);
     return path;
 }
@@ -304,7 +304,7 @@ QResourcePrivate::ensureInitialized() const
     if(!related.isEmpty())
         return;
     QResourcePrivate *that = const_cast<QResourcePrivate *>(this);
-    if(fileName == QLatin1String(":"))
+    if(fileName == QStringLiteral(":"))
         that->fileName += QLatin1Char('/');
     that->absoluteFilePath = fileName;
     if(!that->absoluteFilePath.startsWith(QLatin1Char(':')))
@@ -319,7 +319,7 @@ QResourcePrivate::ensureInitialized() const
     } else {
         QMutexLocker lock(resourceMutex());
         QStringList searchPaths = *resourceSearchPaths();
-        searchPaths << QLatin1String("");
+        searchPaths << QStringLiteral("");
         for(int i = 0; i < searchPaths.size(); ++i) {
             const QString searchPath(searchPaths.at(i) + QLatin1Char('/') + path);
             if(that->load(searchPath)) {
@@ -658,7 +658,7 @@ int QResourceRoot::findNode(const QString &_path, const QLocale &locale) const
     qDebug() << "!!!!" << "START" << path << locale.country() << locale.language();
 #endif
 
-    if(path == QLatin1String("/"))
+    if(path == QStringLiteral("/"))
         return 0;
 
     //the root node is always first
@@ -1410,7 +1410,7 @@ QAbstractFileEngine::FileFlags QResourceFileEngine::fileFlags(QAbstractFileEngin
     }
     if(type & FlagsMask) {
         ret |= ExistsFlag;
-        if(d->resource.absoluteFilePath() == QLatin1String(":/"))
+        if(d->resource.absoluteFilePath() == QStringLiteral(":/"))
             ret |= RootFlag;
     }
     return ret;
@@ -1433,9 +1433,9 @@ QString QResourceFileEngine::fileName(FileName file) const
         const QString path = (file == AbsolutePathName) ? d->resource.absoluteFilePath() : d->resource.fileName();
         const int slash = path.lastIndexOf(QLatin1Char('/'));
         if (slash == -1)
-            return QLatin1String(":");
+            return QStringLiteral(":");
         else if (slash <= 1)
-            return QLatin1String(":/");
+            return QStringLiteral(":/");
         return path.left(slash);
 
     } else if(file == CanonicalName || file == CanonicalPathName) {

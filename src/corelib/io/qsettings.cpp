@@ -388,7 +388,7 @@ QString QSettingsPrivate::variantToString(const QVariant &v)
 
     switch (v.type()) {
         case QVariant::Invalid:
-            result = QLatin1String("@Invalid()");
+            result = QStringLiteral("@Invalid()");
             break;
 
         case QVariant::ByteArray: {
@@ -468,7 +468,7 @@ QVariant QSettingsPrivate::stringToVariant(const QString &s)
 {
     if (s.startsWith(QLatin1Char('@'))) {
         if (s.endsWith(QLatin1Char(')'))) {
-            if (s.startsWith(QLatin1String("@ByteArray("))) {
+            if (s.startsWith(QStringLiteral("@ByteArray("))) {
                 return QVariant(s.midRef(11, s.size() - 12).toLatin1());
             } else if (s.startsWith(QLatin1String("@String("))) {
                 return QVariant(s.midRef(8, s.size() - 9).toString());
@@ -494,25 +494,25 @@ QVariant QSettingsPrivate::stringToVariant(const QString &s)
                 Q_ASSERT(!"QSettings: Cannot load custom types without QDataStream support");
 #endif
 #ifndef QT_NO_GEOM_VARIANT
-            } else if (s.startsWith(QLatin1String("@Rect("))) {
+            } else if (s.startsWith(QStringLiteral("@Rect("))) {
                 QStringList args = QSettingsPrivate::splitArgs(s, 5);
                 if (args.size() == 4)
                     return QVariant(QRect(args[0].toInt(), args[1].toInt(), args[2].toInt(), args[3].toInt()));
-            } else if (s.startsWith(QLatin1String("@Size("))) {
+            } else if (s.startsWith(QStringLiteral("@Size("))) {
                 QStringList args = QSettingsPrivate::splitArgs(s, 5);
                 if (args.size() == 2)
                     return QVariant(QSize(args[0].toInt(), args[1].toInt()));
-            } else if (s.startsWith(QLatin1String("@Point("))) {
+            } else if (s.startsWith(QStringLiteral("@Point("))) {
                 QStringList args = QSettingsPrivate::splitArgs(s, 6);
                 if (args.size() == 2)
                     return QVariant(QPoint(args[0].toInt(), args[1].toInt()));
 #endif
-            } else if (s == QLatin1String("@Invalid()")) {
+            } else if (s == QStringLiteral("@Invalid()")) {
                 return QVariant();
             }
 
         }
-        if (s.startsWith(QLatin1String("@@")))
+        if (s.startsWith(QStringLiteral("@@")))
             return QVariant(s.mid(1));
     }
 
@@ -914,7 +914,8 @@ QStringList QSettingsPrivate::splitArgs(const QString &s, int idx)
 
 void QConfFileSettingsPrivate::initFormat()
 {
-    extension = (format == QSettings::NativeFormat) ? QLatin1String(".conf") : QLatin1String(".ini");
+    extension = (format == QSettings::NativeFormat) ? QString(QStringLiteral(".conf")) :
+                                                      QString(QStringLiteral(".ini"));
     readFunc = 0;
     writeFunc = 0;
 #if defined(Q_OS_MAC)
@@ -963,9 +964,9 @@ static QString windowsConfigPath(const KNOWNFOLDERID &type)
 
     if (result.isEmpty()) {
         if (type == FOLDERID_ProgramData) {
-            result = QLatin1String("C:\\temp\\qt-common");
+            result = QStringLiteral("C:\\temp\\qt-common");
         } else if (type == FOLDERID_RoamingAppData) {
-            result = QLatin1String("C:\\temp\\qt-user");
+            result = QStringLiteral("C:\\temp\\qt-user");
         }
     }
 
@@ -1116,7 +1117,7 @@ QConfFileSettingsPrivate::QConfFileSettingsPrivate(QSettings::Format format,
     QString org = organization;
     if (org.isEmpty()) {
         setStatus(QSettings::AccessError);
-        org = QLatin1String("Unknown Organization");
+        org = QStringLiteral("Unknown Organization");
     }
 
     QString appFile = org + QDir::separator() + application + extension;
@@ -2931,7 +2932,7 @@ int QSettings::beginReadArray(const QString &prefix)
 {
     Q_D(QSettings);
     d->beginGroupOrArray(QSettingsGroup(d->normalizedKey(prefix), false));
-    return value(QLatin1String("size")).toInt();
+    return value(QStringLiteral("size")).toInt();
 }
 
 /*!
@@ -2969,9 +2970,9 @@ void QSettings::beginWriteArray(const QString &prefix, int size)
     d->beginGroupOrArray(QSettingsGroup(d->normalizedKey(prefix), size < 0));
 
     if (size < 0)
-        remove(QLatin1String("size"));
+        remove(QStringLiteral("size"));
     else
-        setValue(QLatin1String("size"), size);
+        setValue(QStringLiteral("size"), size);
 }
 
 /*!
@@ -2995,7 +2996,7 @@ void QSettings::endArray()
         d->groupPrefix.truncate(d->groupPrefix.size() - (len + 1));
 
     if (group.arraySizeGuess() != -1)
-        setValue(group.name() + QLatin1String("/size"), group.arraySizeGuess());
+        setValue(group.name() + QStringLiteral("/size"), group.arraySizeGuess());
 
     if (!group.isArray())
         qWarning("QSettings::endArray: Expected endGroup() instead");

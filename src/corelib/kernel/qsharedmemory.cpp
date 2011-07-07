@@ -68,7 +68,7 @@ QSharedMemoryPrivate::makePlatformSafeKey(const QString &key,
     QString result = prefix;
 
     QString part1 = key;
-    part1.replace(QRegExp(QLatin1String("[^A-Za-z]")), QString());
+    part1.replace(QRegExp(QStringLiteral("[^A-Za-z]")), QString());
     result.append(part1);
 
     QByteArray hex = QCryptographicHash::hash(key.toUtf8(), QCryptographicHash::Sha1).toHex();
@@ -81,6 +81,15 @@ QSharedMemoryPrivate::makePlatformSafeKey(const QString &key,
     return QDir::tempPath() + QLatin1Char('/') + result;
 #endif
 }
+
+/*!
+    \internal
+ */
+QString QSharedMemoryPrivate::defaultKeyPrefix()
+{
+    return QStringLiteral("qipc_sharedmemory_");
+}
+
 #endif // QT_NO_SHAREDMEMORY && QT_NO_SHAREDMEMORY
 
 #ifndef QT_NO_SHAREDMEMORY
@@ -247,7 +256,7 @@ bool QSharedMemoryPrivate::initKey()
     systemSemaphore.setKey(QString(), 1);
     systemSemaphore.setKey(key, 1);
     if (systemSemaphore.error() != QSystemSemaphore::NoError) {
-        QString function = QLatin1String("QSharedMemoryPrivate::initKey");
+        QString function = QStringLiteral("QSharedMemoryPrivate::initKey");
         errorString = QSharedMemory::tr("%1: unable to set key on lock").arg(function);
         switch(systemSemaphore.error()) {
         case QSystemSemaphore::PermissionDenied:
@@ -338,7 +347,7 @@ bool QSharedMemory::create(int size, AccessMode mode)
 #endif
 #endif
 
-    QString function = QLatin1String("QSharedMemory::create");
+    QString function = QStringLiteral("QSharedMemory::create");
 #ifndef QT_NO_SYSTEMSEMAPHORE
     QSharedMemoryLocker lock(this);
     if (!d->key.isNull() && !d->tryLocker(&lock, function))
@@ -402,7 +411,7 @@ bool QSharedMemory::attach(AccessMode mode)
         return false;
 #ifndef QT_NO_SYSTEMSEMAPHORE
     QSharedMemoryLocker lock(this);
-    if (!d->key.isNull() && !d->tryLocker(&lock, QLatin1String("QSharedMemory::attach")))
+    if (!d->key.isNull() && !d->tryLocker(&lock, QStringLiteral("QSharedMemory::attach")))
         return false;
 #endif
 
@@ -442,7 +451,7 @@ bool QSharedMemory::detach()
 
 #ifndef QT_NO_SYSTEMSEMAPHORE
     QSharedMemoryLocker lock(this);
-    if (!d->key.isNull() && !d->tryLocker(&lock, QLatin1String("QSharedMemory::detach")))
+    if (!d->key.isNull() && !d->tryLocker(&lock, QStringLiteral("QSharedMemory::detach")))
         return false;
 #endif
 
@@ -511,7 +520,7 @@ bool QSharedMemory::lock()
         d->lockedByMe = true;
         return true;
     }
-    QString function = QLatin1String("QSharedMemory::lock");
+    QString function = QStringLiteral("QSharedMemory::lock");
     d->errorString = QSharedMemory::tr("%1: unable to lock").arg(function);
     d->error = QSharedMemory::LockError;
     return false;
@@ -533,7 +542,7 @@ bool QSharedMemory::unlock()
     d->lockedByMe = false;
     if (d->systemSemaphore.release())
         return true;
-    QString function = QLatin1String("QSharedMemory::unlock");
+    QString function = QStringLiteral("QSharedMemory::unlock");
     d->errorString = QSharedMemory::tr("%1: unable to unlock").arg(function);
     d->error = QSharedMemory::LockError;
     return false;

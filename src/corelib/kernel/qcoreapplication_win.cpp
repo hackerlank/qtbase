@@ -537,7 +537,7 @@ QString flagCheck(uint actual, ...)
     while((v=va_arg(ap,FLAG_STRING_STRUCT)).str) {
         if ((actual & v.value) == v.value) {
             if (count++)
-                result += QLatin1String(" | ");
+                result += QStringLiteral(" | ");
             result += QString::fromLatin1(v.str);
         }
     }
@@ -814,7 +814,7 @@ QString decodeMSG(const MSG& msg)
 #ifdef WM_NCACTIVATE
         case WM_NCACTIVATE:
             {
-            parameters = (msg.wParam? QLatin1String("Active Titlebar") : QLatin1String("Inactive Titlebar"));
+            parameters = (msg.wParam? QStringLiteral("Active Titlebar") : QStringLiteral("Inactive Titlebar"));
             }
             break;
 #endif

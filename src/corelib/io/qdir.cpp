@@ -754,8 +754,8 @@ QString QDir::relativeFilePath(const QString &fileName) const
     }
 
     if (fileDrive.toLower() != dirDrive.toLower()
-        || (file.startsWith(QLatin1String("//"))
-        && !dir.startsWith(QLatin1String("//"))))
+        || (file.startsWith(QStringLiteral("//"))
+        && !dir.startsWith(QStringLiteral("//"))))
         return file;
 
     dir.remove(0, dirDrive.size());
@@ -777,7 +777,7 @@ QString QDir::relativeFilePath(const QString &fileName) const
         ++i;
 
     for (int j = 0; j < dirElts.size() - i; ++j)
-        result += QLatin1String("../");
+        result += QStringLiteral("../");
 
     for (int j = i; j < fileElts.size(); ++j) {
         result += fileElts.at(j);
@@ -875,7 +875,7 @@ bool QDir::cd(const QString &dirName)
     // Don't detach just yet.
     const QDirPrivate * const d = d_ptr.constData();
 
-    if (dirName.isEmpty() || dirName == QLatin1String("."))
+    if (dirName.isEmpty() || dirName == QStringLiteral("."))
         return true;
     QString newPath;
     if (isAbsolutePath(dirName)) {
@@ -887,8 +887,8 @@ bool QDir::cd(const QString &dirName)
             newPath = d->dirEntry.filePath() % QLatin1Char('/');
         newPath += dirName;
         if (dirName.indexOf(QLatin1Char('/')) >= 0
-            || dirName == QLatin1String("..")
-            || d->dirEntry.filePath() == QLatin1String(".")) {
+            || dirName == QStringLiteral("..")
+            || d->dirEntry.filePath() == QStringLiteral(".")) {
             newPath = cleanPath(newPath);
 #if defined (Q_OS_UNIX)
             //After cleanPath() if path is "/.." or starts with "/../" it means trying to cd above root.
@@ -914,7 +914,7 @@ bool QDir::cd(const QString &dirName)
                   while (dir.cdUp())
                       ;
             */
-            if (newPath.startsWith(QLatin1String(".."))) {
+            if (newPath.startsWith(QStringLiteral(".."))) {
                 newPath = QFileInfo(newPath).absoluteFilePath();
             }
         }
@@ -2312,23 +2312,23 @@ QDebug operator<<(QDebug debug, QDir::Filters filters)
     debug.resetFormat();
     QStringList flags;
     if (filters == QDir::NoFilter) {
-        flags << QLatin1String("NoFilter");
+        flags << QStringLiteral("NoFilter");
     } else {
-        if (filters & QDir::Dirs) flags << QLatin1String("Dirs");
-        if (filters & QDir::AllDirs) flags << QLatin1String("AllDirs");
-        if (filters & QDir::Files) flags << QLatin1String("Files");
-        if (filters & QDir::Drives) flags << QLatin1String("Drives");
-        if (filters & QDir::NoSymLinks) flags << QLatin1String("NoSymLinks");
-        if (filters & QDir::NoDot) flags << QLatin1String("NoDot");
-        if (filters & QDir::NoDotDot) flags << QLatin1String("NoDotDot");
-        if ((filters & QDir::AllEntries) == QDir::AllEntries) flags << QLatin1String("AllEntries");
-        if (filters & QDir::Readable) flags << QLatin1String("Readable");
-        if (filters & QDir::Writable) flags << QLatin1String("Writable");
-        if (filters & QDir::Executable) flags << QLatin1String("Executable");
-        if (filters & QDir::Modified) flags << QLatin1String("Modified");
-        if (filters & QDir::Hidden) flags << QLatin1String("Hidden");
-        if (filters & QDir::System) flags << QLatin1String("System");
-        if (filters & QDir::CaseSensitive) flags << QLatin1String("CaseSensitive");
+        if (filters & QDir::Dirs) flags << QStringLiteral("Dirs");
+        if (filters & QDir::AllDirs) flags << QStringLiteral("AllDirs");
+        if (filters & QDir::Files) flags << QStringLiteral("Files");
+        if (filters & QDir::Drives) flags << QStringLiteral("Drives");
+        if (filters & QDir::NoSymLinks) flags << QStringLiteral("NoSymLinks");
+        if (filters & QDir::NoDot) flags << QStringLiteral("NoDot");
+        if (filters & QDir::NoDotDot) flags << QStringLiteral("NoDotDot");
+        if ((filters & QDir::AllEntries) == QDir::AllEntries) flags << QStringLiteral("AllEntries");
+        if (filters & QDir::Readable) flags << QStringLiteral("Readable");
+        if (filters & QDir::Writable) flags << QStringLiteral("Writable");
+        if (filters & QDir::Executable) flags << QStringLiteral("Executable");
+        if (filters & QDir::Modified) flags << QStringLiteral("Modified");
+        if (filters & QDir::Hidden) flags << QStringLiteral("Hidden");
+        if (filters & QDir::System) flags << QStringLiteral("System");
+        if (filters & QDir::CaseSensitive) flags << QStringLiteral("CaseSensitive");
     }
     debug.noquote() << "QDir::Filters(" << flags.join(QLatin1Char('|')) << ')';
     return debug;
@@ -2342,17 +2342,17 @@ static QDebug operator<<(QDebug debug, QDir::SortFlags sorting)
         debug << "QDir::SortFlags(NoSort)";
     } else {
         QString type;
-        if ((sorting & 3) == QDir::Name) type = QLatin1String("Name");
-        if ((sorting & 3) == QDir::Time) type = QLatin1String("Time");
-        if ((sorting & 3) == QDir::Size) type = QLatin1String("Size");
-        if ((sorting & 3) == QDir::Unsorted) type = QLatin1String("Unsorted");
+        if ((sorting & 3) == QDir::Name) type = QStringLiteral("Name");
+        if ((sorting & 3) == QDir::Time) type = QStringLiteral("Time");
+        if ((sorting & 3) == QDir::Size) type = QStringLiteral("Size");
+        if ((sorting & 3) == QDir::Unsorted) type = QStringLiteral("Unsorted");
 
         QStringList flags;
-        if (sorting & QDir::DirsFirst) flags << QLatin1String("DirsFirst");
-        if (sorting & QDir::DirsLast) flags << QLatin1String("DirsLast");
-        if (sorting & QDir::IgnoreCase) flags << QLatin1String("IgnoreCase");
-        if (sorting & QDir::LocaleAware) flags << QLatin1String("LocaleAware");
-        if (sorting & QDir::Type) flags << QLatin1String("Type");
+        if (sorting & QDir::DirsFirst) flags << QStringLiteral("DirsFirst");
+        if (sorting & QDir::DirsLast) flags << QStringLiteral("DirsLast");
+        if (sorting & QDir::IgnoreCase) flags << QStringLiteral("IgnoreCase");
+        if (sorting & QDir::LocaleAware) flags << QStringLiteral("LocaleAware");
+        if (sorting & QDir::Type) flags << QStringLiteral("Type");
         debug.noquote() << "QDir::SortFlags(" << type << '|' << flags.join(QLatin1Char('|')) << ')';
     }
     return debug;

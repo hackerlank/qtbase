@@ -222,7 +222,11 @@
 #    define Q_DECL_EXPORT     __declspec(dllexport)
 #    define Q_DECL_IMPORT     __declspec(dllimport)
 #  elif defined(QT_VISIBILITY_AVAILABLE)
-#    define Q_DECL_EXPORT     __attribute__((visibility("default")))
+#    if defined(QT_BUILDING_QT) && defined(Q_OF_ELF) && !defined(Q_PROCESSOR_X86_32)
+#      define Q_DECL_EXPORT     __attribute__((visibility("protected")))
+#    else
+#      define Q_DECL_EXPORT     __attribute__((visibility("default")))
+#    endif
 #    define Q_DECL_IMPORT     __attribute__((visibility("default")))
 #    define Q_DECL_HIDDEN     __attribute__((visibility("hidden")))
 #  endif

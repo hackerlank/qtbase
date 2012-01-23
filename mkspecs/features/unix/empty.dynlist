@@ -1,0 +1,5 @@
+{
+    extern "C" {
+        "qt_this_symbol_isnt_present";
+    };
+};

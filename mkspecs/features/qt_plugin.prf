@@ -29,6 +29,7 @@ tool_plugin {
     qtConfig(debug_and_release): CONFIG += debug_and_release
     qtConfig(build_all): CONFIG += build_all
 }
+unix:contains(QT_CONFIG, reduce_relocations):CONFIG += bsymbolic_functions
 
 CONFIG += relative_qt_rpath  # Qt's plugins should be relocatable
 

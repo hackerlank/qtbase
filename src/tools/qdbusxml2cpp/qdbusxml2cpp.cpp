@@ -39,6 +39,7 @@
 #include <qstringlist.h>
 #include <qtextstream.h>
 #include <qset.h>
+#include <QtCore/qregexp.h>
 
 #include <qdbusmetatype.h>
 #include <private/qdbusintrospection_p.h>
@@ -461,7 +462,24 @@ static QString propertyGetter(const QDBusIntrospection::Property &property)
         return getter;
     }
 
-    getter =  property.name;
+    getter = property.name;
+
+    if (property.type == QLatin1String("b")) {
+        // special Qt rules for boolean properties
+        // we want to prepend "is", but only if the property name doesn't already have that or "has"
+        // examples:
+        //   seekable -> isSeekable
+        //   hasLength -> hasLength
+        //   isSpeaking -> isSpeaking
+        //   ItemIsMenu -> ItemIsMenu
+        //   IsStatusNotifierHostRegistered -> IsStatusNotifierHostRegistered
+        if (!getter.contains(QRegExp(QLatin1String("(^is|^has|Is|Has)[A-Z]")))) {
+            getter[0] = getter[0].toUpper();
+            getter.prepend(QLatin1String("is"));
+            return getter;
+        }
+    }
+
     getter[0] = getter[0].toLower();
     return getter;
 }

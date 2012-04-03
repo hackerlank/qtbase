@@ -129,6 +129,45 @@ void tst_qdbusxml2cpp::process_data()
             << QRegularExpression("\\bQ_PROPERTY\\(int Value WRITE setValue\\b")
             << QRegularExpression("\\bQ_PROPERTY\\(int Value WRITE setValue\\b");
 
+    QTest::newRow("property-b-addprefix")
+            << "<property type=\"b\" name=\"seekable\" access=\"readwrite\"/>"
+            << QRegularExpression("\\bQ_PROPERTY\\(bool seekable READ isSeekable WRITE setSeekable\\b")
+            << QRegularExpression("\\bQ_PROPERTY\\(bool seekable READ isSeekable WRITE setSeekable\\b");
+
+    QTest::newRow("property-b-noprefix1")
+            << "<property type=\"b\" name=\"isSeekable\" access=\"read\"/>"
+            << QRegularExpression("\\bQ_PROPERTY\\(bool isSeekable READ isSeekable\\b")
+            << QRegularExpression("\\bQ_PROPERTY\\(bool isSeekable READ isSeekable\\b");
+    QTest::newRow("property-b-noprefix2")
+            << "<property type=\"b\" name=\"hasLength\" access=\"read\"/>"
+            << QRegularExpression("\\bQ_PROPERTY\\(bool hasLength READ hasLength\\b")
+            << QRegularExpression("\\bQ_PROPERTY\\(bool hasLength READ hasLength\\b");
+    QTest::newRow("property-b-noprefix3")
+            << "<property type=\"b\" name=\"IsSeekable\" access=\"read\"/>"
+            << QRegularExpression("\\bQ_PROPERTY\\(bool IsSeekable READ isSeekable\\b")
+            << QRegularExpression("\\bQ_PROPERTY\\(bool IsSeekable READ isSeekable\\b");
+    QTest::newRow("property-b-noprefix4")
+            << "<property type=\"b\" name=\"HasLength\" access=\"read\"/>"
+            << QRegularExpression("\\bQ_PROPERTY\\(bool HasLength READ hasLength\\b")
+            << QRegularExpression("\\bQ_PROPERTY\\(bool HasLength READ hasLength\\b");
+    QTest::newRow("property-b-noprefix3")
+            << "<property type=\"b\" name=\"ItemIsVisible\" access=\"read\"/>"
+            << QRegularExpression("\\bQ_PROPERTY\\(bool ItemIsVisible READ itemIsVisible\\b")
+            << QRegularExpression("\\bQ_PROPERTY\\(bool ItemIsVisible READ itemIsVisible\\b");
+    QTest::newRow("property-b-noprefix4")
+            << "<property type=\"b\" name=\"ItemHasLength\" access=\"read\"/>"
+            << QRegularExpression("\\bQ_PROPERTY\\(bool ItemHasLength READ itemHasLength\\b")
+            << QRegularExpression("\\bQ_PROPERTY\\(bool ItemHasLength READ itemHasLength\\b");
+
+    QTest::newRow("property-b-prefix1")
+            << "<property type=\"b\" name=\"bliss\" access=\"read\"/>"
+            << QRegularExpression("\\bQ_PROPERTY\\(bool bliss READ isBliss\\b")
+            << QRegularExpression("\\bQ_PROPERTY\\(bool bliss READ isBliss\\b");
+    QTest::newRow("property-b-prefix2")
+            << "<property type=\"b\" name=\"hashed\" access=\"read\"/>"
+            << QRegularExpression("\\bQ_PROPERTY\\(bool hashed READ isHashed\\b")
+            << QRegularExpression("\\bQ_PROPERTY\\(bool hashed READ isHashed\\b");
+
     QTest::newRow("property-getter-setter")
             << "<property type=\"b\" name=\"Enabled\" access=\"readwrite\">"
                "<annotation name=\"org.qtproject.QtDBus.PropertyGetter\" value=\"wasEnabled\" />"

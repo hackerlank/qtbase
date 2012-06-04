@@ -645,13 +645,13 @@ struct Deallocator
 };
 
 Q_DECLARE_METATYPE(const QArrayData *)
-Q_DECLARE_METATYPE(QArrayData::AllocationOptions)
+Q_DECLARE_METATYPE(QArrayData::ArrayOptions)
 
 void tst_QArrayData::allocate_data()
 {
     QTest::addColumn<size_t>("objectSize");
     QTest::addColumn<size_t>("alignment");
-    QTest::addColumn<QArrayData::AllocationOptions>("allocateOptions");
+    QTest::addColumn<QArrayData::ArrayOptions>("allocateOptions");
     QTest::addColumn<bool>("isCapacityReserved");
     QTest::addColumn<bool>("isSharable");       // ### Qt6: remove
     QTest::addColumn<const QArrayData *>("commonEmpty");
@@ -676,12 +676,12 @@ void tst_QArrayData::allocate_data()
 
     struct {
         char const *description;
-        QArrayData::AllocationOptions allocateOptions;
+        QArrayData::ArrayOptions allocateOptions;
         bool isCapacityReserved;
         bool isSharable;
         const QArrayData *commonEmpty;
     } options[] = {
-        { "Default", QArrayData::Default, false, true, shared_empty },
+        { "Default", QArrayData::DefaultAllocationFlags, false, true, shared_empty },
         { "Reserved", QArrayData::CapacityReserved, true, true, shared_empty },
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
         { "Reserved | Unsharable",
@@ -689,7 +689,7 @@ void tst_QArrayData::allocate_data()
             unsharable_empty },
         { "Unsharable", QArrayData::Unsharable, false, false, unsharable_empty },
 #endif
-        { "Grow", QArrayData::Grow, false, true, shared_empty }
+        { "Grow", QArrayData::GrowsForward, false, true, shared_empty }
     };
 
     for (size_t i = 0; i < sizeof(types)/sizeof(types[0]); ++i)
@@ -707,7 +707,7 @@ void tst_QArrayData::allocate()
 {
     QFETCH(size_t, objectSize);
     QFETCH(size_t, alignment);
-    QFETCH(QArrayData::AllocationOptions, allocateOptions);
+    QFETCH(QArrayData::ArrayOptions, allocateOptions);
     QFETCH(bool, isCapacityReserved);
     QFETCH(const QArrayData *, commonEmpty);
 
@@ -717,18 +717,18 @@ void tst_QArrayData::allocate()
 
     // Shared Empty
     QCOMPARE(QArrayData::allocate(objectSize, minAlignment, 0,
-                QArrayData::AllocationOptions(allocateOptions)), commonEmpty);
+                QArrayData::ArrayOptions(allocateOptions)), commonEmpty);
 
     Deallocator keeper(objectSize, minAlignment);
     keeper.headers.reserve(1024);
 
     for (int capacity = 1; capacity <= 1024; capacity <<= 1) {
         QArrayData *data = QArrayData::allocate(objectSize, minAlignment,
-                capacity, QArrayData::AllocationOptions(allocateOptions));
+                capacity, QArrayData::ArrayOptions(allocateOptions));
         keeper.headers.append(data);
 
         QCOMPARE(data->size, 0);
-        if (allocateOptions & QArrayData::Grow)
+        if (allocateOptions & QArrayData::GrowsForward)
             QVERIFY(data->alloc > uint(capacity));
         else
             QCOMPARE(data->alloc, uint(capacity));
@@ -748,7 +748,7 @@ void tst_QArrayData::reallocate()
 {
     QFETCH(size_t, objectSize);
     QFETCH(size_t, alignment);
-    QFETCH(QArrayData::AllocationOptions, allocateOptions);
+    QFETCH(QArrayData::ArrayOptions, allocateOptions);
     QFETCH(bool, isCapacityReserved);
     QFETCH(const QArrayData *, commonEmpty);
 
@@ -763,7 +763,7 @@ void tst_QArrayData::reallocate()
     int capacity = 10;
     Deallocator keeper(objectSize, minAlignment);
     QArrayData *data = QArrayData::allocate(objectSize, minAlignment, capacity,
-                                            QArrayData::AllocationOptions(allocateOptions) & ~QArrayData::Grow);
+                                            QArrayData::ArrayOptions(allocateOptions) & ~QArrayData::GrowsForward);
     keeper.headers.append(data);
 
     memset(data->data(), 'A', objectSize * capacity);
@@ -772,13 +772,13 @@ void tst_QArrayData::reallocate()
     // now try to reallocate
     int newCapacity = 40;
     data = QArrayData::reallocateUnaligned(data, objectSize, newCapacity,
-                                           QArrayData::AllocationOptions(allocateOptions));
+                                           QArrayData::ArrayOptions(allocateOptions));
     QVERIFY(data);
     keeper.headers.clear();
     keeper.headers.append(data);
 
     QCOMPARE(data->size, capacity);
-    if (allocateOptions & QArrayData::Grow)
+    if (allocateOptions & QArrayData::GrowsForward)
         QVERIFY(data->alloc > uint(newCapacity));
     else
         QCOMPARE(data->alloc, uint(newCapacity));
@@ -820,7 +820,7 @@ void tst_QArrayData::alignment()
 
     for (int i = 0; i < 100; ++i) {
         QArrayData *data = QArrayData::allocate(sizeof(Unaligned),
-                minAlignment, 8, QArrayData::Default);
+                minAlignment, 8, QArrayData::DefaultAllocationFlags);
         keeper.headers.append(data);
 
         QVERIFY(data);
@@ -1379,9 +1379,9 @@ void tst_QArrayData::setSharable_data()
     QArrayDataPointer<int> emptyReserved(QTypedArrayData<int>::allocate(5,
                 QArrayData::CapacityReserved));
     QArrayDataPointer<int> nonEmpty(QTypedArrayData<int>::allocate(5,
-                QArrayData::Default));
+                QArrayData::DefaultAllocationFlags));
     QArrayDataPointer<int> nonEmptyExtraCapacity(
-            QTypedArrayData<int>::allocate(10, QArrayData::Default));
+            QTypedArrayData<int>::allocate(10, QArrayData::DefaultAllocationFlags));
     QArrayDataPointer<int> nonEmptyReserved(QTypedArrayData<int>::allocate(15,
                 QArrayData::CapacityReserved));
     QArrayDataPointer<int> staticArray(
@@ -1522,7 +1522,7 @@ void fromRawData_impl()
     {
         // Default: Immutable, sharable
         SimpleVector<T> raw = SimpleVector<T>::fromRawData(array,
-                sizeof(array)/sizeof(array[0]), QArrayData::Default);
+                sizeof(array)/sizeof(array[0]), QArrayData::DefaultAllocationFlags);
 
         QCOMPARE(raw.size(), size_t(11));
         QCOMPARE((const T *)raw.constBegin(), array);

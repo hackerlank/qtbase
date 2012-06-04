@@ -69,7 +69,7 @@ static inline size_t calculateBlockSize(size_t &capacity, size_t objectSize, siz
     // Calculate the byte size
     // allocSize = objectSize * capacity + headerSize, but checked for overflow
     // plus padded to grow in size
-    if (options & QArrayData::Grow) {
+    if (options & QArrayData::GrowsForward) {
         auto r = qCalculateGrowingBlockSize(capacity, objectSize, headerSize);
         capacity = r.elementCount;
         return r.size;
@@ -87,7 +87,7 @@ static QArrayData *reallocateData(QArrayData *header, size_t allocSize, uint opt
 }
 
 QArrayData *QArrayData::allocate(size_t objectSize, size_t alignment,
-        size_t capacity, AllocationOptions options) Q_DECL_NOTHROW
+        size_t capacity, ArrayOptions options) Q_DECL_NOTHROW
 {
     // Alignment is a power of two
     Q_ASSERT(alignment >= Q_ALIGNOF(QArrayData)
@@ -135,7 +135,7 @@ QArrayData *QArrayData::allocate(size_t objectSize, size_t alignment,
 }
 
 QArrayData *QArrayData::reallocateUnaligned(QArrayData *data, size_t objectSize, size_t capacity,
-                                            AllocationOptions options) Q_DECL_NOTHROW
+                                            ArrayOptions options) Q_DECL_NOTHROW
 {
     Q_ASSERT(data);
     Q_ASSERT(data->isMutable());

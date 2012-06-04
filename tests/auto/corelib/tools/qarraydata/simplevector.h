@@ -203,7 +203,7 @@ public:
                 || capacity() - size() < size_t(last - first)) {
             SimpleVector detached(Data::allocate(
                         d->detachCapacity(size() + (last - first)),
-                        d->detachFlags() | Data::Grow));
+                        d->detachFlags() | Data::GrowsForward));
 
             detached.d->copyAppend(first, last);
             detached.d->copyAppend(begin, begin + d->size);
@@ -224,7 +224,7 @@ public:
                 || capacity() - size() < size_t(last - first)) {
             SimpleVector detached(Data::allocate(
                         d->detachCapacity(size() + (last - first)),
-                        d->detachFlags() | Data::Grow));
+                        d->detachFlags() | Data::GrowsForward));
 
             if (d->size) {
                 const T *const begin = constBegin();
@@ -264,7 +264,7 @@ public:
                 || capacity() - size() < size_t(last - first)) {
             SimpleVector detached(Data::allocate(
                         d->detachCapacity(size() + (last - first)),
-                        d->detachFlags() | Data::Grow));
+                        d->detachFlags() | Data::GrowsForward));
 
             if (position)
                 detached.d->copyAppend(begin, where);
@@ -332,7 +332,7 @@ public:
     }
 
     static SimpleVector fromRawData(const T *data, size_t size,
-            QArrayData::AllocationOptions options = Data::Default)
+            QArrayData::ArrayOptions options = Data::DefaultRawFlags)
     {
         return SimpleVector(Data::fromRawData(data, size, options));
     }

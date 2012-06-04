@@ -291,7 +291,7 @@ public:
 private:
     friend class QRegion; // Optimization for QRegion::rects()
 
-    void reallocData(const int size, const int alloc, QArrayData::AllocationOptions options = QArrayData::Default);
+    void reallocData(const int size, const int alloc, QArrayData::ArrayOptions options = QArrayData::DefaultAllocationFlags);
     void reallocData(const int sz) { reallocData(sz, d->alloc); }
     void freeData(Data *d);
     void defaultConstruct(T *from, T *to);
@@ -411,11 +411,11 @@ void QVector<T>::resize(int asize)
 {
     int newAlloc;
     const int oldAlloc = int(d->alloc);
-    QArrayData::AllocationOptions opt;
+    QArrayData::ArrayOptions opt;
 
     if (asize > oldAlloc) { // there is not enough space
         newAlloc = asize;
-        opt = QArrayData::Grow;
+        opt = QArrayData::GrowsForward;
     } else {
         newAlloc = oldAlloc;
     }
@@ -529,7 +529,7 @@ void QVector<T>::freeData(Data *x)
 }
 
 template <typename T>
-void QVector<T>::reallocData(const int asize, const int aalloc, QArrayData::AllocationOptions options)
+void QVector<T>::reallocData(const int asize, const int aalloc, QArrayData::ArrayOptions options)
 {
     Q_ASSERT(asize >= 0 && asize <= aalloc);
     Data *x = d;
@@ -639,7 +639,7 @@ void QVector<T>::append(const T &t)
     const bool isTooSmall = uint(d->size + 1) > d->alloc;
     if (!isDetached() || isTooSmall) {
         T copy(t);
-        QArrayData::AllocationOptions opt(isTooSmall ? QArrayData::Grow : QArrayData::Default);
+        QArrayData::ArrayOptions opt(isTooSmall ? QArrayData::GrowsForward : QArrayData::DefaultAllocationFlags);
         reallocData(d->size, isTooSmall ? d->size + 1 : d->alloc, opt);
 
         if (QTypeInfo<T>::isComplex)
@@ -662,7 +662,7 @@ void QVector<T>::append(T &&t)
 {
     const bool isTooSmall = uint(d->size + 1) > d->alloc;
     if (!isDetached() || isTooSmall) {
-        QArrayData::AllocationOptions opt(isTooSmall ? QArrayData::Grow : QArrayData::Default);
+        QArrayData::ArrayOptions opt(isTooSmall ? QArrayData::GrowsForward : QArrayData::DefaultAllocationFlags);
         reallocData(d->size, isTooSmall ? d->size + 1 : d->alloc, opt);
     }
 
@@ -696,7 +696,7 @@ typename QVector<T>::iterator QVector<T>::insert(iterator before, size_type n, c
     if (n != 0) {
         const T copy(t);
         if (!isDetached() || d->size + n > int(d->alloc))
-            reallocData(d->size, d->size + n, QArrayData::Grow);
+            reallocData(d->size, d->size + n, QArrayData::GrowsForward);
         if (QTypeInfo<T>::isStatic) {
             T *b = d->end();
             T *i = d->end() + n;
@@ -807,7 +807,7 @@ QVector<T> &QVector<T>::operator+=(const QVector &l)
         uint newSize = d->size + l.d->size;
         const bool isTooSmall = newSize > d->alloc;
         if (!isDetached() || isTooSmall) {
-            QArrayData::AllocationOptions opt(isTooSmall ? QArrayData::Grow : QArrayData::Default);
+            QArrayData::ArrayOptions opt(isTooSmall ? QArrayData::GrowsForward : QArrayData::DefaultAllocationFlags);
             reallocData(d->size, isTooSmall ? newSize : d->alloc, opt);
         }
 

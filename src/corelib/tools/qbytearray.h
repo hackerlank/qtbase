@@ -444,7 +444,7 @@ public:
 private:
     operator QNoImplicitBoolCast() const;
     Data *d;
-    void reallocData(uint alloc, Data::AllocationOptions options);
+    void reallocData(uint alloc, Data::ArrayOptions options);
     void expand(int i);
     QByteArray nulTerminated() const;
 

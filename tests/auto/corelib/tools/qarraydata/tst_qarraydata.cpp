@@ -196,11 +196,9 @@ void tst_QArrayData::sharedNullEmpty()
 
     QCOMPARE(null->size, 0);
     QCOMPARE(null->alloc, 0u);
-    QCOMPARE(null->capacityReserved, 0u);
 
     QCOMPARE(empty->size, 0);
     QCOMPARE(empty->alloc, 0u);
-    QCOMPARE(empty->capacityReserved, 0u);
 }
 
 void tst_QArrayData::staticData()
@@ -732,7 +730,7 @@ void tst_QArrayData::allocate()
             QVERIFY(data->alloc > uint(capacity));
         else
             QCOMPARE(data->alloc, uint(capacity));
-        QCOMPARE(data->capacityReserved, uint(isCapacityReserved));
+        QCOMPARE(bool(data->flags & QArrayData::CapacityReserved), isCapacityReserved);
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
         QFETCH(bool, isSharable);
         QCOMPARE(data->ref.isSharable(), isSharable);
@@ -782,7 +780,7 @@ void tst_QArrayData::reallocate()
         QVERIFY(data->alloc > uint(newCapacity));
     else
         QCOMPARE(data->alloc, uint(newCapacity));
-    QCOMPARE(data->capacityReserved, uint(isCapacityReserved));
+    QCOMPARE(!(data->flags & QArrayData::CapacityReserved), !isCapacityReserved);
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
     QFETCH(bool, isSharable);
     QCOMPARE(data->ref.isSharable(), isSharable);
@@ -1419,7 +1417,7 @@ void tst_QArrayData::setSharable()
 
     QCOMPARE(size_t(array->size), size);
     QCOMPARE(size_t(array->alloc), capacity);
-    QCOMPARE(bool(array->capacityReserved), isCapacityReserved);
+    QCOMPARE(bool(array->flags & QArrayData::CapacityReserved), isCapacityReserved);
     QVERIFY(arrayIsFilledWith(array, fillValue, size));
 
     // shared-null becomes shared-empty, may otherwise detach
@@ -1449,7 +1447,7 @@ void tst_QArrayData::setSharable()
 
     QCOMPARE(size_t(array->size), size);
     QCOMPARE(size_t(array->alloc), capacity);
-    QCOMPARE(bool(array->capacityReserved), isCapacityReserved);
+    QCOMPARE(bool(array->flags & QArrayData::CapacityReserved), isCapacityReserved);
     QVERIFY(arrayIsFilledWith(array, fillValue, size));
 
     {
@@ -1463,7 +1461,7 @@ void tst_QArrayData::setSharable()
 
         QCOMPARE(size_t(copy->size), size);
         QCOMPARE(size_t(copy->alloc), capacity);
-        QCOMPARE(bool(copy->capacityReserved), isCapacityReserved);
+        QCOMPARE(bool(copy->flags & QArrayData::CapacityReserved), isCapacityReserved);
         QVERIFY(arrayIsFilledWith(copy, fillValue, size));
     }
 
@@ -1475,7 +1473,7 @@ void tst_QArrayData::setSharable()
 
     QCOMPARE(size_t(array->size), size);
     QCOMPARE(size_t(array->alloc), capacity);
-    QCOMPARE(bool(array->capacityReserved), isCapacityReserved);
+    QCOMPARE(bool(array->flags & QArrayData::CapacityReserved), isCapacityReserved);
     QVERIFY(arrayIsFilledWith(array, fillValue, size));
 
     {

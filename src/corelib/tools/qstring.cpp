@@ -1689,11 +1689,11 @@ void QString::resize(int size)
     }
 
     if (d->ref.isShared() || uint(size) + 1u > d->alloc)
-        reallocData(uint(size) + 1u, true);
-    if (d->alloc) {
-        d->size = size;
-        d->data()[size] = '\0';
-    }
+         reallocData(uint(size) + 1u, true);
+     if (d->alloc) {
+         d->size = size;
+         d->data()[size] = '\0';
+     }
 }
 
 /*!

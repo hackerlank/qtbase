@@ -96,11 +96,10 @@ public:
     void reserve(int size);
     inline void squeeze()
     {
-        reallocData(d->size, d->size);
-        if (d->capacityReserved) {
-            // capacity reserved in a read only memory would be useless
-            // this checks avoid writing to such memory.
-            d->capacityReserved = 0;
+        reallocData(d->size, d->size, QArrayData::ArrayOptions(d->flags));
+        if (!d->ref.isShared()) {
+            // realloc might have left shared if d->size == alloc == 0
+            d->flags &= ~QArrayData::CapacityReserved;
         }
     }
 
@@ -363,10 +362,10 @@ inline QVector<T>::QVector(const QVector<T> &v)
     if (v.d->ref.ref()) {
         d = v.d;
     } else {
-        if (v.d->capacityReserved) {
+        if (v.d->flags & Data::CapacityReserved) {
             d = Data::allocate(v.d->alloc);
             Q_CHECK_PTR(d);
-            d->capacityReserved = true;
+            d->flags |= Data::CapacityReserved;
         } else {
             d = Data::allocate(v.d->size);
             Q_CHECK_PTR(d);
@@ -397,12 +396,8 @@ void QVector<T>::reserve(int asize)
 {
     if (asize > int(d->alloc))
         reallocData(d->size, asize);
-    if (isDetached()
-#if !defined(QT_NO_UNSHARABLE_CONTAINERS)
-            && d != Data::unsharableEmpty()
-#endif
-            )
-        d->capacityReserved = 1;
+    if (isDetached())
+        d->flags |= Data::CapacityReserved;
     Q_ASSERT(capacity() >= asize);
 }
 
@@ -581,7 +576,6 @@ void QVector<T>::reallocData(const int asize, const int aalloc, QArrayData::Arra
                 Data::deallocate(x);
                 QT_RETHROW;
             }
-            x->capacityReserved = d->capacityReserved;
         } else {
             Q_ASSERT(int(d->alloc) == aalloc); // resize, without changing allocation size
             Q_ASSERT(isDetached());       // can be done only on detached d

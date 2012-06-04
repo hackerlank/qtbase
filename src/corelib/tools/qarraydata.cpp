@@ -82,7 +82,7 @@ static QArrayData *reallocateData(QArrayData *header, size_t allocSize, uint opt
 {
     header = static_cast<QArrayData *>(::realloc(header, allocSize));
     if (header)
-        header->capacityReserved = bool(options & QArrayData::CapacityReserved);
+        header->flags = options;
     return header;
 }
 
@@ -127,7 +127,7 @@ QArrayData *QArrayData::allocate(size_t objectSize, size_t alignment,
 #endif
         header->size = 0;
         header->alloc = capacity;
-        header->capacityReserved = bool(options & CapacityReserved);
+        header->flags = options;
         header->offset = data - quintptr(header);
     }
 

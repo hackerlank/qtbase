@@ -1646,7 +1646,7 @@ void QByteArray::resize(int size)
         return;
     }
 
-    if (size == 0 && !d->capacityReserved) {
+    if (size == 0 && !(d->flags && Data::CapacityReserved)) {
         Data *x = Data::allocate(0);
         if (!d->ref.deref())
             Data::deallocate(d);
@@ -1667,7 +1667,7 @@ void QByteArray::resize(int size)
         d = x;
     } else {
         if (d->ref.isShared() || uint(size) + 1u > d->alloc
-                || (!d->capacityReserved && size < d->size
+                || (!(d->flags & Data::CapacityReserved) && size < d->size
                     && uint(size) + 1u < uint(d->alloc >> 1)))
             reallocData(uint(size) + 1u, d->detachFlags() | Data::GrowsForward);
         if (d->alloc) {

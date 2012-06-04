@@ -143,10 +143,10 @@ public:
             return;
 
         if (n <= capacity()) {
-            if (d->capacityReserved)
+            if (d->flags & Data::CapacityReserved)
                 return;
             if (!d->ref.isShared()) {
-                d->capacityReserved = 1;
+                d->flags |= Data::CapacityReserved;
                 return;
             }
         }

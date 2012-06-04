@@ -92,7 +92,7 @@ public:
 
     void resize(int size);
 
-    inline int capacity() const { return int(d->alloc); }
+    inline int capacity() const { return d->constAllocatedCapacity(); }
     void reserve(int size);
     inline void squeeze()
     {
@@ -291,7 +291,7 @@ private:
     friend class QRegion; // Optimization for QRegion::rects()
 
     void reallocData(const int size, const int alloc, QArrayData::ArrayOptions options = QArrayData::DefaultAllocationFlags);
-    void reallocData(const int sz) { reallocData(sz, d->alloc); }
+    void reallocData(const int sz) { reallocData(sz, d->allocatedCapacity()); }
     void freeData(Data *d);
     void defaultConstruct(T *from, T *to);
     void copyConstruct(const T *srcFrom, const T *srcTo, T *dstFrom);
@@ -363,14 +363,14 @@ inline QVector<T>::QVector(const QVector<T> &v)
         d = v.d;
     } else {
         if (v.d->flags & Data::CapacityReserved) {
-            d = Data::allocate(v.d->alloc);
+            d = Data::allocate(v.d->allocatedCapacity());
             Q_CHECK_PTR(d);
             d->flags |= Data::CapacityReserved;
         } else {
             d = Data::allocate(v.d->size);
             Q_CHECK_PTR(d);
         }
-        if (d->alloc) {
+        if (v.d->size) {
             copyConstruct(v.d->begin(), v.d->end(), d->begin());
             d->size = v.d->size;
         }
@@ -382,11 +382,12 @@ void QVector<T>::detach()
 {
     if (!isDetached()) {
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
-        if (!d->alloc)
+        if (!d->allocatedCapacity())
+
             d = Data::unsharableEmpty();
         else
 #endif
-            reallocData(d->size, int(d->alloc));
+            reallocData(d->size, d->allocatedCapacity());
     }
     Q_ASSERT(isDetached());
 }
@@ -394,18 +395,18 @@ void QVector<T>::detach()
 template <typename T>
 void QVector<T>::reserve(int asize)
 {
-    if (asize > int(d->alloc))
-        reallocData(d->size, asize);
-    if (isDetached())
+    if (asize > int(d->allocatedCapacity()))
+        reallocData(d->size, asize, typename Data::ArrayOptions(d->flags | Data::CapacityReserved));
+    else if (isDetached())
         d->flags |= Data::CapacityReserved;
-    Q_ASSERT(capacity() >= asize);
+    Q_ASSERT(int(d->allocatedCapacity()) >= asize);
 }
 
 template <typename T>
 void QVector<T>::resize(int asize)
 {
     int newAlloc;
-    const int oldAlloc = int(d->alloc);
+    const int oldAlloc = d->allocatedCapacity();
     QArrayData::ArrayOptions opt;
 
     if (asize > oldAlloc) { // there is not enough space
@@ -532,7 +533,7 @@ void QVector<T>::reallocData(const int asize, const int aalloc, QArrayData::Arra
     const bool isShared = d->ref.isShared();
 
     if (aalloc != 0) {
-        if (aalloc != int(d->alloc) || isShared) {
+        if (aalloc != int(d->allocatedCapacity()) || isShared) {
             QT_TRY {
                 // allocate memory
                 x = Data::allocate(aalloc, options);
@@ -577,7 +578,7 @@ void QVector<T>::reallocData(const int asize, const int aalloc, QArrayData::Arra
                 QT_RETHROW;
             }
         } else {
-            Q_ASSERT(int(d->alloc) == aalloc); // resize, without changing allocation size
+            Q_ASSERT(int(d->allocatedCapacity()) == aalloc); // resize, without changing allocation size
             Q_ASSERT(isDetached());       // can be done only on detached d
             Q_ASSERT(x == d);             // in this case we do not need to allocate anything
             if (asize <= d->size) {
@@ -604,12 +605,12 @@ void QVector<T>::reallocData(const int asize, const int aalloc, QArrayData::Arra
     }
 
     Q_ASSERT(d->data());
-    Q_ASSERT(uint(d->size) <= d->alloc);
+    Q_ASSERT(d->size <= int(d->allocatedCapacity()));
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
     Q_ASSERT(d != Data::unsharableEmpty());
 #endif
     Q_ASSERT(aalloc ? d != Data::sharedNull() : d == Data::sharedNull());
-    Q_ASSERT(d->alloc >= uint(aalloc));
+    Q_ASSERT(int(d->allocatedCapacity()) >= aalloc);
     Q_ASSERT(d->size == asize);
 }
 
@@ -630,11 +631,11 @@ Q_OUTOFLINE_TEMPLATE T QVector<T>::value(int i, const T &defaultValue) const
 template <typename T>
 void QVector<T>::append(const T &t)
 {
-    const bool isTooSmall = uint(d->size + 1) > d->alloc;
+    const bool isTooSmall = d->size >= int(d->allocatedCapacity());
     if (!isDetached() || isTooSmall) {
         T copy(t);
         QArrayData::ArrayOptions opt(isTooSmall ? QArrayData::GrowsForward : QArrayData::DefaultAllocationFlags);
-        reallocData(d->size, isTooSmall ? d->size + 1 : d->alloc, opt);
+        reallocData(d->size, isTooSmall ? d->size + 1 : d->allocatedCapacity(), opt);
 
         if (QTypeInfo<T>::isComplex)
             new (d->end()) T(qMove(copy));
@@ -654,10 +655,10 @@ void QVector<T>::append(const T &t)
 template <typename T>
 void QVector<T>::append(T &&t)
 {
-    const bool isTooSmall = uint(d->size + 1) > d->alloc;
+    const bool isTooSmall = uint(d->size + 1) > d->allocatedCapacity();
     if (!isDetached() || isTooSmall) {
         QArrayData::ArrayOptions opt(isTooSmall ? QArrayData::GrowsForward : QArrayData::DefaultAllocationFlags);
-        reallocData(d->size, isTooSmall ? d->size + 1 : d->alloc, opt);
+        reallocData(d->size, isTooSmall ? d->size + 1 : d->allocatedCapacity(), opt);
     }
 
     new (d->end()) T(std::move(t));
@@ -670,7 +671,7 @@ template <typename T>
 void QVector<T>::removeLast()
 {
     Q_ASSERT(!isEmpty());
-    Q_ASSERT(d->alloc);
+    Q_ASSERT(d->allocatedCapacity());
 
     if (!d->ref.isShared()) {
         --d->size;
@@ -689,7 +690,7 @@ typename QVector<T>::iterator QVector<T>::insert(iterator before, size_type n, c
     int offset = std::distance(d->begin(), before);
     if (n != 0) {
         const T copy(t);
-        if (!isDetached() || d->size + n > int(d->alloc))
+        if (!isDetached() || d->size + n > int(d->allocatedCapacity()))
             reallocData(d->size, d->size + n, QArrayData::GrowsForward);
         if (QTypeInfo<T>::isStatic) {
             T *b = d->end();
@@ -736,7 +737,7 @@ typename QVector<T>::iterator QVector<T>::erase(iterator abegin, iterator aend)
     // FIXME we could do a proper realloc, which copy constructs only needed data.
     // FIXME we are about to delete data - maybe it is good time to shrink?
     // FIXME the shrink is also an issue in removeLast, that is just a copy + reduce of this.
-    if (d->alloc) {
+    if (d->allocatedCapacity()) {
         detach();
         abegin = d->begin() + itemsUntouched;
         aend = abegin + itemsToErase;
@@ -799,13 +800,13 @@ QVector<T> &QVector<T>::operator+=(const QVector &l)
         *this = l;
     } else {
         uint newSize = d->size + l.d->size;
-        const bool isTooSmall = newSize > d->alloc;
+        const bool isTooSmall = newSize > d->allocatedCapacity();
         if (!isDetached() || isTooSmall) {
             QArrayData::ArrayOptions opt(isTooSmall ? QArrayData::GrowsForward : QArrayData::DefaultAllocationFlags);
-            reallocData(d->size, isTooSmall ? newSize : d->alloc, opt);
+            reallocData(d->size, isTooSmall ? newSize : d->allocatedCapacity(), opt);
         }
 
-        if (d->alloc) {
+        if (l.d->size) {
             T *w = d->begin() + newSize;
             T *i = l.d->end();
             T *b = l.d->begin();

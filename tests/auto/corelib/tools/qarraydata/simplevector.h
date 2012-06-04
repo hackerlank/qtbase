@@ -94,7 +94,7 @@ public:
 #endif
 
     size_t size() const { return d->size; }
-    size_t capacity() const { return d->alloc; }
+    size_t capacity() const { return d->allocatedCapacity(); }
 
     iterator begin() { detach(); return d->begin(); }
     iterator end() { detach(); return d->end(); }

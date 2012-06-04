@@ -454,7 +454,7 @@ public:
     inline QString &prepend(QLatin1String s) { return insert(0, s); }
 
     inline QString &operator+=(QChar c) {
-        if (d->ref.isShared() || uint(d->size) + 2u > d->alloc)
+        if (d->ref.isShared() || d->size + 1 > capacity())
             reallocData(uint(d->size) + 2u, true);
         d->data()[d->size++] = c.unicode();
         d->data()[d->size] = '\0';
@@ -918,7 +918,7 @@ inline void QString::clear()
 inline QString::QString(const QString &other) Q_DECL_NOTHROW : d(other.d)
 { Q_ASSERT(&other != this); d->ref.ref(); }
 inline int QString::capacity() const
-{ return d->alloc ? d->alloc - 1 : 0; }
+{ int realCapacity = d->constAllocatedCapacity(); return realCapacity ? realCapacity - 1 : 0; }
 inline QString &QString::setNum(short n, int base)
 { return setNum(qlonglong(n), base); }
 inline QString &QString::setNum(ushort n, int base)
@@ -1097,8 +1097,8 @@ inline QString::~QString() { if (!d->ref.deref()) Data::deallocate(d); }
 
 inline void QString::reserve(int asize)
 {
-    if (d->ref.isShared() || uint(asize) >= d->alloc)
-        reallocData(qMax(asize, d->size) + 1u);
+    if (d->ref.isShared() || asize >= capacity())
+        reallocData(qMax(asize, size()) + 1u);
 
     // we're not shared anymore, for sure
     d->flags |= Data::CapacityReserved;
@@ -1106,7 +1106,7 @@ inline void QString::reserve(int asize)
 
 inline void QString::squeeze()
 {
-    if (d->ref.isShared() || uint(d->size) + 1u < d->alloc)
+    if (d->ref.isShared() || d->size < capacity())
         reallocData(uint(d->size) + 1u);
 
     // we're not shared anymore, for sure

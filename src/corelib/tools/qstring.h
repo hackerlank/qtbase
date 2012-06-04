@@ -199,7 +199,7 @@ Q_STATIC_ASSERT_X(sizeof(qunicodechar) == 2,
 #endif
 
 #define Q_STATIC_STRING_DATA_HEADER_INITIALIZER_WITH_OFFSET(size, offset) \
-    { Q_REFCOUNT_INITIALIZE_STATIC, size, 0, 0, offset } \
+    { Q_REFCOUNT_INITIALIZE_STATIC, QArrayData::StaticDataFlags, size, 0, offset } \
     /**/
 
 #define Q_STATIC_STRING_DATA_HEADER_INITIALIZER(size) \
@@ -910,7 +910,7 @@ inline QChar *QString::data()
 inline const QChar *QString::constData() const
 { return reinterpret_cast<const QChar*>(d->data()); }
 inline void QString::detach()
-{ if (d->ref.isShared() || (d->offset != sizeof(QStringData))) reallocData(uint(d->size) + 1u); }
+{ if (d->ref.isShared() || !d->isMutable()) reallocData(uint(d->size) + 1u); }
 inline bool QString::isDetached() const
 { return !d->ref.isShared(); }
 inline void QString::clear()

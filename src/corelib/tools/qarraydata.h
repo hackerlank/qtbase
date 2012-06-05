@@ -46,11 +46,13 @@
 QT_BEGIN_NAMESPACE
 
 struct QArrayAllocatedData;
+struct QArrayForeignData;
 struct Q_CORE_EXPORT QArrayData
 {
     enum ArrayOption {
         RawDataType          = 0x0001,  //!< this class is really a QArrayData
         AllocatedDataType    = 0x0002,  //!< this class is really a QArrayAllocatedData
+        ForeignDataType      = 0x0004,  //!< this class is really a QArrayForeignData
         DataTypeBits         = 0x000f,
 
         Unsharable           = 0x0010,  //!< always do deep copies, never shallow copies / implicit sharing
@@ -78,6 +80,8 @@ struct Q_CORE_EXPORT QArrayData
     inline size_t constAllocatedCapacity() const;
     inline QArrayAllocatedData *asAllocatedData();
     inline const QArrayAllocatedData *asAllocatedData() const;
+    inline QArrayForeignData *asForeignData();
+    inline const QArrayForeignData *asForeignData() const;
 
     void *data()
     {
@@ -130,6 +134,8 @@ struct Q_CORE_EXPORT QArrayData
         Q_DECL_NOTHROW Q_REQUIRED_RESULT;
     static QArrayData *prepareRawData(ArrayOptions options = ArrayOptions(RawDataType))
         Q_DECL_NOTHROW Q_REQUIRED_RESULT;
+    static QArrayData *prepareForeignData(ArrayOptions options = ArrayOptions(ForeignDataType))
+        Q_DECL_NOTHROW Q_REQUIRED_RESULT;
     static void deallocate(QArrayData *data, size_t objectSize,
             size_t alignment) Q_DECL_NOTHROW;
 
@@ -148,6 +154,13 @@ struct QArrayAllocatedData : public QArrayData
     uint alloc;
     // 4 bytes tail padding on 64-bit systems
     // size is 20 / 32 bytes
+};
+
+struct QArrayForeignData : public QArrayData
+{
+    void *token;
+    void (*notifyFunction)(void *);
+    // size is 24 / 40 bytes
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(QArrayData::ArrayOptions)
@@ -169,6 +182,18 @@ inline const QArrayAllocatedData *QArrayData::asAllocatedData() const
 {
     Q_ASSERT(flags & AllocatedDataType);
     return static_cast<const QArrayAllocatedData *>(this);
+}
+
+inline QArrayForeignData *QArrayData::asForeignData()
+{
+    Q_ASSERT(flags & ForeignDataType);
+    return static_cast<QArrayForeignData *>(this);
+}
+
+inline const QArrayForeignData *QArrayData::asForeignData() const
+{
+    Q_ASSERT(flags & ForeignDataType);
+    return static_cast<const QArrayForeignData *>(this);
 }
 
 inline size_t QArrayData::constAllocatedCapacity() const

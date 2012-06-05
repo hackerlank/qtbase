@@ -172,6 +172,11 @@ QArrayData *QArrayData::reallocateUnaligned(QArrayData *data, size_t objectSize,
     return header;
 }
 
+QArrayData *QArrayData::prepareForeignData(ArrayOptions options) Q_DECL_NOTHROW
+{
+    return allocateData(sizeof(QArrayForeignData), (options & ~DataTypeBits) | ForeignDataType);
+}
+
 void QArrayData::deallocate(QArrayData *data, size_t objectSize,
         size_t alignment) Q_DECL_NOTHROW
 {
@@ -184,6 +189,9 @@ void QArrayData::deallocate(QArrayData *data, size_t objectSize,
     if (data == &qt_array_unsharable_empty)
         return;
 #endif
+
+    if (data->flags & ForeignDataType)
+        data->asForeignData()->notifyFunction(data->asForeignData()->token);
 
     Q_ASSERT_X(data == 0 || !data->ref.isStatic(), "QArrayData::deallocate",
                "Static data can not be deleted");

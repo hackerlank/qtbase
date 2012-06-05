@@ -290,8 +290,8 @@ public:
 private:
     friend class QRegion; // Optimization for QRegion::rects()
 
-    void reallocData(const int size, const int alloc, QArrayData::ArrayOptions options = QArrayData::DefaultAllocationFlags);
-    void reallocData(const int sz) { reallocData(sz, d->allocatedCapacity()); }
+    void reallocData(const int size, const int alloc, QArrayData::ArrayOptions options);
+    void reallocData(const int sz) { reallocData(sz, d->allocatedCapacity(), d->detachFlags()); }
     void freeData(Data *d);
     void defaultConstruct(T *from, T *to);
     void copyConstruct(const T *srcFrom, const T *srcTo, T *dstFrom);
@@ -387,7 +387,7 @@ void QVector<T>::detach()
             d = Data::unsharableEmpty();
         else
 #endif
-            reallocData(d->size, d->allocatedCapacity());
+            reallocData(d->size, d->allocatedCapacity(), d->detachFlags());
     }
     Q_ASSERT(isDetached());
 }
@@ -407,11 +407,11 @@ void QVector<T>::resize(int asize)
 {
     int newAlloc;
     const int oldAlloc = d->allocatedCapacity();
-    QArrayData::ArrayOptions opt;
+    QArrayData::ArrayOptions opt = d->detachFlags();
 
     if (asize > oldAlloc) { // there is not enough space
         newAlloc = asize;
-        opt = QArrayData::GrowsForward;
+        opt |= QArrayData::GrowsForward;
     } else {
         newAlloc = oldAlloc;
     }
@@ -632,9 +632,11 @@ template <typename T>
 void QVector<T>::append(const T &t)
 {
     const bool isTooSmall = d->size >= int(d->allocatedCapacity());
+    QArrayData::ArrayOptions opt = d->detachFlags();
     if (!isDetached() || isTooSmall) {
         T copy(t);
-        QArrayData::ArrayOptions opt(isTooSmall ? QArrayData::GrowsForward : QArrayData::DefaultAllocationFlags);
+        if (isTooSmall)
+            opt |= QArrayData::GrowsForward;
         reallocData(d->size, isTooSmall ? d->size + 1 : d->allocatedCapacity(), opt);
 
         if (QTypeInfo<T>::isComplex)
@@ -802,7 +804,7 @@ QVector<T> &QVector<T>::operator+=(const QVector &l)
         uint newSize = d->size + l.d->size;
         const bool isTooSmall = newSize > d->allocatedCapacity();
         if (!isDetached() || isTooSmall) {
-            QArrayData::ArrayOptions opt(isTooSmall ? QArrayData::GrowsForward : QArrayData::DefaultAllocationFlags);
+            QArrayData::ArrayOptions opt(isTooSmall ? d->flags | QArrayData::GrowsForward : d->flags);
             reallocData(d->size, isTooSmall ? newSize : d->allocatedCapacity(), opt);
         }
 

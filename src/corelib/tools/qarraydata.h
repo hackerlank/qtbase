@@ -45,6 +45,7 @@
 
 QT_BEGIN_NAMESPACE
 
+struct QArrayAllocatedData;
 struct Q_CORE_EXPORT QArrayData
 {
     enum ArrayOption {
@@ -68,20 +69,15 @@ struct Q_CORE_EXPORT QArrayData
 
     QtPrivate::RefCount ref;
     uint flags;
-    int size;
-    uint alloc;
-
+    int size;       // ### move to the main class body?
+    // -- 4 bytes padding here on 64-bit systems --
     qptrdiff offset; // in bytes from beginning of header
+    // size is 16 / 24 bytes
 
-    inline size_t allocatedCapacity()
-    {
-        return alloc;
-    }
-
-    inline size_t constAllocatedCapacity() const
-    {
-        return alloc;
-    }
+    inline size_t allocatedCapacity();
+    inline size_t constAllocatedCapacity() const;
+    inline QArrayAllocatedData *asAllocatedData();
+    inline const QArrayAllocatedData *asAllocatedData() const;
 
     void *data()
     {
@@ -105,14 +101,7 @@ struct Q_CORE_EXPORT QArrayData
         return flags & AllocatedDataType;
     }
 
-#if !defined(QT_NO_UNSHARABLE_CONTAINERS)
-#endif
-    size_t detachCapacity(size_t newSize) const
-    {
-        if (flags & CapacityReserved && newSize < constAllocatedCapacity())
-            return constAllocatedCapacity();
-        return newSize;
-    }
+    inline size_t detachCapacity(size_t newSize) const;
 
     ArrayOptions detachFlags() const
     {
@@ -154,7 +143,43 @@ struct Q_CORE_EXPORT QArrayData
     }
 };
 
+struct QArrayAllocatedData : public QArrayData
+{
+    uint alloc;
+    // 4 bytes tail padding on 64-bit systems
+    // size is 20 / 32 bytes
+};
+
 Q_DECLARE_OPERATORS_FOR_FLAGS(QArrayData::ArrayOptions)
+
+inline size_t QArrayData::detachCapacity(size_t newSize) const
+{
+    if ((flags & AllocatedDataType) && (flags & CapacityReserved) && newSize < asAllocatedData()->alloc)
+        return asAllocatedData()->alloc;
+    return newSize;
+}
+
+inline QArrayAllocatedData *QArrayData::asAllocatedData()
+{
+    Q_ASSERT(flags & AllocatedDataType);
+    return static_cast<QArrayAllocatedData *>(this);
+}
+
+inline const QArrayAllocatedData *QArrayData::asAllocatedData() const
+{
+    Q_ASSERT(flags & AllocatedDataType);
+    return static_cast<const QArrayAllocatedData *>(this);
+}
+
+inline size_t QArrayData::constAllocatedCapacity() const
+{
+    return flags & AllocatedDataType ? asAllocatedData()->alloc : 0;
+}
+
+inline size_t QArrayData::allocatedCapacity()
+{
+    return constAllocatedCapacity();
+}
 
 template <class T>
 struct QTypedArrayData
@@ -333,7 +358,7 @@ struct QArrayDataPointerRef
 };
 
 #define Q_STATIC_ARRAY_DATA_HEADER_INITIALIZER_WITH_OFFSET(size, offset) \
-    { Q_REFCOUNT_INITIALIZE_STATIC, QArrayData::StaticDataFlags, size, 0, offset } \
+    { Q_REFCOUNT_INITIALIZE_STATIC, QArrayData::StaticDataFlags, size, offset } \
     /**/
 
 #define Q_STATIC_ARRAY_DATA_HEADER_INITIALIZER(type, size) \

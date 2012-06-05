@@ -4521,7 +4521,7 @@ QByteArray QString::toLatin1_helper_inplace(QString &s)
     QArrayData *ba_d = s.d;
 
     // multiply the allocated capacity by sizeof(ushort)
-    ba_d->alloc *= sizeof(ushort);
+    ba_d->asAllocatedData()->alloc *= sizeof(ushort);
 
     // reset ourselves to QString()
     s.d = QString().d;

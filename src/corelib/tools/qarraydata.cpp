@@ -50,18 +50,18 @@ QT_WARNING_PUSH
 QT_WARNING_DISABLE_GCC("-Wmissing-field-initializers")
 
 const QArrayData QArrayData::shared_null[2] = {
-    { Q_REFCOUNT_INITIALIZE_STATIC, QArrayData::StaticDataFlags, 0, 0, sizeof(QArrayData) }, // shared null
+    { Q_REFCOUNT_INITIALIZE_STATIC, QArrayData::StaticDataFlags, 0, sizeof(QArrayData) }, // shared null
     /* zero initialized terminator */};
 
 static const QArrayData emptyNotNullShared[2] = {
-    { Q_REFCOUNT_INITIALIZE_STATIC, QArrayData::StaticDataFlags, 0, 0, sizeof(QArrayData) }, // shared empty
+    { Q_REFCOUNT_INITIALIZE_STATIC, QArrayData::StaticDataFlags, 0, sizeof(QArrayData) }, // shared empty
     /* zero initialized terminator */};
 
 QT_WARNING_POP
 
 static const QArrayData emptyNotNullUnsharable[2] = {
     { { Q_BASIC_ATOMIC_INITIALIZER(0) }, QArrayData::StaticDataFlags | QArrayData::Unsharable,
-      0, 0, sizeof(QArrayData) }, // unsharable empty
+      0, sizeof(QArrayData) }, // unsharable empty
     /* zero initialized terminator */};
 
 static const QArrayData &qt_array_empty = emptyNotNullShared[0];
@@ -115,8 +115,7 @@ QArrayData *QArrayData::allocate(size_t objectSize, size_t alignment,
         size_t capacity, ArrayOptions options) Q_DECL_NOTHROW
 {
     // Alignment is a power of two
-    Q_ASSERT(alignment >= Q_ALIGNOF(QArrayData)
-            && !(alignment & (alignment - 1)));
+    Q_ASSERT(!(alignment & (alignment - 1)));
 
     if (capacity == 0) {
         // optimization for empty headers
@@ -127,13 +126,12 @@ QArrayData *QArrayData::allocate(size_t objectSize, size_t alignment,
         return const_cast<QArrayData *>(&qt_array_empty);
     }
 
-    size_t headerSize = sizeof(QArrayData);
-
-    if (alignment > Q_ALIGNOF(QArrayData)) {
-        // Allocate extra (alignment - Q_ALIGNOF(QArrayData)) padding bytes so we
+    size_t headerSize = sizeof(QArrayAllocatedData);
+    if (alignment > Q_ALIGNOF(QArrayAllocatedData)) {
+        // Allocate extra (alignment - Q_ALIGNOF(QArrayAllocatedData)) padding bytes so we
         // can properly align the data array. This assumes malloc is able to
         // provide appropriate alignment for the header -- as it should!
-        headerSize += alignment - Q_ALIGNOF(QArrayData);
+        headerSize += alignment - Q_ALIGNOF(QArrayAllocatedData);
     }
 
     if (headerSize > size_t(MaxAllocSize))
@@ -141,9 +139,10 @@ QArrayData *QArrayData::allocate(size_t objectSize, size_t alignment,
 
     size_t allocSize = calculateBlockSize(capacity, objectSize, headerSize, options);
     options |= ArrayOption(AllocatedDataType);
-    QArrayData *header = static_cast<QArrayData *>(::allocateData(allocSize, options));
+    QArrayAllocatedData *header = static_cast<QArrayAllocatedData *>(allocateData(allocSize, options));
     if (header) {
-        quintptr data = (quintptr(header) + sizeof(QArrayData) + alignment - 1)
+        // find where offset should point to so that data() is aligned to alignment bytes
+        quintptr data = (quintptr(header) + sizeof(QArrayAllocatedData) + alignment - 1)
                 & ~(alignment - 1);
         header->offset = data - quintptr(header);
         header->alloc = capacity;
@@ -165,9 +164,9 @@ QArrayData *QArrayData::reallocateUnaligned(QArrayData *data, size_t objectSize,
     Q_ASSERT(!data->ref.isShared());
 
     options |= ArrayOption(AllocatedDataType);
-    size_t headerSize = sizeof(QArrayData);
+    size_t headerSize = sizeof(QArrayAllocatedData);
     size_t allocSize = calculateBlockSize(capacity, objectSize, headerSize, options);
-    QArrayData *header = static_cast<QArrayData *>(reallocateData(data, allocSize, options));
+    QArrayAllocatedData *header = static_cast<QArrayAllocatedData *>(reallocateData(data, allocSize, options));
     if (header)
         header->alloc = capacity;
     return header;

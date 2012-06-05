@@ -199,7 +199,7 @@ Q_STATIC_ASSERT_X(sizeof(qunicodechar) == 2,
 #endif
 
 #define Q_STATIC_STRING_DATA_HEADER_INITIALIZER_WITH_OFFSET(size, offset) \
-    { Q_REFCOUNT_INITIALIZE_STATIC, QArrayData::StaticDataFlags, size, 0, offset } \
+    { Q_REFCOUNT_INITIALIZE_STATIC, QArrayData::StaticDataFlags, size, offset } \
     /**/
 
 #define Q_STATIC_STRING_DATA_HEADER_INITIALIZER(size) \

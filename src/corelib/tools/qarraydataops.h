@@ -56,7 +56,7 @@ struct QPodArrayOps
     void appendInitialize(size_t newSize)
     {
         Q_ASSERT(this->isMutable());
-        Q_ASSERT(!this->ref.isShared());
+        Q_ASSERT(!this->isShared());
         Q_ASSERT(newSize > uint(this->size));
         Q_ASSERT(newSize <= this->allocatedCapacity());
 
@@ -67,7 +67,7 @@ struct QPodArrayOps
     void copyAppend(const T *b, const T *e)
     {
         Q_ASSERT(this->isMutable());
-        Q_ASSERT(!this->ref.isShared());
+        Q_ASSERT(!this->isShared());
         Q_ASSERT(b < e);
         Q_ASSERT(e - b <= this->allocatedCapacity() - this->size);
 
@@ -78,7 +78,7 @@ struct QPodArrayOps
     void copyAppend(size_t n, const T &t)
     {
         Q_ASSERT(this->isMutable());
-        Q_ASSERT(!this->ref.isShared());
+        Q_ASSERT(!this->isShared());
         Q_ASSERT(n <= uint(this->allocatedCapacity() - this->size));
 
         T *iter = this->end();
@@ -91,7 +91,7 @@ struct QPodArrayOps
     void truncate(size_t newSize)
     {
         Q_ASSERT(this->isMutable());
-        Q_ASSERT(!this->ref.isShared());
+        Q_ASSERT(!this->isShared());
         Q_ASSERT(newSize < size_t(this->size));
 
         this->size = int(newSize);
@@ -100,7 +100,7 @@ struct QPodArrayOps
     void destroyAll() // Call from destructors, ONLY!
     {
         Q_ASSERT(this->isMutable());
-        Q_ASSERT(this->ref.atomic.load() == 0);
+        Q_ASSERT(this->ref_.atomic.load() == 0);
 
         // As this is to be called only from destructor, it doesn't need to be
         // exception safe; size not updated.
@@ -109,7 +109,7 @@ struct QPodArrayOps
     void insert(T *where, const T *b, const T *e)
     {
         Q_ASSERT(this->isMutable());
-        Q_ASSERT(!this->ref.isShared());
+        Q_ASSERT(!this->isShared());
         Q_ASSERT(where >= this->begin() && where < this->end()); // Use copyAppend at end
         Q_ASSERT(b < e);
         Q_ASSERT(e <= where || b > this->end()); // No overlap
@@ -139,7 +139,7 @@ struct QGenericArrayOps
     void appendInitialize(size_t newSize)
     {
         Q_ASSERT(this->isMutable());
-        Q_ASSERT(!this->ref.isShared());
+        Q_ASSERT(!this->isShared());
         Q_ASSERT(newSize > uint(this->size));
         Q_ASSERT(newSize <= this->allocatedCapacity());
 
@@ -152,7 +152,7 @@ struct QGenericArrayOps
     void copyAppend(const T *b, const T *e)
     {
         Q_ASSERT(this->isMutable());
-        Q_ASSERT(!this->ref.isShared());
+        Q_ASSERT(!this->isShared());
         Q_ASSERT(b < e);
         Q_ASSERT(e - b <= this->allocatedCapacity() - this->size);
 
@@ -166,7 +166,7 @@ struct QGenericArrayOps
     void copyAppend(size_t n, const T &t)
     {
         Q_ASSERT(this->isMutable());
-        Q_ASSERT(!this->ref.isShared());
+        Q_ASSERT(!this->isShared());
         Q_ASSERT(n <= size_t(this->allocatedCapacity() - this->size));
 
         T *iter = this->end();
@@ -180,7 +180,7 @@ struct QGenericArrayOps
     void truncate(size_t newSize)
     {
         Q_ASSERT(this->isMutable());
-        Q_ASSERT(!this->ref.isShared());
+        Q_ASSERT(!this->isShared());
         Q_ASSERT(newSize < size_t(this->size));
 
         const T *const b = this->begin();
@@ -195,7 +195,7 @@ struct QGenericArrayOps
         // As this is to be called only from destructor, it doesn't need to be
         // exception safe; size not updated.
 
-        Q_ASSERT(this->ref.atomic.load() == 0);
+        Q_ASSERT(this->ref_.atomic.load() == 0);
 
         const T *const b = this->begin();
         const T *i = this->end();
@@ -207,7 +207,7 @@ struct QGenericArrayOps
     void insert(T *where, const T *b, const T *e)
     {
         Q_ASSERT(this->isMutable());
-        Q_ASSERT(!this->ref.isShared());
+        Q_ASSERT(!this->isShared());
         Q_ASSERT(where >= this->begin() && where < this->end()); // Use copyAppend at end
         Q_ASSERT(b < e);
         Q_ASSERT(e <= where || b > this->end()); // No overlap
@@ -303,7 +303,7 @@ struct QMovableArrayOps
     void insert(T *where, const T *b, const T *e)
     {
         Q_ASSERT(this->isMutable());
-        Q_ASSERT(!this->ref.isShared());
+        Q_ASSERT(!this->isShared());
         Q_ASSERT(where >= this->begin() && where < this->end()); // Use copyAppend at end
         Q_ASSERT(b < e);
         Q_ASSERT(e <= where || b > this->end()); // No overlap

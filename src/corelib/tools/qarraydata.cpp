@@ -91,11 +91,11 @@ static QArrayData *allocateData(size_t allocSize, uint options)
     if (header) {
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
         if (options & QArrayData::Unsharable)
-            header->ref.initializeUnsharable();
+            header->ref_.initializeUnsharable();
         else
-            header->ref.initializeOwned();
+            header->ref_.initializeOwned();
 #else
-        header->ref.atomic.store(1);
+        header->ref_.atomic.store(1);
 #endif
         header->flags = options & ~maskedFlags;
         header->size = 0;
@@ -161,7 +161,7 @@ QArrayData *QArrayData::reallocateUnaligned(QArrayData *data, size_t objectSize,
 {
     Q_ASSERT(data);
     Q_ASSERT(data->isMutable());
-    Q_ASSERT(!data->ref.isShared());
+    Q_ASSERT(!data->isShared());
 
     options |= ArrayOption(AllocatedDataType);
     size_t headerSize = sizeof(QArrayAllocatedData);
@@ -194,8 +194,7 @@ void QArrayData::deallocate(QArrayData *data, size_t objectSize,
     if (data->flags & ForeignDataType)
         data->asForeignData()->notifyFunction(data->asForeignData()->token);
 
-    Q_ASSERT_X(data == 0 || !data->ref.isStatic(), "QArrayData::deallocate",
-               "Static data can not be deleted");
+    Q_ASSERT_X(data == 0 || !data->isStatic(), "QArrayData::deallocate", "Static data can not be deleted");
     ::free(data);
 }
 

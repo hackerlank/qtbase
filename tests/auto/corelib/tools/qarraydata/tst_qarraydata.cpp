@@ -37,10 +37,10 @@ struct SharedNullVerifier
 {
     SharedNullVerifier()
     {
-        Q_ASSERT(QArrayData::shared_null[0].ref.isStatic());
-        Q_ASSERT(QArrayData::shared_null[0].ref.isShared());
+        Q_ASSERT(QArrayData::shared_null[0].isStatic());
+        Q_ASSERT(QArrayData::shared_null[0].isShared());
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
-        Q_ASSERT(QArrayData::shared_null[0].ref.isSharable());
+        Q_ASSERT(QArrayData::shared_null[0].isSharable());
 #endif
     }
 };
@@ -95,27 +95,27 @@ void tst_QArrayData::referenceCounting()
         // Reference counting initialized to 1 (owned)
         QArrayData array = { { Q_BASIC_ATOMIC_INITIALIZER(1) }, QArrayData::DefaultRawFlags, 0, 0 };
 
-        QCOMPARE(array.ref.atomic.load(), 1);
+        QCOMPARE(array.ref_.atomic.load(), 1);
 
-        QVERIFY(!array.ref.isStatic());
+        QVERIFY(!array.isStatic());
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
-        QVERIFY(array.ref.isSharable());
+        QVERIFY(array.isSharable());
 #endif
 
-        QVERIFY(array.ref.ref());
-        QCOMPARE(array.ref.atomic.load(), 2);
+        QVERIFY(array.ref());
+        QCOMPARE(array.ref_.atomic.load(), 2);
 
-        QVERIFY(array.ref.deref());
-        QCOMPARE(array.ref.atomic.load(), 1);
+        QVERIFY(array.deref());
+        QCOMPARE(array.ref_.atomic.load(), 1);
 
-        QVERIFY(array.ref.ref());
-        QCOMPARE(array.ref.atomic.load(), 2);
+        QVERIFY(array.ref());
+        QCOMPARE(array.ref_.atomic.load(), 2);
 
-        QVERIFY(array.ref.deref());
-        QCOMPARE(array.ref.atomic.load(), 1);
+        QVERIFY(array.deref());
+        QCOMPARE(array.ref_.atomic.load(), 1);
 
-        QVERIFY(!array.ref.deref());
-        QCOMPARE(array.ref.atomic.load(), 0);
+        QVERIFY(!array.deref());
+        QCOMPARE(array.ref_.atomic.load(), 0);
 
         // Now would be a good time to free/release allocated data
     }
@@ -125,17 +125,17 @@ void tst_QArrayData::referenceCounting()
         // Reference counting initialized to 0 (non-sharable)
         QArrayData array = { { Q_BASIC_ATOMIC_INITIALIZER(0) }, QArrayData::Unsharable, 0, 0 };
 
-        QCOMPARE(array.ref.atomic.load(), 0);
+        QCOMPARE(array.ref_.atomic.load(), 0);
 
-        QVERIFY(!array.ref.isStatic());
-        QVERIFY(!array.ref.isSharable());
+        QVERIFY(!array.isStatic());
+        QVERIFY(!array.isSharable());
 
-        QVERIFY(!array.ref.ref());
+        QVERIFY(!array.ref());
         // Reference counting fails, data should be copied
-        QCOMPARE(array.ref.atomic.load(), 0);
+        QCOMPARE(array.ref_.atomic.load(), 0);
 
-        QVERIFY(!array.ref.deref());
-        QCOMPARE(array.ref.atomic.load(), 0);
+        QVERIFY(!array.deref());
+        QCOMPARE(array.ref_.atomic.load(), 0);
 
         // Free/release data
     }
@@ -145,18 +145,18 @@ void tst_QArrayData::referenceCounting()
         // Reference counting initialized to -1 (static read-only data)
         QArrayData array = { Q_REFCOUNT_INITIALIZE_STATIC, QArrayData::StaticDataFlags, 0, 0 };
 
-        QCOMPARE(array.ref.atomic.load(), -1);
+        QCOMPARE(array.ref_.atomic.load(), -1);
 
-        QVERIFY(array.ref.isStatic());
+        QVERIFY(array.isStatic());
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
-        QVERIFY(array.ref.isSharable());
+        QVERIFY(array.isSharable());
 #endif
 
-        QVERIFY(array.ref.ref());
-        QCOMPARE(array.ref.atomic.load(), -1);
+        QVERIFY(array.ref());
+        QCOMPARE(array.ref_.atomic.load(), -1);
 
-        QVERIFY(array.ref.deref());
-        QCOMPARE(array.ref.atomic.load(), -1);
+        QVERIFY(array.deref());
+        QCOMPARE(array.ref_.atomic.load(), -1);
 
     }
 }
@@ -166,31 +166,29 @@ void tst_QArrayData::sharedNullEmpty()
     QArrayData *null = const_cast<QArrayData *>(QArrayData::shared_null);
     QArrayData *empty = QArrayData::allocate(1, Q_ALIGNOF(QArrayData), 0);
 
-    QVERIFY(null->ref.isStatic());
-    QVERIFY(null->ref.isShared());
+    QVERIFY(null->isStatic());
+    QVERIFY(null->isShared());
 
-    QVERIFY(empty->ref.isStatic());
-    QVERIFY(empty->ref.isShared());
+    QVERIFY(empty->isStatic());
+    QVERIFY(empty->isShared());
 
-    QCOMPARE(null->ref.atomic.load(), -1);
-    QCOMPARE(empty->ref.atomic.load(), -1);
+    QCOMPARE(null->ref_.atomic.load(), -1);
+    QCOMPARE(empty->ref_.atomic.load(), -1);
 
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
-    QVERIFY(null->ref.isSharable());
-    QVERIFY(empty->ref.isSharable());
+    QVERIFY(null->isSharable());
+    QVERIFY(empty->isSharable());
 #endif
 
-    QVERIFY(null->ref.ref());
-    QVERIFY(empty->ref.ref());
 
-    QCOMPARE(null->ref.atomic.load(), -1);
-    QCOMPARE(empty->ref.atomic.load(), -1);
+    QCOMPARE(null->ref_.atomic.load(), -1);
+    QCOMPARE(empty->ref_.atomic.load(), -1);
 
-    QVERIFY(null->ref.deref());
-    QVERIFY(empty->ref.deref());
+    QVERIFY(null->deref());
+    QVERIFY(empty->deref());
 
-    QCOMPARE(null->ref.atomic.load(), -1);
-    QCOMPARE(empty->ref.atomic.load(), -1);
+    QCOMPARE(null->ref_.atomic.load(), -1);
+    QCOMPARE(empty->ref_.atomic.load(), -1);
 
     QVERIFY(null != empty);
 
@@ -733,7 +731,7 @@ void tst_QArrayData::allocate()
         QCOMPARE(bool(data->flags & QArrayData::CapacityReserved), isCapacityReserved);
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
         QFETCH(bool, isSharable);
-        QCOMPARE(data->ref.isSharable(), isSharable);
+        QCOMPARE(data->isSharable(), isSharable);
 #endif
 
         // Check that the allocated array can be used. Best tested with a
@@ -1412,8 +1410,8 @@ void tst_QArrayData::setSharable()
     QFETCH(bool, isCapacityReserved);
     QFETCH(int, fillValue);
 
-    QVERIFY(array->ref.isShared()); // QTest has a copy
-    QVERIFY(array->ref.isSharable());
+    QVERIFY(array->isShared()); // QTest has a copy
+    QVERIFY(array->isSharable());
 
     QCOMPARE(size_t(array->size), size);
     QCOMPARE(size_t(array->allocatedCapacity()), capacity);
@@ -1423,13 +1421,13 @@ void tst_QArrayData::setSharable()
     // shared-null becomes shared-empty, may otherwise detach
     array.setSharable(true);
 
-    QVERIFY(array->ref.isSharable());
+    QVERIFY(array->isSharable());
     QVERIFY(arrayIsFilledWith(array, fillValue, size));
 
     {
         QArrayDataPointer<int> copy(array);
-        QVERIFY(array->ref.isShared());
-        QVERIFY(array->ref.isSharable());
+        QVERIFY(array->isShared());
+        QVERIFY(array->isSharable());
         QCOMPARE(copy.data(), array.data());
     }
 
@@ -1442,8 +1440,8 @@ void tst_QArrayData::setSharable()
             || (!isCapacityReserved && capacity > size))
         capacity = size;
 
-    QVERIFY(!array->ref.isShared());
-    QVERIFY(!array->ref.isSharable());
+    QVERIFY(!array->isShared());
+    QVERIFY(!array->isSharable());
 
     QCOMPARE(size_t(array->size), size);
     QCOMPARE(size_t(array->allocatedCapacity()), capacity);
@@ -1452,12 +1450,12 @@ void tst_QArrayData::setSharable()
 
     {
         QArrayDataPointer<int> copy(array);
-        QVERIFY(!array->ref.isShared());
-        QVERIFY(!array->ref.isSharable());
+        QVERIFY(!array->isShared());
+        QVERIFY(!array->isSharable());
 
         // Null/empty is always shared
-        QCOMPARE(copy->ref.isShared(), !(size || isCapacityReserved));
-        QVERIFY(copy->ref.isSharable());
+        QCOMPARE(copy->isShared(), !(size || isCapacityReserved));
+        QVERIFY(copy->isSharable());
 
         QCOMPARE(size_t(copy->size), size);
         QCOMPARE(size_t(copy->allocatedCapacity()), capacity);
@@ -1468,8 +1466,8 @@ void tst_QArrayData::setSharable()
     // Make sharable, again
     array.setSharable(true);
 
-    QCOMPARE(array->ref.isShared(), !(size || isCapacityReserved));
-    QVERIFY(array->ref.isSharable());
+    QCOMPARE(array->isShared(), !(size || isCapacityReserved));
+    QVERIFY(array->isSharable());
 
     QCOMPARE(size_t(array->size), size);
     QCOMPARE(size_t(array->allocatedCapacity()), capacity);
@@ -1478,12 +1476,12 @@ void tst_QArrayData::setSharable()
 
     {
         QArrayDataPointer<int> copy(array);
-        QVERIFY(array->ref.isShared());
+        QVERIFY(array->isShared());
         QCOMPARE(copy.data(), array.data());
     }
 
-    QCOMPARE(array->ref.isShared(), !(size || isCapacityReserved));
-    QVERIFY(array->ref.isSharable());
+    QCOMPARE(array->isShared(), !(size || isCapacityReserved));
+    QVERIFY(array->isSharable());
 #endif
 }
 

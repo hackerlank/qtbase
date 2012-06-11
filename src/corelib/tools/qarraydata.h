@@ -70,7 +70,7 @@ struct Q_CORE_EXPORT QArrayData
     };
     Q_DECLARE_FLAGS(ArrayOptions, ArrayOption)
 
-    QtPrivate::RefCount ref;
+    QtPrivate::RefCount ref_;
     uint flags;
     int size;       // ### move to the main class body?
     // -- 4 bytes padding here on 64-bit systems --
@@ -83,6 +83,16 @@ struct Q_CORE_EXPORT QArrayData
     inline const QArrayAllocatedData *asAllocatedData() const;
     inline QArrayForeignData *asForeignData();
     inline const QArrayForeignData *asForeignData() const;
+
+    bool ref()
+    {
+        return ref_.ref();
+    }
+
+    bool deref()
+    {
+        return ref_.deref();
+    }
 
     void *data()
     {
@@ -106,13 +116,35 @@ struct Q_CORE_EXPORT QArrayData
         return flags & Mutable;
     }
 
+    bool isStatic() const
+    {
+        return ref_.isStatic();
+    }
+
+    bool isShared() const
+    {
+        return ref_.isShared();
+    }
+
+#if !defined(QT_NO_UNSHARABLE_CONTAINERS)
+    bool isSharable() const
+    {
+        return ref_.isSharable();
+    }
+
+    void setSharable(bool sharable)
+    {
+        ref_.setSharable(sharable);
+    }
+#endif
+    
     // Returns true if a detach is necessary before modifying the data
     // This method is intentionally not const: if you want to know whether
     // detaching is necessary, you should be in a non-const function already
     bool needsDetach()
     {
         // ### optimize me -- this currently requires 3 conditionals!
-        return !isMutable() || ref.isShared();
+        return !isMutable() || isShared();
     }
 
     inline size_t detachCapacity(size_t newSize) const;
@@ -341,7 +373,7 @@ struct QTypedArrayData
         Q_STATIC_ASSERT(sizeof(QTypedArrayData) == sizeof(QArrayData));
         QTypedArrayData *result = static_cast<QTypedArrayData *>(prepareRawData(options));
         if (result) {
-            Q_ASSERT(!result->ref.isShared()); // No shared empty, please!
+            Q_ASSERT(!result->isShared()); // No shared empty, please!
 
             result->offset = reinterpret_cast<const char *>(data)
                 - reinterpret_cast<const char *>(result);

@@ -598,7 +598,7 @@ QString verifyZeroTermination(const QString &str)
     QString::DataPtr strDataPtr = const_cast<QString &>(str).data_ptr();
 
     // Skip if isStatic() or fromRawData(), as those offer no guarantees
-    if (strDataPtr->ref.isStatic()
+    if (strDataPtr->isStatic()
             || strDataPtr->offset != QString().data_ptr()->offset)
         return str;
 
@@ -610,7 +610,7 @@ QString verifyZeroTermination(const QString &str)
                 .arg(strTerminator.unicode(), 4, 16, QChar('0'));
 
     // Skip mutating checks on shared strings
-    if (strDataPtr->ref.isShared())
+    if (strDataPtr->isShared())
         return str;
 
     const QChar *strData = str.constData();
@@ -6502,7 +6502,7 @@ void tst_QString::literals()
 
     QVERIFY(str.length() == 4);
     QVERIFY(str == QLatin1String("abcd"));
-    QVERIFY(str.data_ptr()->ref.isStatic());
+    QVERIFY(str.data_ptr()->isStatic());
     QVERIFY(str.data_ptr()->offset == sizeof(QStringData));
 
     const QChar *s = str.constData();

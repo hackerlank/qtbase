@@ -163,7 +163,7 @@ static inline const QByteArray stringData(const QMetaObject *mo, int index)
 {
 #if 0
     const QByteArrayDataPtr data = { const_cast<QByteArrayData*>(&mo->d.stringdata[index]) };
-    Q_ASSERT(data.ptr->ref.isStatic());
+    Q_ASSERT(data.ptr->isStatic());
     Q_ASSERT(data.ptr->allocatedCapacity() == 0);
     Q_ASSERT(data.ptr->size >= 0);
 #endif

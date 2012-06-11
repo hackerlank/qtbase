@@ -85,11 +85,11 @@ public:
     bool isNull() const { return d.isNull(); }
     bool isEmpty() const { return this->empty(); }
 
-    bool isStatic() const { return d->ref.isStatic(); }
-    bool isShared() const { return d->ref.isShared(); }
+    bool isStatic() const { return d->isStatic(); }
+    bool isShared() const { return d->isShared(); }
     bool isSharedWith(const SimpleVector &other) const { return d == other.d; }
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
-    bool isSharable() const { return d->ref.isSharable(); }
+    bool isSharable() const { return d->isSharable(); }
     void setSharable(bool sharable) { d.setSharable(sharable); }
 #endif
 
@@ -145,7 +145,7 @@ public:
         if (n <= capacity()) {
             if (d->flags & Data::CapacityReserved)
                 return;
-            if (!d->ref.isShared()) {
+            if (!d->isShared()) {
                 d->flags |= Data::CapacityReserved;
                 return;
             }

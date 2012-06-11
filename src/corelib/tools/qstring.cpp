@@ -1683,7 +1683,7 @@ void QString::resize(int size)
     if (size < 0)
         size = 0;
 
-    if (!d->ref.isShared() && !d->isMutable() && size < d->size) {
+    if (!d->isShared() && !d->isMutable() && size < d->size) {
         d->size = size;
         return;
     }
@@ -1777,7 +1777,7 @@ void QString::reallocData(uint alloc, bool grow)
         x->size = qMin(int(alloc) - 1, d->size);
         ::memcpy(x->data(), d->data(), x->size * sizeof(QChar));
         x->data()[x->size] = 0;
-        if (!d->ref.deref())
+        if (!d->deref())
             Data::deallocate(d);
         d = x;
     } else {
@@ -1809,8 +1809,8 @@ void QString::expand(int i)
 
 QString &QString::operator=(const QString &other) Q_DECL_NOTHROW
 {
-    other.d->ref.ref();
-    if (!d->ref.deref())
+    other.d->ref();
+    if (!d->deref())
         Data::deallocate(d);
     d = other.d;
     return *this;
@@ -2086,7 +2086,7 @@ QString &QString::append(const QString &str)
 QString &QString::append(const QChar *str, int len)
 {
     if (str && len > 0) {
-        if (d->ref.isShared() || uint(d->size + len) + 1u > d->allocatedCapacity())
+        if (d->ref_.isShared() || uint(d->size + len) + 1u > d->allocatedCapacity())
             reallocData(uint(d->size + len) + 1u, true);
         memcpy(d->data() + d->size, str, len * sizeof(QChar));
         d->size += len;
@@ -4656,7 +4656,7 @@ QString::Data *QString::fromLatin1_helper(const char *str, int size)
 QString::Data *QString::fromAscii_helper(const char *str, int size)
 {
     QString s = fromUtf8(str, size);
-    s.d->ref.ref();
+    s.d->ref();
     return s.d;
 }
 
@@ -8166,7 +8166,7 @@ QString &QString::setRawData(const QChar *unicode, int size)
 {
     if (!unicode || !size) {
         clear();
-    } else if (d->ref.isShared() || !IS_RAW_DATA(d)) {
+    } else if (d->isShared() || !IS_RAW_DATA(d)) {
         *this = fromRawData(unicode, size);
     } else {
         d->size = size;

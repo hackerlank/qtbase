@@ -214,7 +214,7 @@ struct QStaticStringData
 
     QStringData *data_ptr() const
     {
-        Q_ASSERT(str.ref.isStatic());
+        Q_ASSERT(str.isStatic());
         return const_cast<QStringData *>(static_cast<const QStringData*>(&str));
     }
 };
@@ -912,11 +912,11 @@ inline const QChar *QString::constData() const
 inline void QString::detach()
 { if (d->needsDetach()) reallocData(uint(d->size) + 1u); }
 inline bool QString::isDetached() const
-{ return !d->ref.isShared(); }
+{ return !d->isShared(); }
 inline void QString::clear()
 { if (!isNull()) *this = QString(); }
 inline QString::QString(const QString &other) Q_DECL_NOTHROW : d(other.d)
-{ Q_ASSERT(&other != this); d->ref.ref(); }
+{ Q_ASSERT(&other != this); d->ref(); }
 inline int QString::capacity() const
 { int realCapacity = d->constAllocatedCapacity(); return realCapacity ? realCapacity - 1 : 0; }
 inline QString &QString::setNum(short n, int base)
@@ -1093,7 +1093,7 @@ inline void QCharRef::setCell(uchar acell) { QChar(*this).setCell(acell); }
 
 
 inline QString::QString() Q_DECL_NOTHROW : d(Data::sharedNull()) {}
-inline QString::~QString() { if (!d->ref.deref()) Data::deallocate(d); }
+inline QString::~QString() { if (!d->deref()) Data::deallocate(d); }
 
 inline void QString::reserve(int asize)
 {

@@ -129,7 +129,7 @@ QJsonValue::QJsonValue(QJsonPrivate::Data *data, QJsonPrivate::Base *base, const
     case String: {
         QString s = v.toString(base);
         stringData = s.data_ptr();
-        stringData->ref.ref();
+        stringData->ref();
         break;
     }
     case Array:
@@ -206,7 +206,7 @@ QJsonValue::QJsonValue(const QString &s)
 void QJsonValue::stringDataFromQStringHelper(const QString &string)
 {
     stringData = *(QStringData **)(&string);
-    stringData->ref.ref();
+    stringData->ref();
 }
 
 /*!
@@ -248,7 +248,7 @@ QJsonValue::QJsonValue(const QJsonObject &o)
  */
 QJsonValue::~QJsonValue()
 {
-    if (t == String && stringData && !stringData->ref.deref())
+    if (t == String && stringData && !stringData->deref())
         free(stringData);
 
     if (d && !d->ref.deref())
@@ -267,7 +267,7 @@ QJsonValue::QJsonValue(const QJsonValue &other)
         d->ref.ref();
 
     if (t == String && stringData)
-        stringData->ref.ref();
+        stringData->ref();
 }
 
 /*!
@@ -553,7 +553,7 @@ QString QJsonValue::toString(const QString &defaultValue) const
 {
     if (t != String)
         return defaultValue;
-    stringData->ref.ref(); // the constructor below doesn't add a ref.
+    stringData->ref(); // the constructor below doesn't add a ref.
     QStringDataPtr holder = { stringData };
     return QString(holder);
 }
@@ -569,7 +569,7 @@ QString QJsonValue::toString() const
 {
     if (t != String)
         return QString();
-    stringData->ref.ref(); // the constructor below doesn't add a ref.
+    stringData->ref(); // the constructor below doesn't add a ref.
     QStringDataPtr holder = { stringData };
     return QString(holder);
 }

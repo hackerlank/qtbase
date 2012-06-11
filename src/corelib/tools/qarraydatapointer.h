@@ -58,7 +58,7 @@ public:
     }
 
     QArrayDataPointer(const QArrayDataPointer &other)
-        : d(other.d->ref.ref()
+        : d(other.d->ref()
             ? other.d
             : other.clone(other.d->cloneFlags()))
     {
@@ -111,7 +111,7 @@ public:
 
     ~QArrayDataPointer()
     {
-        if (!d->ref.deref()) {
+        if (!d->deref()) {
             if (d->isMutable())
                 (*this)->destroyAll();
             Data::deallocate(d);
@@ -138,7 +138,7 @@ public:
             QArrayDataPointer old(d);
             d = detached;
         } else {
-            d->ref.setSharable(sharable);
+            d->setSharable(sharable);
         }
     }
 

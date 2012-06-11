@@ -128,15 +128,10 @@ public:
         return d;
     }
 
-    bool needsDetach() const
-    {
-        return (!d->isMutable() || d->ref.isShared());
-    }
-
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
     void setSharable(bool sharable)
     {
-        if (needsDetach()) {
+        if (d->needsDetach()) {
             Data *detached = clone(sharable
                     ? d->detachFlags() & ~QArrayData::Unsharable
                     : d->detachFlags() | QArrayData::Unsharable);
@@ -163,7 +158,7 @@ public:
 
     bool detach()
     {
-        if (needsDetach()) {
+        if (d->needsDetach()) {
             Data *copy = clone(d->detachFlags());
             QArrayDataPointer old(d);
             d = copy;

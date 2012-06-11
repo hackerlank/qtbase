@@ -62,7 +62,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define IS_RAW_DATA(d) (!(d)->isMutable())
+#define IS_RAW_DATA(d) ((d)->flags & QArrayData::RawDataType)
 
 QT_BEGIN_NAMESPACE
 
@@ -1164,7 +1164,7 @@ QByteArray &QByteArray::operator=(const char *str)
     } else {
         const int len = int(strlen(str));
         const int fullLen = len + 1;
-        if (d->ref.isShared() || fullLen > int(d->allocatedCapacity())
+        if (d->needsDetach() || fullLen > int(d->allocatedCapacity())
                 || (len < d->size && fullLen < int(d->allocatedCapacity() >> 1)))
             reallocData(fullLen, d->detachFlags());
         x = d;
@@ -1641,7 +1641,7 @@ void QByteArray::resize(int size)
     if (size < 0)
         size = 0;
 
-    if (IS_RAW_DATA(d) && !d->ref.isShared() && size < d->size) {
+    if (!d->ref.isShared() && !d->isMutable() && size < d->size) {
         d->size = size;
         return;
     }
@@ -1666,11 +1666,11 @@ void QByteArray::resize(int size)
         x->data()[size] = '\0';
         d = x;
     } else {
-        if (d->ref.isShared() || size > capacity()
+        if (d->needsDetach() || size > capacity()
                 || (!(d->flags & Data::CapacityReserved) && size < d->size
                     && size < (capacity() >> 1)))
             reallocData(uint(size) + 1u, d->detachFlags() | Data::GrowsForward);
-        if (d->allocatedCapacity()) {
+        if (d->isMutable()) {
             d->size = size;
             d->data()[size] = '\0';
         }
@@ -1698,7 +1698,7 @@ QByteArray &QByteArray::fill(char ch, int size)
 
 void QByteArray::reallocData(uint alloc, Data::ArrayOptions options)
 {
-    if (d->ref.isShared() || IS_RAW_DATA(d)) {
+    if (d->needsDetach()) {
         Data *x = Data::allocate(alloc, options);
         Q_CHECK_PTR(x);
         x->size = qMin(int(alloc) - 1, d->size);
@@ -1793,7 +1793,7 @@ QByteArray &QByteArray::prepend(const char *str)
 QByteArray &QByteArray::prepend(const char *str, int len)
 {
     if (str) {
-        if (d->ref.isShared() || d->size + len > capacity())
+        if (d->needsDetach() || d->size + len > capacity())
             reallocData(uint(d->size + len) + 1u, d->detachFlags() | Data::GrowsForward);
         memmove(d->data()+len, d->data(), d->size);
         memcpy(d->data(), str, len);
@@ -1819,7 +1819,7 @@ QByteArray &QByteArray::prepend(const char *str, int len)
 
 QByteArray &QByteArray::prepend(char ch)
 {
-    if (d->ref.isShared() || d->size + 1 > capacity())
+    if (d->needsDetach() || d->size + 1 > capacity())
         reallocData(uint(d->size) + 2u, d->detachFlags() | Data::GrowsForward);
     memmove(d->data()+1, d->data(), d->size);
     d->data()[0] = ch;
@@ -1857,7 +1857,7 @@ QByteArray &QByteArray::append(const QByteArray &ba)
     if (d->size == 0 && d->ref.isStatic() && !IS_RAW_DATA(ba.d)) {
         *this = ba;
     } else if (ba.d->size != 0) {
-        if (d->ref.isShared() || d->size + ba.d->size > capacity())
+        if (d->needsDetach() || d->size + ba.d->size > capacity())
             reallocData(uint(d->size + ba.d->size) + 1u, d->detachFlags() | Data::GrowsForward);
         memcpy(d->data() + d->size, ba.d->data(), ba.d->size);
         d->size += ba.d->size;
@@ -1889,7 +1889,7 @@ QByteArray& QByteArray::append(const char *str)
 {
     if (str) {
         const int len = int(strlen(str));
-        if (d->ref.isShared() || d->size + len > capacity())
+        if (d->needsDetach() || d->size + len > capacity())
             reallocData(uint(d->size + len) + 1u, d->detachFlags() | Data::GrowsForward);
         memcpy(d->data() + d->size, str, len + 1); // include null terminator
         d->size += len;
@@ -1914,7 +1914,7 @@ QByteArray &QByteArray::append(const char *str, int len)
     if (len < 0)
         len = qstrlen(str);
     if (str && len) {
-        if (d->ref.isShared() || d->size + len > capacity())
+        if (d->needsDetach() || d->size + len > capacity())
             reallocData(uint(d->size + len) + 1u, d->detachFlags() | Data::GrowsForward);
         memcpy(d->data() + d->size, str, len); // include null terminator
         d->size += len;
@@ -1942,7 +1942,7 @@ QByteArray &QByteArray::append(const char *str, int len)
 
 QByteArray& QByteArray::append(char ch)
 {
-    if (d->ref.isShared() || d->size + 1 > capacity())
+    if (d->needsDetach() || d->size + 1 > capacity())
         reallocData(uint(d->size) + 2u, d->detachFlags() | Data::GrowsForward);
     d->data()[d->size++] = ch;
     d->data()[d->size] = '\0';

@@ -138,7 +138,7 @@ QArrayData *QArrayData::allocate(size_t objectSize, size_t alignment,
         return 0;
 
     size_t allocSize = calculateBlockSize(capacity, objectSize, headerSize, options);
-    options |= ArrayOption(AllocatedDataType);
+    options |= AllocatedDataType | Mutable;
     QArrayAllocatedData *header = static_cast<QArrayAllocatedData *>(allocateData(allocSize, options));
     if (header) {
         // find where offset should point to so that data() is aligned to alignment bytes
@@ -166,6 +166,7 @@ QArrayData *QArrayData::reallocateUnaligned(QArrayData *data, size_t objectSize,
     options |= ArrayOption(AllocatedDataType);
     size_t headerSize = sizeof(QArrayAllocatedData);
     size_t allocSize = calculateBlockSize(capacity, objectSize, headerSize, options);
+    options |= AllocatedDataType | Mutable;
     QArrayAllocatedData *header = static_cast<QArrayAllocatedData *>(reallocateData(data, allocSize, options));
     if (header)
         header->alloc = capacity;

@@ -380,7 +380,7 @@ inline QVector<T>::QVector(const QVector<T> &v)
 template <typename T>
 void QVector<T>::detach()
 {
-    if (!isDetached()) {
+    if (d->needsDetach()) {
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
         if (!d->allocatedCapacity())
 

@@ -93,9 +93,9 @@ void tst_QArrayData::referenceCounting()
 {
     {
         // Reference counting initialized to 1 (owned)
-        QArrayData array = { { Q_BASIC_ATOMIC_INITIALIZER(1) }, QArrayData::DefaultRawFlags, 0, 0 };
+        QArrayData array = { Q_BASIC_ATOMIC_INITIALIZER(1), QArrayData::DefaultRawFlags, 0, 0 };
 
-        QCOMPARE(array.ref_.atomic.load(), 1);
+        QCOMPARE(array.ref_.load(), 1);
 
         QVERIFY(!array.isStatic());
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
@@ -103,19 +103,19 @@ void tst_QArrayData::referenceCounting()
 #endif
 
         QVERIFY(array.ref());
-        QCOMPARE(array.ref_.atomic.load(), 2);
+        QCOMPARE(array.ref_.load(), 2);
 
         QVERIFY(array.deref());
-        QCOMPARE(array.ref_.atomic.load(), 1);
+        QCOMPARE(array.ref_.load(), 1);
 
         QVERIFY(array.ref());
-        QCOMPARE(array.ref_.atomic.load(), 2);
+        QCOMPARE(array.ref_.load(), 2);
 
         QVERIFY(array.deref());
-        QCOMPARE(array.ref_.atomic.load(), 1);
+        QCOMPARE(array.ref_.load(), 1);
 
         QVERIFY(!array.deref());
-        QCOMPARE(array.ref_.atomic.load(), 0);
+        QCOMPARE(array.ref_.load(), 0);
 
         // Now would be a good time to free/release allocated data
     }
@@ -123,19 +123,19 @@ void tst_QArrayData::referenceCounting()
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
     {
         // Reference counting initialized to 0 (non-sharable)
-        QArrayData array = { { Q_BASIC_ATOMIC_INITIALIZER(0) }, QArrayData::Unsharable, 0, 0 };
+        QArrayData array = { Q_BASIC_ATOMIC_INITIALIZER(1), QArrayData::DefaultRawFlags | QArrayData::Unsharable, 0, 0 };
 
-        QCOMPARE(array.ref_.atomic.load(), 0);
+        QCOMPARE(array.ref_.load(), 1);
 
         QVERIFY(!array.isStatic());
         QVERIFY(!array.isSharable());
 
         QVERIFY(!array.ref());
         // Reference counting fails, data should be copied
-        QCOMPARE(array.ref_.atomic.load(), 0);
+        QCOMPARE(array.ref_.load(), 1);
 
         QVERIFY(!array.deref());
-        QCOMPARE(array.ref_.atomic.load(), 0);
+        QCOMPARE(array.ref_.load(), 0);
 
         // Free/release data
     }
@@ -143,9 +143,9 @@ void tst_QArrayData::referenceCounting()
 
     {
         // Reference counting initialized to -1 (static read-only data)
-        QArrayData array = { Q_REFCOUNT_INITIALIZE_STATIC, QArrayData::StaticDataFlags, 0, 0 };
+        QArrayData array = { Q_BASIC_ATOMIC_INITIALIZER(-1), QArrayData::StaticDataFlags, 0, 0 };
 
-        QCOMPARE(array.ref_.atomic.load(), -1);
+        QCOMPARE(array.ref_.load(), -1);
 
         QVERIFY(array.isStatic());
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
@@ -153,10 +153,10 @@ void tst_QArrayData::referenceCounting()
 #endif
 
         QVERIFY(array.ref());
-        QCOMPARE(array.ref_.atomic.load(), -1);
+        QCOMPARE(array.ref_.load(), -1);
 
         QVERIFY(array.deref());
-        QCOMPARE(array.ref_.atomic.load(), -1);
+        QCOMPARE(array.ref_.load(), -1);
 
     }
 }
@@ -172,8 +172,8 @@ void tst_QArrayData::sharedNullEmpty()
     QVERIFY(empty->isStatic());
     QVERIFY(empty->isShared());
 
-    QCOMPARE(null->ref_.atomic.load(), -1);
-    QCOMPARE(empty->ref_.atomic.load(), -1);
+    QCOMPARE(null->ref_.load(), -1);
+    QCOMPARE(empty->ref_.load(), -1);
 
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
     QVERIFY(null->isSharable());
@@ -181,14 +181,14 @@ void tst_QArrayData::sharedNullEmpty()
 #endif
 
 
-    QCOMPARE(null->ref_.atomic.load(), -1);
-    QCOMPARE(empty->ref_.atomic.load(), -1);
+    QCOMPARE(null->ref_.load(), -1);
+    QCOMPARE(empty->ref_.load(), -1);
 
     QVERIFY(null->deref());
     QVERIFY(empty->deref());
 
-    QCOMPARE(null->ref_.atomic.load(), -1);
-    QCOMPARE(empty->ref_.atomic.load(), -1);
+    QCOMPARE(null->ref_.load(), -1);
+    QCOMPARE(empty->ref_.load(), -1);
 
     QVERIFY(null != empty);
 
@@ -1518,7 +1518,7 @@ void fromRawData_impl()
     {
         // Default: Immutable, sharable
         SimpleVector<T> raw = SimpleVector<T>::fromRawData(array,
-                sizeof(array)/sizeof(array[0]), QArrayData::DefaultAllocationFlags);
+                sizeof(array)/sizeof(array[0]), QArrayData::DefaultRawFlags);
 
         QCOMPARE(raw.size(), size_t(11));
         QCOMPARE((const T *)raw.constBegin(), array);

@@ -675,7 +675,7 @@ void QVector<T>::removeLast()
     Q_ASSERT(!isEmpty());
     Q_ASSERT(d->allocatedCapacity());
 
-    if (!d->ref_.isShared()) {
+    if (!d->needsDetach()) {
         --d->size;
         if (QTypeInfo<T>::isComplex)
             (d->data() + d->size)->~T();

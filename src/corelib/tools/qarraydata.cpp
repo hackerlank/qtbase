@@ -50,25 +50,22 @@ QT_WARNING_PUSH
 QT_WARNING_DISABLE_GCC("-Wmissing-field-initializers")
 
 const QArrayData QArrayData::shared_null[2] = {
-    { Q_REFCOUNT_INITIALIZE_STATIC, QArrayData::StaticDataFlags, 0, sizeof(QArrayData) }, // shared null
+    { Q_BASIC_ATOMIC_INITIALIZER(-1), QArrayData::StaticDataFlags, 0, sizeof(QArrayData) }, // shared null
     /* zero initialized terminator */};
 
 static const QArrayData emptyNotNullShared[2] = {
-    { Q_REFCOUNT_INITIALIZE_STATIC, QArrayData::StaticDataFlags, 0, sizeof(QArrayData) }, // shared empty
+    { Q_BASIC_ATOMIC_INITIALIZER(-1), QArrayData::StaticDataFlags, 0, sizeof(QArrayData) }, // shared empty
     /* zero initialized terminator */};
 
 QT_WARNING_POP
 
 static const QArrayData emptyNotNullUnsharable[2] = {
-    { { Q_BASIC_ATOMIC_INITIALIZER(0) }, QArrayData::StaticDataFlags | QArrayData::Unsharable,
+    { Q_BASIC_ATOMIC_INITIALIZER(1), QArrayData::StaticDataFlags | QArrayData::Unsharable,
       0, sizeof(QArrayData) }, // unsharable empty
     /* zero initialized terminator */};
 
 static const QArrayData &qt_array_empty = emptyNotNullShared[0];
-static const QArrayData &qt_array_unsharable_empty = emptyNotNullUnsharable[1];
-
-// flags from QArrayData::AllocationOptions to mask off.
-static const uint maskedFlags = uint(QArrayData::Unsharable);
+static const QArrayData &qt_array_unsharable_empty = emptyNotNullUnsharable[0];
 
 static inline size_t calculateBlockSize(size_t &capacity, size_t objectSize, size_t headerSize,
                                         uint options)
@@ -89,15 +86,8 @@ static QArrayData *allocateData(size_t allocSize, uint options)
 {
     QArrayData *header = static_cast<QArrayData *>(::malloc(allocSize));
     if (header) {
-#if !defined(QT_NO_UNSHARABLE_CONTAINERS)
-        if (options & QArrayData::Unsharable)
-            header->ref_.initializeUnsharable();
-        else
-            header->ref_.initializeOwned();
-#else
-        header->ref_.atomic.store(1);
-#endif
-        header->flags = options & ~maskedFlags;
+        header->ref_.store(1);
+        header->flags = options;
         header->size = 0;
     }
     return header;
@@ -138,7 +128,7 @@ QArrayData *QArrayData::allocate(size_t objectSize, size_t alignment,
         return 0;
 
     size_t allocSize = calculateBlockSize(capacity, objectSize, headerSize, options);
-    options |= AllocatedDataType | Mutable;
+    options |= AllocatedDataType | MutableData;
     QArrayAllocatedData *header = static_cast<QArrayAllocatedData *>(allocateData(allocSize, options));
     if (header) {
         // find where offset should point to so that data() is aligned to alignment bytes
@@ -166,7 +156,7 @@ QArrayData *QArrayData::reallocateUnaligned(QArrayData *data, size_t objectSize,
     options |= ArrayOption(AllocatedDataType);
     size_t headerSize = sizeof(QArrayAllocatedData);
     size_t allocSize = calculateBlockSize(capacity, objectSize, headerSize, options);
-    options |= AllocatedDataType | Mutable;
+    options |= AllocatedDataType | MutableData;
     QArrayAllocatedData *header = static_cast<QArrayAllocatedData *>(reallocateData(data, allocSize, options));
     if (header)
         header->alloc = capacity;

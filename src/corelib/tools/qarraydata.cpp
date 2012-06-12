@@ -50,17 +50,17 @@ QT_WARNING_PUSH
 QT_WARNING_DISABLE_GCC("-Wmissing-field-initializers")
 
 const QArrayData QArrayData::shared_null[2] = {
-    { Q_BASIC_ATOMIC_INITIALIZER(-1), QArrayData::StaticDataFlags, 0, sizeof(QArrayData) }, // shared null
+    { QArrayData::StaticDataFlags, 0, sizeof(QArrayData) }, // shared null
     /* zero initialized terminator */};
 
 static const QArrayData emptyNotNullShared[2] = {
-    { Q_BASIC_ATOMIC_INITIALIZER(-1), QArrayData::StaticDataFlags, 0, sizeof(QArrayData) }, // shared empty
+    { QArrayData::StaticDataFlags, 0, sizeof(QArrayData) }, // shared empty
     /* zero initialized terminator */};
 
 QT_WARNING_POP
 
 static const QArrayData emptyNotNullUnsharable[2] = {
-    { Q_BASIC_ATOMIC_INITIALIZER(1), QArrayData::StaticDataFlags | QArrayData::Unsharable,
+    { QArrayData::StaticDataFlags | QArrayData::Unsharable,
       0, sizeof(QArrayData) }, // unsharable empty
     /* zero initialized terminator */};
 
@@ -86,8 +86,8 @@ static QArrayData *allocateData(size_t allocSize, uint options)
 {
     QArrayData *header = static_cast<QArrayData *>(::malloc(allocSize));
     if (header) {
-        header->ref_.store(1);
         header->flags = options;
+        header->refCounter().store(1);
         header->size = 0;
     }
     return header;
@@ -95,6 +95,7 @@ static QArrayData *allocateData(size_t allocSize, uint options)
 
 static QArrayData *reallocateData(QArrayData *header, size_t allocSize, uint options)
 {
+    Q_ASSERT(!(options & QArrayData::ImmutableHeader));
     header = static_cast<QArrayData *>(::realloc(header, allocSize));
     if (header)
         header->flags = options;
@@ -143,7 +144,7 @@ QArrayData *QArrayData::allocate(size_t objectSize, size_t alignment,
 
 QArrayData *QArrayData::prepareRawData(ArrayOptions options) Q_DECL_NOTHROW
 {
-    return allocateData(sizeof(QArrayData), (options & ~DataTypeBits) | RawDataType);
+    return allocateData(sizeof(QArrayRawData), (options & ~DataTypeBits) | RawDataType);
 }
 
 QArrayData *QArrayData::reallocateUnaligned(QArrayData *data, size_t objectSize, size_t capacity,

@@ -91,30 +91,40 @@ template <class T> const T &const_(const T &t) { return t; }
 
 void tst_QArrayData::referenceCounting()
 {
+    struct PODArrayRawData {
+        QArrayData d;
+        QBasicAtomicInt ref_;
+    };
+    {
+        // sanity check:
+        PODArrayRawData array;
+        Q_ASSERT(&array.ref_ == &static_cast<QArrayRawData &>(array.d).ref_);
+    }
+
     {
         // Reference counting initialized to 1 (owned)
-        QArrayData array = { Q_BASIC_ATOMIC_INITIALIZER(1), QArrayData::DefaultRawFlags, 0, 0 };
+        PODArrayRawData array = { { QArrayData::DefaultRawFlags, 0, 0 }, Q_BASIC_ATOMIC_INITIALIZER(1) };
 
         QCOMPARE(array.ref_.load(), 1);
 
-        QVERIFY(!array.isStatic());
+        QVERIFY(!array.d.isStatic());
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
-        QVERIFY(array.isSharable());
+        QVERIFY(array.d.isSharable());
 #endif
 
-        QVERIFY(array.ref());
+        QVERIFY(array.d.ref());
         QCOMPARE(array.ref_.load(), 2);
 
-        QVERIFY(array.deref());
+        QVERIFY(array.d.deref());
         QCOMPARE(array.ref_.load(), 1);
 
-        QVERIFY(array.ref());
+        QVERIFY(array.d.ref());
         QCOMPARE(array.ref_.load(), 2);
 
-        QVERIFY(array.deref());
+        QVERIFY(array.d.deref());
         QCOMPARE(array.ref_.load(), 1);
 
-        QVERIFY(!array.deref());
+        QVERIFY(!array.d.deref());
         QCOMPARE(array.ref_.load(), 0);
 
         // Now would be a good time to free/release allocated data
@@ -122,19 +132,19 @@ void tst_QArrayData::referenceCounting()
 
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
     {
-        // Reference counting initialized to 0 (non-sharable)
-        QArrayData array = { Q_BASIC_ATOMIC_INITIALIZER(1), QArrayData::DefaultRawFlags | QArrayData::Unsharable, 0, 0 };
+        // Reference counting initialized to 1 (owned)
+        PODArrayRawData array = { { QArrayData::DefaultRawFlags | QArrayData::Unsharable, 0, 0 }, Q_BASIC_ATOMIC_INITIALIZER(1) };
 
         QCOMPARE(array.ref_.load(), 1);
 
-        QVERIFY(!array.isStatic());
-        QVERIFY(!array.isSharable());
+        QVERIFY(!array.d.isStatic());
+        QVERIFY(!array.d.isSharable());
 
-        QVERIFY(!array.ref());
+        QVERIFY(!array.d.ref());
         // Reference counting fails, data should be copied
         QCOMPARE(array.ref_.load(), 1);
 
-        QVERIFY(!array.deref());
+        QVERIFY(!array.d.deref());
         QCOMPARE(array.ref_.load(), 0);
 
         // Free/release data
@@ -142,10 +152,12 @@ void tst_QArrayData::referenceCounting()
 #endif
 
     {
-        // Reference counting initialized to -1 (static read-only data)
-        QArrayData array = { Q_BASIC_ATOMIC_INITIALIZER(-1), QArrayData::StaticDataFlags, 0, 0 };
-
-        QCOMPARE(array.ref_.load(), -1);
+        char guard1[16];
+        // No reference counting (static data)
+        QArrayData array = { QArrayData::StaticDataFlags, 0, 0 };
+        char guard2[16];
+        memset(guard1, 0, sizeof guard1);
+        memset(guard2, 0, sizeof guard2);
 
         QVERIFY(array.isStatic());
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
@@ -153,11 +165,16 @@ void tst_QArrayData::referenceCounting()
 #endif
 
         QVERIFY(array.ref());
-        QCOMPARE(array.ref_.load(), -1);
+        for (uint i = 0; i < sizeof guard1; ++i)
+            QCOMPARE(guard1[i], '\0');
+        for (uint i = 0; i < sizeof guard2; ++i)
+            QCOMPARE(guard2[i], '\0');
 
         QVERIFY(array.deref());
-        QCOMPARE(array.ref_.load(), -1);
-
+        for (uint i = 0; i < sizeof guard1; ++i)
+            QCOMPARE(guard1[i], '\0');
+        for (uint i = 0; i < sizeof guard2; ++i)
+            QCOMPARE(guard2[i], '\0');
     }
 }
 
@@ -172,23 +189,14 @@ void tst_QArrayData::sharedNullEmpty()
     QVERIFY(empty->isStatic());
     QVERIFY(empty->isShared());
 
-    QCOMPARE(null->ref_.load(), -1);
-    QCOMPARE(empty->ref_.load(), -1);
-
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
     QVERIFY(null->isSharable());
     QVERIFY(empty->isSharable());
 #endif
 
 
-    QCOMPARE(null->ref_.load(), -1);
-    QCOMPARE(empty->ref_.load(), -1);
-
     QVERIFY(null->deref());
     QVERIFY(empty->deref());
-
-    QCOMPARE(null->ref_.load(), -1);
-    QCOMPARE(empty->ref_.load(), -1);
 
     QVERIFY(null != empty);
 
@@ -225,7 +233,7 @@ void tst_QArrayData::staticData()
 
 void tst_QArrayData::simpleVector()
 {
-    QArrayData data0 = { Q_REFCOUNT_INITIALIZE_STATIC, QArrayData::StaticDataFlags, 0, 0 };
+    QArrayData data0 = { QArrayData::StaticDataFlags, 0, 0 };
     QStaticArrayData<int, 7> data1 = {
             Q_STATIC_ARRAY_DATA_HEADER_INITIALIZER(int, 7),
             { 0, 1, 2, 3, 4, 5, 6 }

@@ -50,7 +50,7 @@ struct QArrayForeignData;
 struct Q_CORE_EXPORT QArrayData
 {
     enum ArrayOption {
-        RawDataType          = 0x0001,  //!< this class is really a QArrayData
+        RawDataType          = 0x0001,  //!< this class is really a QArrayRawData
         AllocatedDataType    = 0x0002,  //!< this class is really a QArrayAllocatedData
         ForeignDataType      = 0x0004,  //!< this class is really a QArrayForeignData
         DataTypeBits         = 0x000f,
@@ -63,7 +63,7 @@ struct Q_CORE_EXPORT QArrayData
         ImmutableHeader      = 0x0200,  //!< the header is static, it can't be changed
 
         /// this option is used by the Q_ARRAY_LITERAL and similar macros
-        StaticDataFlags = RawDataType | ImmutableHeader,
+        StaticDataFlags = ImmutableHeader,
         /// this option is used by the allocate() function
         DefaultAllocationFlags = MutableData,
         /// this option is used by the prepareRawData() function
@@ -71,15 +71,15 @@ struct Q_CORE_EXPORT QArrayData
     };
     Q_DECLARE_FLAGS(ArrayOptions, ArrayOption)
 
-    QAtomicInt ref_;
     uint flags;
     int size;       // ### move to the main class body?
-    // -- 4 bytes padding here on 64-bit systems --
     qptrdiff offset; // in bytes from beginning of header
-    // size is 16 / 24 bytes
+    // size is 12 / 16 bytes
 
     inline size_t allocatedCapacity();
     inline size_t constAllocatedCapacity() const;
+    inline QBasicAtomicInt &refCounter();
+    inline int refCounterValue() const;
     inline QArrayAllocatedData *asAllocatedData();
     inline const QArrayAllocatedData *asAllocatedData() const;
     inline QArrayForeignData *asForeignData();
@@ -93,7 +93,7 @@ struct Q_CORE_EXPORT QArrayData
             return false;
 #endif
         if (!isStatic())
-            ref_.ref();
+            refCounter().ref();
         return true;
     }
 
@@ -102,7 +102,7 @@ struct Q_CORE_EXPORT QArrayData
     {
         if (isStatic())
             return true;
-        return ref_.deref();
+        return refCounter().deref();
     }
 
     void *data()
@@ -134,7 +134,7 @@ struct Q_CORE_EXPORT QArrayData
 
     bool isShared() const
     {
-        return ref_.load() != 1;
+        return isStatic() || refCounterValue() != 1;
     }
 
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
@@ -205,15 +205,24 @@ struct Q_CORE_EXPORT QArrayData
     }
 };
 
+struct QArrayRawData : public QArrayData
+{
+    QBasicAtomicInt ref_;
+    // 4 bytes tail-padding on 64-bit systems
+    // size is 16 / 24 bytes
+};
+
 struct QArrayAllocatedData : public QArrayData
 {
+    QBasicAtomicInt ref_;
     uint alloc;
-    // 4 bytes tail padding on 64-bit systems
-    // size is 20 / 32 bytes
+    // size is 16 / 24 bytes
 };
 
 struct QArrayForeignData : public QArrayData
 {
+    QBasicAtomicInt ref_;
+    // -- 4 bytes padding on 64-bit systems --
     void *token;
     void (*notifyFunction)(void *);
     // size is 24 / 40 bytes
@@ -260,6 +269,30 @@ inline size_t QArrayData::constAllocatedCapacity() const
 inline size_t QArrayData::allocatedCapacity()
 {
     return constAllocatedCapacity();
+}
+
+inline QBasicAtomicInt &QArrayData::refCounter()
+{
+    QBasicAtomicInt &allocated = static_cast<QArrayAllocatedData *>(this)->ref_;
+    QBasicAtomicInt &foreign = static_cast<QArrayForeignData *>(this)->ref_;
+    QBasicAtomicInt &raw = static_cast<QArrayRawData *>(this)->ref_;
+    Q_ASSERT(&allocated == &foreign && &allocated == &raw);
+    Q_ASSERT(!isStatic());
+    Q_UNUSED(allocated);
+    Q_UNUSED(foreign);
+    return raw;
+}
+
+inline int QArrayData::refCounterValue() const
+{
+    const QBasicAtomicInt &allocated = static_cast<const QArrayAllocatedData *>(this)->ref_;
+    const QBasicAtomicInt &foreign = static_cast<const QArrayForeignData *>(this)->ref_;
+    const QBasicAtomicInt &raw = static_cast<const QArrayRawData *>(this)->ref_;
+    Q_ASSERT(&allocated == &foreign && &allocated == &raw);
+    Q_ASSERT(!isStatic());
+    Q_UNUSED(allocated);
+    Q_UNUSED(foreign);
+    return raw.load();
 }
 
 template <class T>
@@ -439,7 +472,7 @@ struct QArrayDataPointerRef
 };
 
 #define Q_STATIC_ARRAY_DATA_HEADER_INITIALIZER_WITH_OFFSET(size, offset) \
-    { Q_BASIC_ATOMIC_INITIALIZER(-1), QArrayData::StaticDataFlags, size, offset } \
+    { QArrayData::StaticDataFlags, size, offset } \
     /**/
 
 #define Q_STATIC_ARRAY_DATA_HEADER_INITIALIZER(type, size) \

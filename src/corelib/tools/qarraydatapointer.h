@@ -183,7 +183,10 @@ private:
         return result;
     }
 
-    Data *d;
+    union {
+        Data *d;
+        QArrayAllocatedData *ad;
+    };
 };
 
 template <class T>

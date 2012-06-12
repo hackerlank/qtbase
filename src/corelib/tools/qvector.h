@@ -396,7 +396,7 @@ template <typename T>
 void QVector<T>::reserve(int asize)
 {
     if (asize > int(d->allocatedCapacity()))
-        reallocData(d->size, asize, typename Data::ArrayOptions(d->flags | Data::CapacityReserved));
+        reallocData(d->size, asize, typename Data::ArrayOptions(d->detachFlags() | Data::CapacityReserved));
     else if (isDetached())
         d->flags |= Data::CapacityReserved;
     Q_ASSERT(int(d->allocatedCapacity()) >= asize);

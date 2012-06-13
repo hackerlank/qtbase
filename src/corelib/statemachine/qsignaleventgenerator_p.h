@@ -66,6 +66,9 @@ class QSignalEventGenerator : public QObject
 public:
     QSignalEventGenerator(QStateMachine *parent);
 
+//private slots:
+//    void execute();
+
 private:
 // slots
     void execute(void **_a);

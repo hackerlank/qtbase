@@ -56,38 +56,44 @@ public:
     typedef typename Data::const_iterator const_iterator;
 
     QArrayDataPointer() Q_DECL_NOTHROW
-        : d(Data::sharedNull()), b(Data::sharedNullData()), size(0)
+        : d(Data::sharedNull()), ptr(Data::sharedNullData()), size(0)
     {
     }
 
     QArrayDataPointer(const QArrayDataPointer &other)
-        : d(other.d), b(other.b), size(other.size)
+#ifndef QT_NO_UNSHARABLE_CONTAINERS
+    Q_DECL_NOTHROW
+#endif
+        : d(other.d), ptr(other.ptr), size(other.size)
     {
         if (!other.d->ref()) {
             // must clone
             QPair<Data *, T *> pair = other.clone(other.d->cloneFlags());
             d = pair.first;
-            b = pair.second;
+            ptr = pair.second;
         }
     }
 
-    QArrayDataPointer(Data *header, T *data, size_t n = 0)
-        : d(header), b(data), size(n)
+    QArrayDataPointer(Data *header, T *adata, size_t n = 0) Q_DECL_NOTHROW
+        : d(header), ptr(adata), size(n)
     {
     }
 
-    explicit QArrayDataPointer(QPair<QTypedArrayData<T> *, T *> data, size_t n = 0)
-        : d(data.first), b(data.second), size(n)
+    explicit QArrayDataPointer(QPair<QTypedArrayData<T> *, T *> adata, size_t n = 0)
+        : d(adata.first), ptr(adata.second), size(n)
     {
         Q_CHECK_PTR(d);
     }
 
-    QArrayDataPointer(QArrayDataPointerRef<T> ref)
-        : d(ref.ptr), b(ref.data), size(ref.size)
+    QArrayDataPointer(QArrayDataPointerRef<T> dd) Q_DECL_NOTHROW
+        : d(dd.ptr), ptr(dd.data), size(dd.size)
     {
     }
 
     QArrayDataPointer &operator=(const QArrayDataPointer &other)
+#ifdef QT_NO_UNSHARABLE_CONTAINERS
+    Q_DECL_NOTHROW
+#endif
     {
         QArrayDataPointer tmp(other);
         this->swap(tmp);
@@ -96,9 +102,11 @@ public:
 
 #ifdef Q_COMPILER_RVALUE_REFS
     QArrayDataPointer(QArrayDataPointer &&other) Q_DECL_NOTHROW
-        : d(other.d), b(other.b), size(other.size)
+        : d(other.d), ptr(other.ptr), size(other.size)
     {
         other.d = Data::sharedNull();
+        other.ptr = Data::sharedNullData();
+        other.size = 0;
     }
 
     QArrayDataPointer &operator=(QArrayDataPointer &&other) Q_DECL_NOTHROW
@@ -109,25 +117,25 @@ public:
     }
 #endif
 
-    DataOps &operator*()
+    DataOps &operator*() Q_DECL_NOTHROW
     {
         Q_ASSERT(d);
         return *static_cast<DataOps *>(this);
     }
 
-    DataOps *operator->()
+    DataOps *operator->() Q_DECL_NOTHROW
     {
         Q_ASSERT(d);
         return static_cast<DataOps *>(this);
     }
 
-    const DataOps &operator*() const
+    const DataOps &operator*() const Q_DECL_NOTHROW
     {
         Q_ASSERT(d);
         return *static_cast<const DataOps *>(this);
     }
 
-    const DataOps *operator->() const
+    const DataOps *operator->() const Q_DECL_NOTHROW
     {
         Q_ASSERT(d);
         return static_cast<const DataOps *>(this);
@@ -142,20 +150,20 @@ public:
         }
     }
 
-    bool isNull() const
+    bool isNull() const Q_DECL_NOTHROW
     {
         return d == Data::sharedNull();
     }
 
-    T *data() { return b; }
-    const T *data() const { return b; }
+    T *data() Q_DECL_NOTHROW { return ptr; }
+    const T *data() const Q_DECL_NOTHROW { return ptr; }
 
-    iterator begin() { return data(); }
-    iterator end() { return data() + size; }
-    const_iterator begin() const { return data(); }
-    const_iterator end() const { return data() + size; }
-    const_iterator constBegin() const { return data(); }
-    const_iterator constEnd() const { return data() + size; }
+    iterator begin(iterator = iterator()) Q_DECL_NOTHROW { return data(); }
+    iterator end(iterator = iterator()) Q_DECL_NOTHROW { return data() + size; }
+    const_iterator begin(const_iterator = const_iterator()) const Q_DECL_NOTHROW { return data(); }
+    const_iterator end(const_iterator = const_iterator()) const Q_DECL_NOTHROW { return data() + size; }
+    const_iterator constBegin(const_iterator = const_iterator()) const Q_DECL_NOTHROW { return data(); }
+    const_iterator constEnd(const_iterator = const_iterator()) const Q_DECL_NOTHROW { return data() + size; }
 
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
     void setSharable(bool sharable)
@@ -165,9 +173,9 @@ public:
             detached = clone(sharable
                     ? d->detachFlags() & ~QArrayData::Unsharable
                     : d->detachFlags() | QArrayData::Unsharable);
-            QArrayDataPointer old(d, b, size);
+            QArrayDataPointer old(d, ptr, size);
             d = detached.first;
-            b = detached.second;
+            ptr = detached.second;
         } else {
             d->setSharable(sharable);
         }
@@ -179,25 +187,23 @@ public:
     void swap(QArrayDataPointer &other) Q_DECL_NOTHROW
     {
         qSwap(d, other.d);
-        qSwap(b, other.b);
+        qSwap(ptr, other.ptr);
         qSwap(size, other.size);
     }
 
-    void clear()
+    void clear() Q_DECL_NOEXCEPT_EXPR(std::is_nothrow_destructible<T>::value)
     {
-        QArrayDataPointer tmp(d, b, size);
-        d = Data::sharedNull();
-        b = reinterpret_cast<T *>(d);
-        size = 0;
+        QArrayDataPointer tmp;
+        swap(tmp);
     }
 
     bool detach()
     {
         if (d->needsDetach()) {
             QPair<Data *, T *> copy = clone(d->detachFlags());
-            QArrayDataPointer old(d, b, size);
+            QArrayDataPointer old(d, ptr, size);
             d = copy.first;
-            b = copy.second;
+            ptr = copy.second;
             return true;
         }
 
@@ -205,20 +211,20 @@ public:
     }
 
     // forwards from QArrayData
-    int allocatedCapacity() { return d->allocatedCapacity(); }
-    int constAllocatedCapacity() const { return d->constAllocatedCapacity(); }
-    int refCounterValue() const { return d->refCounterValue(); }
-    bool ref() { return d->ref(); }
-    bool deref() { return d->deref(); }
-    bool isMutable() const { return d->isMutable(); }
-    bool isStatic() const { return d->isStatic(); }
-    bool isShared() const { return d->isShared(); }
-    bool needsDetach() const { return d->needsDetach(); }
-    size_t detachCapacity(size_t newSize) const { return d->detachCapacity(newSize); }
-    typename Data::ArrayOptions &flags() { return reinterpret_cast<typename Data::ArrayOptions &>(d->flags); }
-    typename Data::ArrayOptions flags() const { return typename Data::ArrayOption(d->flags); }
-    typename Data::ArrayOptions detachFlags() const { return d->detachFlags(); }
-    typename Data::ArrayOptions cloneFlags() const { return d->cloneFlags(); }
+    size_t allocatedCapacity() Q_DECL_NOTHROW { return d->allocatedCapacity(); }
+    size_t constAllocatedCapacity() const Q_DECL_NOTHROW { return d->constAllocatedCapacity(); }
+    int refCounterValue() const Q_DECL_NOTHROW { return d->refCounterValue(); }
+    bool ref() Q_DECL_NOTHROW { return d->ref(); }
+    bool deref() Q_DECL_NOTHROW { return d->deref(); }
+    bool isMutable() const Q_DECL_NOTHROW { return d->isMutable(); }
+    bool isStatic() const Q_DECL_NOTHROW { return d->isStatic(); }
+    bool isShared() const Q_DECL_NOTHROW { return d->isShared(); }
+    bool needsDetach() const Q_DECL_NOTHROW { return d->needsDetach(); }
+    size_t detachCapacity(size_t newSize) const Q_DECL_NOTHROW { return d->detachCapacity(newSize); }
+    typename Data::ArrayOptions &flags() Q_DECL_NOTHROW { return reinterpret_cast<typename Data::ArrayOptions &>(d->flags); }
+    typename Data::ArrayOptions flags() const Q_DECL_NOTHROW { return typename Data::ArrayOption(d->flags); }
+    typename Data::ArrayOptions detachFlags() const Q_DECL_NOTHROW { return d->detachFlags(); }
+    typename Data::ArrayOptions cloneFlags() const Q_DECL_NOTHROW { return d->cloneFlags(); }
 
 private:
     QPair<Data *, T *> clone(QArrayData::ArrayOptions options) const Q_REQUIRED_RESULT
@@ -239,26 +245,26 @@ private:
         Data *d;
         QArrayAllocatedData *ad;
     };
-    T *b;
+    T *ptr;
 
 public:
     uint size;
 };
 
 template <class T>
-inline bool operator==(const QArrayDataPointer<T> &lhs, const QArrayDataPointer<T> &rhs)
+inline bool operator==(const QArrayDataPointer<T> &lhs, const QArrayDataPointer<T> &rhs) Q_DECL_NOTHROW
 {
     return lhs.data() == rhs.data() && lhs.size == rhs.size;
 }
 
 template <class T>
-inline bool operator!=(const QArrayDataPointer<T> &lhs, const QArrayDataPointer<T> &rhs)
+inline bool operator!=(const QArrayDataPointer<T> &lhs, const QArrayDataPointer<T> &rhs) Q_DECL_NOTHROW
 {
     return lhs.data() != rhs.data() || lhs.size != rhs.size;
 }
 
 template <class T>
-inline void qSwap(QArrayDataPointer<T> &p1, QArrayDataPointer<T> &p2)
+inline void qSwap(QArrayDataPointer<T> &p1, QArrayDataPointer<T> &p2) Q_DECL_NOTHROW
 {
     p1.swap(p2);
 }
@@ -270,7 +276,7 @@ namespace std
     template <class T>
     inline void swap(
             QT_PREPEND_NAMESPACE(QArrayDataPointer)<T> &p1,
-            QT_PREPEND_NAMESPACE(QArrayDataPointer)<T> &p2)
+            QT_PREPEND_NAMESPACE(QArrayDataPointer)<T> &p2) Q_DECL_NOTHROW
     {
         p1.swap(p2);
     }

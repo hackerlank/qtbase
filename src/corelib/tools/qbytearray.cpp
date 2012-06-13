@@ -2930,13 +2930,14 @@ QByteArray QByteArray::mid(int pos, int len) const
         return QByteArray();
     case QContainerImplHelper::Empty:
     {
-        QByteArrayDataPtr empty = { Data::allocate(0).first };
+        QPair<Data *, char *> pair = Data::allocate(0);
+        QByteArrayData empty = { pair.first, pair.second, 0 };
         return QByteArray(empty);
     }
     case QContainerImplHelper::Full:
         return *this;
     case QContainerImplHelper::Subset:
-        return QByteArray(d->data() + pos, len);
+        return QByteArray(d.b + pos, len);
     }
     Q_UNREACHABLE();
     return QByteArray();

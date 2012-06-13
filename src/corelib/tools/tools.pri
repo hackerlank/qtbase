@@ -25,6 +25,7 @@ HEADERS +=  \
         tools/qdoublescanprint_p.h \
         tools/qeasingcurve.h \
         tools/qfreelist_p.h \
+        tools/qgenericarray.h \
         tools/qhash.h \
         tools/qhashfunctions.h \
         tools/qiterator.h \
@@ -72,7 +73,6 @@ HEADERS +=  \
         tools/qvector.h \
         tools/qversionnumber.h
 
-
 SOURCES += \
         tools/qarraydata.cpp \
         tools/qbitarray.cpp \
@@ -85,6 +85,7 @@ SOURCES += \
         tools/qdatetimeparser.cpp \
         tools/qeasingcurve.cpp \
         tools/qfreelist.cpp \
+        tools/qgenericarray.cpp \
         tools/qhash.cpp \
         tools/qline.cpp \
         tools/qlinkedlist.cpp \

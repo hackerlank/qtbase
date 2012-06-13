@@ -1,6 +1,7 @@
 /****************************************************************************
 **
 ** Copyright (C) 2016 The Qt Company Ltd.
+** Copyright (C) 2016 Intel Corporation.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the QtCore module of the Qt Toolkit.
@@ -70,10 +71,10 @@ struct QPodArrayOps
 
     void copyAppend(const T *b, const T *e)
     {
-        Q_ASSERT(this->isMutable());
-        Q_ASSERT(!this->isShared());
-        Q_ASSERT(b < e);
-        Q_ASSERT(e - b <= this->allocatedCapacity() - this->size);
+        Q_ASSERT(this->isMutable() || b == e);
+        Q_ASSERT(!this->isShared() || b == e);
+        Q_ASSERT(b <= e);
+        Q_ASSERT(size_t(e - b) <= this->allocatedCapacity() - this->size);
 
         ::memcpy(this->end(), b, (e - b) * sizeof(T));
         this->size += e - b;
@@ -84,8 +85,8 @@ struct QPodArrayOps
 
     void copyAppend(size_t n, parameter_type t)
     {
-        Q_ASSERT(this->isMutable());
-        Q_ASSERT(!this->isShared());
+        Q_ASSERT(this->isMutable() || n == 0);
+        Q_ASSERT(!this->isShared() || n == 0);
         Q_ASSERT(n <= uint(this->allocatedCapacity() - this->size));
 
         T *iter = this->end();
@@ -118,13 +119,25 @@ struct QPodArrayOps
         Q_ASSERT(this->isMutable());
         Q_ASSERT(!this->isShared());
         Q_ASSERT(where >= this->begin() && where < this->end()); // Use copyAppend at end
-        Q_ASSERT(b < e);
+        Q_ASSERT(b <= e);
         Q_ASSERT(e <= where || b > this->end()); // No overlap
-        Q_ASSERT(e - b <= this->allocatedCapacity() - this->size);
+        Q_ASSERT(size_t(e - b) <= this->allocatedCapacity() - this->size);
 
         ::memmove(where + (e - b), where, (static_cast<const T*>(this->end()) - where) * sizeof(T));
         ::memcpy(where, b, (e - b) * sizeof(T));
         this->size += (e - b);
+    }
+
+    void insert(T *where, size_t n, parameter_type t)
+    {
+        Q_ASSERT(!this->isShared());
+        Q_ASSERT(where >= this->begin() && where < this->end()); // Use copyAppend at end
+        Q_ASSERT(this->allocatedCapacity() - this->size >= n);
+
+        ::memmove(where + n, where, (static_cast<const T*>(this->end()) - where) * sizeof(T));
+        this->size += n; // PODs can't throw on copy
+        while (n--)
+            *where++ = t;
     }
 
     void erase(T *b, T *e)
@@ -132,10 +145,24 @@ struct QPodArrayOps
         Q_ASSERT(this->isMutable());
         Q_ASSERT(b < e);
         Q_ASSERT(b >= this->begin() && b < this->end());
-        Q_ASSERT(e > this->begin() && e < this->end());
+        Q_ASSERT(e > this->begin() && e <= this->end());
 
         ::memmove(b, e, (static_cast<T *>(this->end()) - e) * sizeof(T));
         this->size -= (e - b);
+    }
+
+    void assign(T *b, T *e, parameter_type t)
+    {
+        Q_ASSERT(b <= e);
+        Q_ASSERT(b >= this->begin() && e <= this->end());
+
+        while (b != e)
+            ::memcpy(b++, &t, sizeof(T));
+    }
+
+    bool compare(const T *begin1, const T *begin2, size_t n) const
+    {
+        return ::memcmp(begin1, begin2, n * sizeof(T)) == 0;
     }
 };
 
@@ -152,18 +179,18 @@ struct QGenericArrayOps
         Q_ASSERT(newSize > uint(this->size));
         Q_ASSERT(newSize <= this->allocatedCapacity());
 
-        T *const begin = this->begin();
+        T *const b = this->begin();
         do {
-            new (begin + this->size) T();
+            new (b + this->size) T();
         } while (uint(++this->size) != newSize);
     }
 
     void copyAppend(const T *b, const T *e)
     {
-        Q_ASSERT(this->isMutable());
-        Q_ASSERT(!this->isShared());
-        Q_ASSERT(b < e);
-        Q_ASSERT(e - b <= this->allocatedCapacity() - this->size);
+        Q_ASSERT(this->isMutable() || b == e);
+        Q_ASSERT(!this->isShared() || b == e);
+        Q_ASSERT(b <= e);
+        Q_ASSERT(size_t(e - b) <= this->allocatedCapacity() - this->size);
 
         T *iter = this->end();
         for (; b != e; ++iter, ++b) {
@@ -192,8 +219,8 @@ struct QGenericArrayOps
 
     void copyAppend(size_t n, parameter_type t)
     {
-        Q_ASSERT(this->isMutable());
-        Q_ASSERT(!this->isShared());
+        Q_ASSERT(this->isMutable() || n == 0);
+        Q_ASSERT(!this->isShared() || n == 0);
         Q_ASSERT(n <= size_t(this->allocatedCapacity() - this->size));
 
         T *iter = this->end();
@@ -236,9 +263,9 @@ struct QGenericArrayOps
         Q_ASSERT(this->isMutable());
         Q_ASSERT(!this->isShared());
         Q_ASSERT(where >= this->begin() && where < this->end()); // Use copyAppend at end
-        Q_ASSERT(b < e);
+        Q_ASSERT(b <= e);
         Q_ASSERT(e <= where || b > this->end()); // No overlap
-        Q_ASSERT(e - b <= this->allocatedCapacity() - this->size);
+        Q_ASSERT(size_t(e - b) <= this->allocatedCapacity() - this->size);
 
         // Array may be truncated at where in case of exceptions
 
@@ -297,24 +324,111 @@ struct QGenericArrayOps
         }
     }
 
+    void insert(T *where, size_t n, parameter_type t)
+    {
+        Q_ASSERT(!this->isShared());
+        Q_ASSERT(where >= this->begin() && where <= this->end());
+        Q_ASSERT(this->allocatedCapacity() - this->size >= n);
+
+        // Array may be truncated at where in case of exceptions
+        T *const end = this->end();
+        const T *readIter = end;
+        T *writeIter = end + n;
+
+        const T *const step1End = where + qMax<size_t>(n, end - where);
+
+        struct Destructor
+        {
+            Destructor(T *&it)
+                : iter(&it)
+                , end(it)
+            {
+            }
+
+            void commit()
+            {
+                iter = &end;
+            }
+
+            ~Destructor()
+            {
+                for (; *iter != end; --*iter)
+                    (*iter)->~T();
+            }
+
+            T **iter;
+            T *end;
+        } destroyer(writeIter);
+
+        // Construct new elements in array
+        do {
+            --readIter, --writeIter;
+            new (writeIter) T(*readIter);
+        } while (writeIter != step1End);
+
+        while (writeIter != end) {
+            --n, --writeIter;
+            new (writeIter) T(t);
+        }
+
+        destroyer.commit();
+        this->size += destroyer.end - end;
+
+        // Copy assign over existing elements
+        while (readIter != where) {
+            --readIter, --writeIter;
+            *writeIter = *readIter;
+        }
+
+        while (writeIter != where) {
+            --n, --writeIter;
+            *writeIter = t;
+        }
+    }
+
     void erase(T *b, T *e)
     {
         Q_ASSERT(this->isMutable());
         Q_ASSERT(b < e);
         Q_ASSERT(b >= this->begin() && b < this->end());
-        Q_ASSERT(e > this->begin() && e < this->end());
+        Q_ASSERT(e > this->begin() && e <= this->end());
 
         const T *const end = this->end();
 
-        do {
+        // move (by assignment) the elements from e to end
+        // onto b to the new end
+        while (e != end) {
             *b = *e;
             ++b, ++e;
-        } while (e != end);
+        }
 
+        // destroy the final elements at the end
+        // here, b points to the new end and e to the actual end
         do {
             (--e)->~T();
             --this->size;
         } while (e != b);
+    }
+
+    void assign(T *b, T *e, parameter_type t)
+    {
+        Q_ASSERT(b <= e);
+        Q_ASSERT(b >= this->begin() && e <= this->end());
+
+        while (b != e)
+            *b++ = t;
+    }
+
+    bool compare(const T *begin1, const T *begin2, size_t n) const
+    {
+        const T *end1 = begin1 + n;
+        while (begin1 != end1) {
+            if (*begin1 == *begin2)
+                ++begin1, ++begin2;
+            else
+                return false;
+        }
+        return true;
     }
 };
 
@@ -326,15 +440,16 @@ struct QMovableArrayOps
     // using QGenericArrayOps<T>::copyAppend;
     // using QGenericArrayOps<T>::truncate;
     // using QGenericArrayOps<T>::destroyAll;
+    typedef typename QGenericArrayOps<T>::parameter_type parameter_type;
 
     void insert(T *where, const T *b, const T *e)
     {
         Q_ASSERT(this->isMutable());
         Q_ASSERT(!this->isShared());
         Q_ASSERT(where >= this->begin() && where < this->end()); // Use copyAppend at end
-        Q_ASSERT(b < e);
+        Q_ASSERT(b <= e);
         Q_ASSERT(e <= where || b > this->end()); // No overlap
-        Q_ASSERT(e - b <= this->allocatedCapacity() - this->size);
+        Q_ASSERT(size_t(e - b) <= this->allocatedCapacity() - this->size);
 
         // Provides strong exception safety guarantee,
         // provided T::~T() nothrow
@@ -394,16 +509,80 @@ struct QMovableArrayOps
         this->size += (e - b);
     }
 
+    void insert(T *where, size_t n, parameter_type t)
+    {
+        Q_ASSERT(!this->isShared());
+        Q_ASSERT(where >= this->begin() && where <= this->end());
+        Q_ASSERT(this->allocatedCapacity() - this->size >= n);
+
+        // Provides strong exception safety guarantee,
+        // provided T::~T() nothrow
+
+        struct ReversibleDisplace
+        {
+            ReversibleDisplace(T *start, T *finish, size_t diff)
+                : begin(start)
+                , end(finish)
+                , displace(diff)
+            {
+                ::memmove(static_cast<void *>(begin + displace), static_cast<void *>(begin),
+                          (end - begin) * sizeof(T));
+            }
+
+            void commit() { displace = 0; }
+
+            ~ReversibleDisplace()
+            {
+                if (displace)
+                    ::memmove(static_cast<void *>(begin), static_cast<void *>(begin + displace),
+                              (end - begin) * sizeof(T));
+            }
+
+            T *const begin;
+            T *const end;
+            size_t displace;
+
+        } displace(where, this->end(), n);
+
+        struct CopyConstructor
+        {
+            CopyConstructor(T *w) : where(w) {}
+
+            void copy(size_t count, parameter_type proto)
+            {
+                n = 0;
+                while (count--) {
+                    new (where + n) T(proto);
+                    ++n;
+                }
+                n = 0;
+            }
+
+            ~CopyConstructor()
+            {
+                while (n)
+                    where[--n].~T();
+            }
+
+            T *const where;
+            size_t n;
+        } copier(where);
+
+        copier.copy(n, t);
+        displace.commit();
+        this->size += n;
+    }
+
     void erase(T *b, T *e)
     {
         Q_ASSERT(this->isMutable());
         Q_ASSERT(b < e);
         Q_ASSERT(b >= this->begin() && b < this->end());
-        Q_ASSERT(e > this->begin() && e < this->end());
+        Q_ASSERT(e > this->begin() && e <= this->end());
 
         struct Mover
         {
-            Mover(T *&start, const T *finish, int &sz)
+            Mover(T *&start, const T *finish, uint &sz)
                 : destination(start)
                 , source(start)
                 , n(finish - start)
@@ -420,9 +599,10 @@ struct QMovableArrayOps
             T *&destination;
             const T *const source;
             size_t n;
-            int &size;
+            uint &size;
         } mover(e, this->end(), this->size);
 
+        // destroy the elements we're erasing
         do {
             // Exceptions or not, dtor called once per instance
             (--e)->~T();

@@ -40,10 +40,13 @@
 #ifndef QARRAYDATA_H
 #define QARRAYDATA_H
 
-#include <QtCore/qrefcount.h>
+#include <QtCore/qpair.h>
+#include <QtCore/qatomic.h>
 #include <string.h>
 
 QT_BEGIN_NAMESPACE
+
+template <class T> struct QTypedArrayData;
 
 struct QArrayAllocatedData;
 struct QArrayForeignData;
@@ -186,11 +189,11 @@ struct Q_CORE_EXPORT QArrayData
 #if defined(Q_CC_GNU)
     __attribute__((__malloc__))
 #endif
-    static QArrayData *allocate(size_t objectSize, size_t alignment,
+    static void *allocate(QArrayData **pdata, size_t objectSize, size_t alignment,
             size_t capacity, ArrayOptions options = DefaultAllocationFlags)
         Q_DECL_NOTHROW Q_REQUIRED_RESULT;
-    static QArrayData *reallocateUnaligned(QArrayData *data, size_t objectSize,
-            size_t newCapacity, ArrayOptions newOptions = DefaultAllocationFlags)
+    static QPair<QArrayData *, void *> reallocateUnaligned(QArrayData *data, void *dataPointer,
+            size_t objectSize, size_t newCapacity, ArrayOptions newOptions = DefaultAllocationFlags)
         Q_DECL_NOTHROW Q_REQUIRED_RESULT;
     static QArrayData *prepareRawData(ArrayOptions options = ArrayOptions(RawDataType))
         Q_DECL_NOTHROW Q_REQUIRED_RESULT;
@@ -299,6 +302,23 @@ inline int QArrayData::refCounterValue() const
     return raw.load();
 }
 
+template <class T, size_t N>
+struct QStaticArrayData
+{
+    // static arrays are of type RawDataType
+    QArrayData header;
+    T data[N];
+};
+
+// Support for returning QArrayDataPointer<T> from functions
+template <class T>
+struct QArrayDataPointerRef
+{
+    QTypedArrayData<T> *ptr;
+    T *data;
+    uint size;
+};
+
 template <class T>
 struct QTypedArrayData
     : QArrayData
@@ -389,27 +409,27 @@ struct QTypedArrayData
 
     class AlignmentDummy { QArrayData header; T data; };
 
-    static QTypedArrayData *allocate(size_t capacity,
+    static QPair<QTypedArrayData *, T *> allocate(size_t capacity,
             ArrayOptions options = DefaultAllocationFlags) Q_REQUIRED_RESULT
     {
         Q_STATIC_ASSERT(sizeof(QTypedArrayData) == sizeof(QArrayData));
-        void *result = QArrayData::allocate(sizeof(T),
+        QArrayData *d;
+        void *result = QArrayData::allocate(&d, sizeof(T),
                     Q_ALIGNOF(AlignmentDummy), capacity, options);
 #if (defined(Q_CC_GNU) && Q_CC_GNU >= 407) || QT_HAS_BUILTIN(__builtin_assume_aligned)
         result = __builtin_assume_aligned(result, Q_ALIGNOF(AlignmentDummy));
 #endif
-        return static_cast<QTypedArrayData *>(result);
+        return qMakePair(static_cast<QTypedArrayData *>(d), static_cast<T *>(result));
     }
 
-    static QTypedArrayData *reallocateUnaligned(QTypedArrayData *data, size_t capacity,
-            AllocationOptions options = Default)
+    static QPair<QTypedArrayData *, T *>
+    reallocateUnaligned(QTypedArrayData *data, T *dataPointer, size_t capacity,
+            ArrayOptions options = DefaultAllocationFlags)
     {
         Q_STATIC_ASSERT(sizeof(QTypedArrayData) == sizeof(QArrayData));
-        void *result = QArrayData::reallocateUnaligned(data, sizeof(T), capacity, options);
-#if (defined(Q_CC_GNU) && Q_CC_GNU >= 407) || QT_HAS_BUILTIN(__builtin_assume_aligned)
-        result =__builtin_assume_aligned(result, Alignment);
-#endif
-        return static_cast<QTypedArrayData *>(result);
+        QPair<QArrayData *, void *> pair =
+                QArrayData::reallocateUnaligned(data, dataPointer, sizeof(T), capacity, options);
+        return qMakePair(static_cast<QTypedArrayData *>(pair.first), static_cast<T *>(pair.second));
     }
 
     static void deallocate(QArrayData *data)
@@ -418,17 +438,18 @@ struct QTypedArrayData
         QArrayData::deallocate(data, sizeof(T), Q_ALIGNOF(AlignmentDummy));
     }
 
-    static QTypedArrayData *fromRawData(const T *data, size_t n,
+    static QArrayDataPointerRef<T> fromRawData(const T *data, size_t n,
             ArrayOptions options = DefaultRawFlags)
     {
         Q_STATIC_ASSERT(sizeof(QTypedArrayData) == sizeof(QArrayData));
-        QTypedArrayData *result = static_cast<QTypedArrayData *>(prepareRawData(options));
-        if (result) {
-            Q_ASSERT(!result->isShared()); // No shared empty, please!
-
-            result->offset = reinterpret_cast<const char *>(data)
-                - reinterpret_cast<const char *>(result);
-            result->size = int(n);
+        QArrayDataPointerRef<T> result = {
+            static_cast<QTypedArrayData *>(prepareRawData(options)), const_cast<T *>(data), uint(n)
+        };
+        if (result.ptr) {
+            Q_ASSERT(!result.ptr->isShared()); // No shared empty, please!
+            result.ptr->offset = reinterpret_cast<const char *>(data)
+                - reinterpret_cast<const char *>(result.ptr);
+            result.ptr->size = int(n);
         }
         return result;
     }
@@ -452,21 +473,6 @@ struct QTypedArrayData
         Q_STATIC_ASSERT(sizeof(QTypedArrayData) == sizeof(QArrayData));
         return static_cast<T *>(QArrayData::sharedNullData());
     }
-};
-
-template <class T, size_t N>
-struct QStaticArrayData
-{
-    // static arrays are of type RawDataType
-    QArrayData header;
-    T data[N];
-};
-
-// Support for returning QArrayDataPointer<T> from functions
-template <class T>
-struct QArrayDataPointerRef
-{
-    QTypedArrayData<T> *ptr;
 };
 
 #define Q_STATIC_ARRAY_DATA_HEADER_INITIALIZER_WITH_OFFSET(size, offset) \
@@ -520,7 +526,9 @@ struct QArrayDataPointerRef
                                                                                 \
     QArrayDataPointerRef<Type> ref =                                            \
         { static_cast<QTypedArrayData<Type> *>(                                 \
-            const_cast<QArrayData *>(&literal.header)) };                       \
+            const_cast<QArrayData *>(&literal.header)),                         \
+          const_cast<Type *>(literal.data),                                     \
+          Size };                                                               \
     /**/
 #else
 // As a fallback, memory is allocated and data copied to the heap.

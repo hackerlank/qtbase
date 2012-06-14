@@ -114,7 +114,7 @@ public:
             // allocate memory (or maybe not)
             d = Data::allocate(d->size, sharable ?
                                    d->detachFlags() & ~Data::Unsharable :
-                                   d->detachFlags() | Data::Unsharable);
+                                   d->detachFlags() | Data::Unsharable).first;
         } else {
             detach();
             d->setSharable(sharable);
@@ -363,11 +363,11 @@ inline QVector<T>::QVector(const QVector<T> &v)
         d = v.d;
     } else {
         if (v.d->flags & Data::CapacityReserved) {
-            d = Data::allocate(v.d->allocatedCapacity());
+            d = Data::allocate(v.d->allocatedCapacity()).first;
             Q_CHECK_PTR(d);
             d->flags |= Data::CapacityReserved;
         } else {
-            d = Data::allocate(v.d->size);
+            d = Data::allocate(v.d->size).first;
             Q_CHECK_PTR(d);
         }
         if (v.d->size) {
@@ -384,7 +384,7 @@ void QVector<T>::detach()
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
         if (!d->allocatedCapacity()) {
             // allocate memory (or maybe not -- it might not detach!)
-            d = Data::allocate(d->size, d->detachFlags());
+            d = Data::allocate(d->size, d->detachFlags()).first;
         } else
 #endif
         {
@@ -477,7 +477,7 @@ QVector<T>::QVector(int asize)
 {
     Q_ASSERT_X(asize >= 0, "QVector::QVector", "Size must be greater than or equal to 0.");
     if (Q_LIKELY(asize > 0)) {
-        d = Data::allocate(asize);
+        d = Data::allocate(asize).first;
         Q_CHECK_PTR(d);
         d->size = asize;
         defaultConstruct(d->begin(), d->end());
@@ -491,7 +491,7 @@ QVector<T>::QVector(int asize, const T &t)
 {
     Q_ASSERT_X(asize >= 0, "QVector::QVector", "Size must be greater than or equal to 0.");
     if (asize > 0) {
-        d = Data::allocate(asize);
+        d = Data::allocate(asize).first;
         Q_CHECK_PTR(d);
         d->size = asize;
         T* i = d->end();
@@ -507,7 +507,7 @@ template <typename T>
 QVector<T>::QVector(std::initializer_list<T> args)
 {
     if (args.size() > 0) {
-        d = Data::allocate(args.size());
+        d = Data::allocate(args.size()).first;
         Q_CHECK_PTR(d);
         // std::initializer_list<T>::iterator is guaranteed to be
         // const T* ([support.initlist]/1), so can be memcpy'ed away from by copyConstruct
@@ -538,7 +538,7 @@ void QVector<T>::reallocData(const int asize, const int aalloc, QArrayData::Arra
         if (aalloc != int(d->allocatedCapacity()) || isShared) {
             QT_TRY {
                 // allocate memory
-                x = Data::allocate(aalloc, options);
+                x = Data::allocate(aalloc, options).first;
                 Q_CHECK_PTR(x);
                 // aalloc is bigger then 0 so it is not [un]sharedEmpty
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)

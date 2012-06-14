@@ -67,6 +67,8 @@ static const QArrayData emptyNotNullUnsharable[2] = {
 static const QArrayData &qt_array_empty = emptyNotNullShared[0];
 static const QArrayData &qt_array_unsharable_empty = emptyNotNullUnsharable[0];
 
+static void *const dummydataptr = const_cast<QArrayData *>(emptyNotNullShared + 1);
+
 static inline size_t calculateBlockSize(size_t &capacity, size_t objectSize, size_t headerSize,
                                         uint options)
 {
@@ -102,19 +104,21 @@ static QArrayData *reallocateData(QArrayData *header, size_t allocSize, uint opt
     return header;
 }
 
-QArrayData *QArrayData::allocate(size_t objectSize, size_t alignment,
+void *QArrayData::allocate(QArrayData **dptr, size_t objectSize, size_t alignment,
         size_t capacity, ArrayOptions options) Q_DECL_NOTHROW
 {
+    Q_ASSERT(dptr);
     // Alignment is a power of two
     Q_ASSERT(!(alignment & (alignment - 1)));
 
     if (capacity == 0) {
         // optimization for empty headers
+        *dptr = const_cast<QArrayData *>(&qt_array_empty);
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
         if (options & Unsharable)
-            return const_cast<QArrayData *>(&qt_array_unsharable_empty);
+            *data = const_cast<QArrayData *>(&qt_array_unsharable_empty);
 #endif
-        return const_cast<QArrayData *>(&qt_array_empty);
+        return sharedNullData();
     }
 
     size_t headerSize = sizeof(QArrayAllocatedData);
@@ -131,15 +135,17 @@ QArrayData *QArrayData::allocate(size_t objectSize, size_t alignment,
     size_t allocSize = calculateBlockSize(capacity, objectSize, headerSize, options);
     options |= AllocatedDataType | MutableData;
     QArrayAllocatedData *header = static_cast<QArrayAllocatedData *>(allocateData(allocSize, options));
+    quintptr data = 0;
     if (header) {
         // find where offset should point to so that data() is aligned to alignment bytes
-        quintptr data = (quintptr(header) + sizeof(QArrayAllocatedData) + alignment - 1)
+        data = (quintptr(header) + sizeof(QArrayAllocatedData) + alignment - 1)
                 & ~(alignment - 1);
         header->offset = data - quintptr(header);
         header->alloc = capacity;
     }
 
-    return header;
+    *dptr = header;
+    return reinterpret_cast<void *>(data);
 }
 
 QArrayData *QArrayData::prepareRawData(ArrayOptions options) Q_DECL_NOTHROW
@@ -147,8 +153,9 @@ QArrayData *QArrayData::prepareRawData(ArrayOptions options) Q_DECL_NOTHROW
     return allocateData(sizeof(QArrayRawData), (options & ~DataTypeBits) | RawDataType);
 }
 
-QArrayData *QArrayData::reallocateUnaligned(QArrayData *data, size_t objectSize, size_t capacity,
-                                            ArrayOptions options) Q_DECL_NOTHROW
+QPair<QArrayData *, void *>
+QArrayData::reallocateUnaligned(QArrayData *data, void *dataPointer,
+                                size_t objectSize, size_t capacity, ArrayOptions options) Q_DECL_NOTHROW
 {
     Q_ASSERT(data);
     Q_ASSERT(data->isMutable());
@@ -157,11 +164,14 @@ QArrayData *QArrayData::reallocateUnaligned(QArrayData *data, size_t objectSize,
     options |= ArrayOption(AllocatedDataType);
     size_t headerSize = sizeof(QArrayAllocatedData);
     size_t allocSize = calculateBlockSize(capacity, objectSize, headerSize, options);
+    qptrdiff offset = reinterpret_cast<char *>(dataPointer) - reinterpret_cast<char *>(data);
     options |= AllocatedDataType | MutableData;
     QArrayAllocatedData *header = static_cast<QArrayAllocatedData *>(reallocateData(data, allocSize, options));
-    if (header)
+    if (header) {
         header->alloc = capacity;
-    return header;
+        dataPointer = reinterpret_cast<char *>(header) + offset;
+    }
+    return qMakePair(static_cast<QArrayData *>(header), dataPointer);
 }
 
 QArrayData *QArrayData::prepareForeignData(ArrayOptions options) Q_DECL_NOTHROW

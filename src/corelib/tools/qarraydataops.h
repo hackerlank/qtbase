@@ -47,11 +47,13 @@
 
 QT_BEGIN_NAMESPACE
 
+template <class T> struct QArrayDataPointer;
+
 namespace QtPrivate {
 
 template <class T>
 struct QPodArrayOps
-    : QTypedArrayData<T>
+        : public QArrayDataPointer<T>
 {
     typedef T parameter_type;
 
@@ -139,7 +141,7 @@ struct QPodArrayOps
 
 template <class T>
 struct QGenericArrayOps
-    : QTypedArrayData<T>
+        : public QArrayDataPointer<T>
 {
     typedef const T &parameter_type;
 

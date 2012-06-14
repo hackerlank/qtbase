@@ -1676,9 +1676,17 @@ void tst_QFile::bufferedRead()
 #ifdef Q_OS_UNIX
 void tst_QFile::isSequential()
 {
-    QFile zero("/dev/null");
+    QFile zero("/dev/zero");
     QVERIFY2(zero.open(QFile::ReadOnly), msgOpenFailed(zero).constData());
     QVERIFY(zero.isSequential());
+
+    QFile null("/dev/null");
+    QVERIFY(null.open(QFile::ReadOnly));
+    QVERIFY(null.isSequential());
+
+    QFile tty("/dev/tty");
+    QVERIFY(tty.open(QFile::ReadOnly));
+    QVERIFY(tty.isSequential());
 }
 #endif
 

@@ -129,7 +129,7 @@ QJsonValue::QJsonValue(QJsonPrivate::Data *data, QJsonPrivate::Base *base, const
     case String: {
         QString s = v.toString(base);
         stringData = s.data_ptr();
-        stringData->ref();
+        stringData.d->ref();
         break;
     }
     case Array:
@@ -205,8 +205,8 @@ QJsonValue::QJsonValue(const QString &s)
 
 void QJsonValue::stringDataFromQStringHelper(const QString &string)
 {
-    stringData = *(QStringData **)(&string);
-    stringData->ref();
+    stringData = *(QStringPrivate *)(&string);
+    stringData.d->ref();
 }
 
 /*!
@@ -248,8 +248,8 @@ QJsonValue::QJsonValue(const QJsonObject &o)
  */
 QJsonValue::~QJsonValue()
 {
-    if (t == String && stringData && !stringData->deref())
-        free(stringData);
+    if (t == String && !stringData.d->deref())
+        QTypedArrayData<ushort>::deallocate(stringData.d);
 
     if (d && !d->ref.deref())
         delete d;
@@ -262,12 +262,12 @@ QJsonValue::QJsonValue(const QJsonValue &other)
 {
     t = other.t;
     d = other.d;
-    ui = other.ui;
+    stringData = other.stringData;
     if (d)
         d->ref.ref();
 
-    if (t == String && stringData)
-        stringData->ref();
+    if (t == String)
+        stringData.d->ref();
 }
 
 /*!
@@ -277,7 +277,7 @@ QJsonValue &QJsonValue::operator =(const QJsonValue &other)
 {
     QJsonValue copy(other);
     // swap(copy);
-    qSwap(dbl, copy.dbl);
+    qSwap(stringData, copy.stringData);
     qSwap(d,   copy.d);
     qSwap(t,   copy.t);
     return *this;
@@ -553,9 +553,8 @@ QString QJsonValue::toString(const QString &defaultValue) const
 {
     if (t != String)
         return defaultValue;
-    stringData->ref(); // the constructor below doesn't add a ref.
-    QStringDataPtr holder = { stringData };
-    return QString(holder);
+    stringData.d->ref(); // the constructor below doesn't add a ref.
+    return QString(stringData);
 }
 
 /*!
@@ -569,9 +568,8 @@ QString QJsonValue::toString() const
 {
     if (t != String)
         return QString();
-    stringData->ref(); // the constructor below doesn't add a ref.
-    QStringDataPtr holder = { stringData };
-    return QString(holder);
+    stringData.d->ref(); // the constructor below doesn't add a ref.
+    return QString(stringData);
 }
 
 /*!

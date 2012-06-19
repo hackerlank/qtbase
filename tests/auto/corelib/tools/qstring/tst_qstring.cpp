@@ -598,8 +598,7 @@ QString verifyZeroTermination(const QString &str)
     QString::DataPtr strDataPtr = const_cast<QString &>(str).data_ptr();
 
     // Skip if isStatic() or fromRawData(), as those offer no guarantees
-    if (strDataPtr->isStatic()
-            || strDataPtr->offset != QString().data_ptr()->offset)
+    if (strDataPtr.d->isStatic() || !strDataPtr.d->isMutable())
         return str;
 
     int strSize = str.size();
@@ -610,7 +609,7 @@ QString verifyZeroTermination(const QString &str)
                 .arg(strTerminator.unicode(), 4, 16, QChar('0'));
 
     // Skip mutating checks on shared strings
-    if (strDataPtr->isShared())
+    if (strDataPtr.d->isShared())
         return str;
 
     const QChar *strData = str.constData();
@@ -4023,12 +4022,12 @@ void tst_QString::setRawData()
     QVERIFY(cstr == QString(ptr, 1));
 
     // This actually tests the recycling of the shared data object
-    QString::DataPtr csd = cstr.data_ptr();
+    void *csd = cstr.data_ptr().d;
     cstr.setRawData(ptr2, 1);
     QVERIFY(cstr.isDetached());
     QVERIFY(cstr.constData() == ptr2);
     QVERIFY(cstr == QString(ptr2, 1));
-    QVERIFY(cstr.data_ptr() == csd);
+    QVERIFY(cstr.data_ptr().d == csd);
 
     // This tests the discarding of the shared data object
     cstr = "foo";
@@ -4036,12 +4035,12 @@ void tst_QString::setRawData()
     QVERIFY(cstr.constData() != ptr2);
 
     // Another test of the fallback
-    csd = cstr.data_ptr();
+    csd = cstr.data_ptr().d;
     cstr.setRawData(ptr2, 1);
     QVERIFY(cstr.isDetached());
     QVERIFY(cstr.constData() == ptr2);
     QVERIFY(cstr == QString(ptr2, 1));
-    QVERIFY(cstr.data_ptr() != csd);
+    QVERIFY(cstr.data_ptr().d != csd);
 }
 
 #ifndef Q_CC_HPACC
@@ -6502,8 +6501,7 @@ void tst_QString::literals()
 
     QVERIFY(str.length() == 4);
     QVERIFY(str == QLatin1String("abcd"));
-    QVERIFY(str.data_ptr()->isStatic());
-    QVERIFY(str.data_ptr()->offset == sizeof(QStringData));
+    QVERIFY(str.data_ptr().d->isStatic());
 
     const QChar *s = str.constData();
     QString str2 = str;

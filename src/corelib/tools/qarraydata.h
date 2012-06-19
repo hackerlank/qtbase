@@ -158,7 +158,7 @@ struct Q_CORE_EXPORT QArrayData
             flags |= Unsharable;
     }
 #endif
-    
+
     // Returns true if a detach is necessary before modifying the data
     // This method is intentionally not const: if you want to know whether
     // detaching is necessary, you should be in a non-const function already

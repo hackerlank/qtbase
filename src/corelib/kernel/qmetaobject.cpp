@@ -145,20 +145,32 @@ QT_BEGIN_NAMESPACE
 static inline const QMetaObjectPrivate *priv(const uint* data)
 { return reinterpret_cast<const QMetaObjectPrivate*>(data); }
 
-static inline const QByteArray stringData(const QMetaObject *mo, int index)
+static inline const char *rawStringData(const QMetaObject *mo, int index)
 {
     Q_ASSERT(priv(mo->d.data)->revision >= 7);
+    const uint *ptr = mo->d.data + priv(mo->d.data)->stringData + index * 2;
+    return mo->d.stringdata + ptr[0];
+}
+
+static inline int stringSize(const QMetaObject *mo, int index)
+{
+    Q_ASSERT(priv(mo->d.data)->revision >= 7);
+    const uint *ptr = mo->d.data + priv(mo->d.data)->stringData + index * 2;
+    return ptr[1];
+}
+
+static inline const QByteArray stringData(const QMetaObject *mo, int index)
+{
+#if 0
     const QByteArrayDataPtr data = { const_cast<QByteArrayData*>(&mo->d.stringdata[index]) };
     Q_ASSERT(data.ptr->ref.isStatic());
     Q_ASSERT(data.ptr->alloc == 0);
     Q_ASSERT(data.ptr->capacityReserved == 0);
     Q_ASSERT(data.ptr->size >= 0);
+#endif
+    // ### Temporary code!
+    QByteArray data = QByteArray::fromRawData(rawStringData(mo, index), stringSize(mo, index));
     return data;
-}
-
-static inline const char *rawStringData(const QMetaObject *mo, int index)
-{
-    return stringData(mo, index).data();
 }
 
 static inline QByteArray typeNameFromTypeInfo(const QMetaObject *mo, uint typeInfo)
@@ -181,7 +193,7 @@ static inline int typeFromTypeInfo(const QMetaObject *mo, uint typeInfo)
 {
     if (!(typeInfo & IsUnresolvedType))
         return typeInfo;
-    return QMetaType::type(stringData(mo, typeInfo & TypeNameIndexMask));
+    return QMetaType::type(rawStringData(mo, typeInfo & TypeNameIndexMask));
 }
 
 class QMetaMethodPrivate : public QMetaMethod
@@ -562,7 +574,9 @@ static bool methodMatch(const QMetaObject *m, int handle,
     if (int(m->d.data[handle + 1]) != argc)
         return false;
 
-    if (stringData(m, m->d.data[handle]) != name)
+    int size = stringSize(m, m->d.data[handle]);
+    if (size != name.size() ||
+            memcmp(rawStringData(m, m->d.data[handle]), name, size) != 0)
         return false;
 
     int paramsIndex = m->d.data[handle + 2] + 1;
@@ -991,11 +1005,13 @@ int QMetaObject::indexOfEnumerator(const char *name) const
 int QMetaObject::indexOfProperty(const char *name) const
 {
     const QMetaObject *m = this;
+    int l = int(strlen(name));
     while (m) {
         const QMetaObjectPrivate *d = priv(m->d.data);
         for (int i = d->propertyCount-1; i >= 0; --i) {
             const char *prop = rawStringData(m, m->d.data[d->propertyData + 3*i]);
-            if (name[0] == prop[0] && strcmp(name + 1, prop + 1) == 0) {
+            int proplen = stringSize(m, m->d.data[d->propertyData + 3*i]);
+            if (proplen == l && name[0] == prop[0] && memcmp(name + 1, prop + 1, l - 1) == 0) {
                 i += m->propertyOffset();
                 return i;
             }

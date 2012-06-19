@@ -328,7 +328,8 @@ public:
 
     static int preferredAlignment();
     int blobSize() const;
-    void writeBlob(char *out) const;
+    int count() const { return m_entries.size(); }
+    void writeBlob(char *out, int *intout);
 
 private:
     typedef QHash<QByteArray, int> Entries; // string --> index mapping

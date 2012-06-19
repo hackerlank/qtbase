@@ -161,6 +161,10 @@ void tst_QMetaObjectBuilder::className()
 
     // Check that nothing else changed.
     QVERIFY(checkForSideEffects(builder, QMetaObjectBuilder::ClassName));
+
+    QMetaObject *meta = builder.toMetaObject();
+    QCOMPARE(meta->className(), "QObject");
+    free(meta);
 }
 
 void tst_QMetaObjectBuilder::superClass()
@@ -1690,9 +1694,7 @@ void tst_QMetaObjectBuilder::classNameFirstInStringData()
     builder.setClassName(QByteArrayLiteral("TestClass"));
     QMetaObject *mo = builder.toMetaObject();
 
-    QByteArrayDataPtr header;
-    header.ptr = const_cast<QByteArrayData*>(mo->d.stringdata);
-    QCOMPARE(QByteArray(header), QByteArrayLiteral("TestClass"));
+    QCOMPARE(QByteArray(mo->d.stringdata), QByteArrayLiteral("TestClass"));
 
     free(mo);
 }

@@ -185,6 +185,7 @@ struct QMetaObjectPrivate
     int constructorCount, constructorData;
     int flags;
     int signalCount;
+    int stringCount, stringData; //since revision 7
 
     static inline const QMetaObjectPrivate *get(const QMetaObject *metaobject)
     { return reinterpret_cast<const QMetaObjectPrivate*>(metaobject->d.data); }

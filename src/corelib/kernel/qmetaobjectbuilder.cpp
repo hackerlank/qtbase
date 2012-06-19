@@ -1105,43 +1105,24 @@ int QMetaStringTable::preferredAlignment()
 // Returns the size (in bytes) required for serializing this string table.
 int QMetaStringTable::blobSize() const
 {
-    int size = m_entries.size() * sizeof(QByteArrayData);
+    int size = 0;
     Entries::const_iterator it;
     for (it = m_entries.constBegin(); it != m_entries.constEnd(); ++it)
         size += it.key().size() + 1;
     return size;
 }
 
-static void writeString(char *out, int i, const QByteArray &str,
-                        const int offsetOfStringdataMember, int &stringdataOffset)
-{
-    int size = str.size();
-    qptrdiff offset = offsetOfStringdataMember + stringdataOffset
-            - i * sizeof(QByteArrayData);
-    const QByteArrayData data =
-        Q_STATIC_BYTE_ARRAY_DATA_HEADER_INITIALIZER_WITH_OFFSET(size, offset);
-
-    memcpy(out + i * sizeof(QByteArrayData), &data, sizeof(QByteArrayData));
-
-    memcpy(out + offsetOfStringdataMember + stringdataOffset, str.constData(), size);
-    out[offsetOfStringdataMember + stringdataOffset + size] = '\0';
-
-    stringdataOffset += size + 1;
-}
-
 // Writes strings to string data struct.
-// The struct consists of an array of QByteArrayData, followed by a char array
-// containing the actual strings. This format must match the one produced by
-// moc (see generator.cpp).
-void QMetaStringTable::writeBlob(char *out) const
+void QMetaStringTable::writeBlob(char *out, int *intout)
 {
-    Q_ASSERT(!(reinterpret_cast<quintptr>(out) & (preferredAlignment()-1)));
-
-    int offsetOfStringdataMember = m_entries.size() * sizeof(QByteArrayData);
-    int stringdataOffset = 0;
+    int stringdataOffset = m_className.size();
 
     // qt_metacast expects the first string in the string table to be the class name.
-    writeString(out, /*index*/0, m_className, offsetOfStringdataMember, stringdataOffset);
+    memcpy(out, m_className.constData(), stringdataOffset);
+    out[stringdataOffset] = '\0';
+    intout[0] = 0;
+    intout[1] = stringdataOffset;
+    ++stringdataOffset;
 
     for (Entries::ConstIterator it = m_entries.constBegin(), end = m_entries.constEnd();
          it != end; ++it) {
@@ -1149,8 +1130,13 @@ void QMetaStringTable::writeBlob(char *out) const
         if (i == 0)
             continue;
         const QByteArray &str = it.key();
+        int size = str.size();
+        memcpy(out + stringdataOffset, str.constData(), size);
+        out[stringdataOffset + size] = '\0';
 
-        writeString(out, i, str, offsetOfStringdataMember, stringdataOffset);
+        intout[2*i] = stringdataOffset;
+        intout[2*i + 1] = size;
+        stringdataOffset += size + 1;
     }
 }
 
@@ -1200,7 +1186,6 @@ static int buildMetaObject(QMetaObjectBuilderPrivate *d, char *buf,
     // Populate the QMetaObjectPrivate structure.
     QMetaObjectPrivate *pmeta
         = reinterpret_cast<QMetaObjectPrivate *>(buf + size);
-    int pmetaSize = size;
     dataIndex = MetaObjectPrivateFieldCount;
     for (const auto &property : d->properties) {
         if (property.notifySignal != -1) {
@@ -1247,6 +1232,10 @@ static int buildMetaObject(QMetaObjectBuilderPrivate *d, char *buf,
         pmeta->constructorCount = int(d->constructors.size());
         pmeta->constructorData = dataIndex;
         dataIndex += 5 * int(d->constructors.size());
+
+        // we're going to come back and fix the 0xdeadbeef
+        pmeta->stringCount = 0xdeadbeef;
+        pmeta->stringData = -int(0xdeadbeef);
     } else {
         dataIndex += 2 * int(d->classInfoNames.size());
         dataIndex += 5 * int(d->methods.size());
@@ -1267,24 +1256,16 @@ static int buildMetaObject(QMetaObjectBuilderPrivate *d, char *buf,
     enumIndex = dataIndex;
     for (const auto &enumerator : d->enumerators)
         dataIndex += 2 * enumerator.keys.size();
+    if (buf)
+        pmeta->stringData = dataIndex;
 
     // Zero terminator at the end of the data offset table.
     ++dataIndex;
 
-    // Find the start of the data and string tables.
+    // Find the start of the data table.
     int *data = reinterpret_cast<int *>(pmeta);
     size += dataIndex * sizeof(int);
     ALIGN(size, void *);
-    char *str = reinterpret_cast<char *>(buf + size);
-    if (buf) {
-        if (relocatable) {
-            meta->d.stringdata = reinterpret_cast<const QByteArrayData *>((quintptr)size);
-            meta->d.data = reinterpret_cast<uint *>((quintptr)pmetaSize);
-        } else {
-            meta->d.stringdata = reinterpret_cast<const QByteArrayData *>(str);
-            meta->d.data = reinterpret_cast<uint *>(data);
-        }
-    }
 
     // Reset the current data position to just past the QMetaObjectPrivate.
     dataIndex = MetaObjectPrivateFieldCount;
@@ -1446,14 +1427,24 @@ static int buildMetaObject(QMetaObjectBuilderPrivate *d, char *buf,
         paramsIndex += 1 + argc * 2;
     }
 
-    size += strings.blobSize();
+    // Now we know all strings, so we can calculate the
+    // actual size of the header and the string table
+    dataIndex = enumIndex;
+    Q_ASSERT(!buf || dataIndex == pmeta->stringData);
+    size += strings.count() * 2 * sizeof(int);
+    char *str = reinterpret_cast<char *>(buf + size);
 
-    if (buf)
-        strings.writeBlob(str);
+    // Output the strings in this class.
+    size += strings.blobSize();
+    if (buf) {
+        pmeta->stringCount = strings.count();
+        strings.writeBlob(str, data + dataIndex);
+    }
+    dataIndex += strings.count() * 2;
 
     // Output the zero terminator in the data array.
     if (buf)
-        data[enumIndex] = 0;
+        data[dataIndex] = 0;
 
     // Create the relatedMetaObjects block if we need one.
     if (d->relatedMetaObjects.size() > 0) {
@@ -1467,6 +1458,16 @@ static int buildMetaObject(QMetaObjectBuilderPrivate *d, char *buf,
             objects[index] = 0;
         }
         size += sizeof(QMetaObject *) * (d->relatedMetaObjects.size() + 1);
+    }
+
+    // Create the QMetaObject structure.
+    if (buf) {
+        meta->d.stringdata = reinterpret_cast<const char *>(str);
+        meta->d.data = reinterpret_cast<uint *>(data);
+        if (relocatable) {
+            meta->d.stringdata -= quintptr(meta);
+            meta->d.data = reinterpret_cast<uint *>(quintptr(data) - quintptr(meta));
+        }
     }
 
     // Align the final size and return it.
@@ -1546,7 +1547,7 @@ void QMetaObjectBuilder::fromRelocatableData(QMetaObject *output,
     quintptr dataOffset = (quintptr)dataMo->d.data;
 
     output->d.superdata = superclass;
-    output->d.stringdata = reinterpret_cast<const QByteArrayData *>(buf + stringdataOffset);
+    output->d.stringdata = reinterpret_cast<const char *>(buf + stringdataOffset);
     output->d.data = reinterpret_cast<const uint *>(buf + dataOffset);
     output->d.extradata = 0;
     output->d.relatedMetaObjects = 0;

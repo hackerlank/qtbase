@@ -225,114 +225,6 @@ void Generator::generateCode()
     qualifiedClassNameIdentifier.replace(':', '_');
 
 //
-// Build stringdata struct
-//
-    const int constCharArraySizeLimit = 65535;
-    fprintf(out, "struct qt_meta_stringdata_%s_t {\n", qualifiedClassNameIdentifier.constData());
-    fprintf(out, "    QByteArrayData data[%d];\n", strings.size());
-    {
-        int stringDataLength = 0;
-        int stringDataCounter = 0;
-        for (int i = 0; i < strings.size(); ++i) {
-            int thisLength = strings.at(i).length() + 1;
-            stringDataLength += thisLength;
-            if (stringDataLength / constCharArraySizeLimit) {
-                // save previous stringdata and start computing the next one.
-                fprintf(out, "    char stringdata%d[%d];\n", stringDataCounter++, stringDataLength - thisLength);
-                stringDataLength = thisLength;
-            }
-        }
-        fprintf(out, "    char stringdata%d[%d];\n", stringDataCounter, stringDataLength);
-
-    }
-    fprintf(out, "};\n");
-
-    // Macro that expands into a QByteArrayData. The offset member is
-    // calculated from 1) the offset of the actual characters in the
-    // stringdata.stringdata member, and 2) the stringdata.data index of the
-    // QByteArrayData being defined. This calculation relies on the
-    // QByteArrayData::data() implementation returning simply "this + offset".
-    fprintf(out, "#define QT_MOC_LITERAL(idx, ofs, len) \\\n"
-            "    Q_STATIC_BYTE_ARRAY_DATA_HEADER_INITIALIZER_WITH_OFFSET(len, \\\n"
-            "    qptrdiff(offsetof(qt_meta_stringdata_%s_t, stringdata0) + ofs \\\n"
-            "        - idx * sizeof(QByteArrayData)) \\\n"
-            "    )\n",
-            qualifiedClassNameIdentifier.constData());
-
-    fprintf(out, "static const qt_meta_stringdata_%s_t qt_meta_stringdata_%s = {\n",
-            qualifiedClassNameIdentifier.constData(), qualifiedClassNameIdentifier.constData());
-    fprintf(out, "    {\n");
-    {
-        int idx = 0;
-        for (int i = 0; i < strings.size(); ++i) {
-            const QByteArray &str = strings.at(i);
-            fprintf(out, "QT_MOC_LITERAL(%d, %d, %d)", i, idx, str.length());
-            if (i != strings.size() - 1)
-                fputc(',', out);
-            const QByteArray comment = str.length() > 32 ? str.left(29) + "..." : str;
-            fprintf(out, " // \"%s\"\n", comment.constData());
-            idx += str.length() + 1;
-            for (int j = 0; j < str.length(); ++j) {
-                if (str.at(j) == '\\') {
-                    int cnt = lengthOfEscapeSequence(str, j) - 1;
-                    idx -= cnt;
-                    j += cnt;
-                }
-            }
-        }
-        fprintf(out, "\n    },\n");
-    }
-
-//
-// Build stringdata array
-//
-    fprintf(out, "    \"");
-    int col = 0;
-    int len = 0;
-    int stringDataLength = 0;
-    for (int i = 0; i < strings.size(); ++i) {
-        QByteArray s = strings.at(i);
-        len = s.length();
-        stringDataLength += len + 1;
-        if (stringDataLength >= constCharArraySizeLimit) {
-            fprintf(out, "\",\n    \"");
-            stringDataLength = len + 1;
-            col = 0;
-        } else if (i)
-            fputs("\\0", out); // add \0 at the end of each string
-
-        if (col && col + len >= 72) {
-            fprintf(out, "\"\n    \"");
-            col = 0;
-        } else if (len && s.at(0) >= '0' && s.at(0) <= '9') {
-            fprintf(out, "\"\"");
-            len += 2;
-        }
-        int idx = 0;
-        while (idx < s.length()) {
-            if (idx > 0) {
-                col = 0;
-                fprintf(out, "\"\n    \"");
-            }
-            int spanLen = qMin(70, s.length() - idx);
-            // don't cut escape sequences at the end of a line
-            int backSlashPos = s.lastIndexOf('\\', idx + spanLen - 1);
-            if (backSlashPos >= idx) {
-                int escapeLen = lengthOfEscapeSequence(s, backSlashPos);
-                spanLen = qBound(spanLen, backSlashPos + escapeLen - idx, s.length() - idx);
-            }
-            fprintf(out, "%.*s", spanLen, s.constData() + idx);
-            idx += spanLen;
-            col += spanLen;
-        }
-        col += len + 2;
-    }
-
-// Terminate stringdata struct
-    fprintf(out, "\"\n};\n");
-    fprintf(out, "#undef QT_MOC_LITERAL\n\n");
-
-//
 // build the data array
 //
 
@@ -380,6 +272,10 @@ void Generator::generateCode()
     }
     fprintf(out, "    %4d,       // flags\n", flags);
     fprintf(out, "    %4d,       // signalCount\n", cdef->signalList.count());
+
+    if (isConstructible)
+        index += 5 * cdef->constructorList.count();
+    fprintf(out, "    %4d, %4d, // string table\n", strings.count(), index);
 
 
 //
@@ -437,9 +333,72 @@ void Generator::generateCode()
         generateFunctions(cdef->constructorList, "constructor", MethodConstructor, paramsIndex);
 
 //
+// Build string table
+//
+
+    fprintf(out, "\n // string table: offset, length\n");
+    index = 0;
+    for (int i = 0; i < strings.size(); ++i) {
+        const QByteArray &str = strings.at(i);
+        int len = str.length();
+        for (int j = 0; j < str.length(); ++j) {
+            if (str.at(j) == '\\') {
+                int cnt = lengthOfEscapeSequence(str, j) - 1;
+                len -= cnt;
+                j += cnt;
+            }
+        }
+        fprintf(out, "    %4d, %4d, // \"%s\"\n", index, len, str.constData());
+        index += len + 1;
+    }
+
+//
 // Terminate data array
 //
     fprintf(out, "\n       0        // eod\n};\n\n");
+
+    //
+    // Build stringdata array
+    //
+    fprintf(out, "static const char qt_meta_stringdata_%s[] = \n",
+            qualifiedClassNameIdentifier.constData());
+    fprintf(out, "    \"");
+    int col = 0;
+    int len = 0;
+    for (int i = 0; i < strings.size(); ++i) {
+        QByteArray s = strings.at(i);
+        len = s.length();
+        if (col && col + len >= 72) {
+            fprintf(out, "\"\n    \"");
+            col = 0;
+        } else if (len && s.at(0) >= '0' && s.at(0) <= '9') {
+            fprintf(out, "\"\"");
+            len += 2;
+        }
+        int idx = 0;
+        while (idx < s.length()) {
+            if (idx > 0) {
+                col = 0;
+                fprintf(out, "\"\n    \"");
+            }
+            int spanLen = qMin(70, s.length() - idx);
+            // don't cut escape sequences at the end of a line
+            int backSlashPos = s.lastIndexOf('\\', idx + spanLen - 1);
+            if (backSlashPos >= idx) {
+                int escapeLen = lengthOfEscapeSequence(s, backSlashPos);
+                spanLen = qBound(spanLen, backSlashPos + escapeLen - idx, s.length() - idx);
+            }
+            fprintf(out, "%.*s", spanLen, s.constData() + idx);
+            idx += spanLen;
+            col += spanLen;
+        }
+
+        fputs("\\0", out);
+        col += len + 2;
+    }
+
+// Terminate stringdata struct
+    fprintf(out, "\";\n\n");
 
 //
 // Generate internal qt_static_metacall() function
@@ -532,7 +491,7 @@ void Generator::generateCode()
         fprintf(out, "    { &%s::staticMetaObject, ", purestSuperClass.constData());
     else
         fprintf(out, "    { Q_NULLPTR, ");
-    fprintf(out, "qt_meta_stringdata_%s.data,\n"
+    fprintf(out, "qt_meta_stringdata_%s,\n"
             "      qt_meta_data_%s, ", qualifiedClassNameIdentifier.constData(),
             qualifiedClassNameIdentifier.constData());
     if (hasStaticMetaCall)
@@ -560,7 +519,7 @@ void Generator::generateCode()
 //
     fprintf(out, "\nvoid *%s::qt_metacast(const char *_clname)\n{\n", cdef->qualified.constData());
     fprintf(out, "    if (!_clname) return Q_NULLPTR;\n");
-    fprintf(out, "    if (!strcmp(_clname, qt_meta_stringdata_%s.stringdata0))\n"
+    fprintf(out, "    if (!strcmp(_clname, qt_meta_stringdata_%s))\n"
                   "        return static_cast<void*>(const_cast< %s*>(this));\n",
             qualifiedClassNameIdentifier.constData(), cdef->classname.constData());
     for (int i = 1; i < cdef->superclassList.size(); ++i) { // for all superclasses but the first one

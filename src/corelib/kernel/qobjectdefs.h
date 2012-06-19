@@ -51,15 +51,11 @@
 
 QT_BEGIN_NAMESPACE
 
-
 class QByteArray;
-struct QArrayData;
-typedef QArrayData QByteArrayData;
-
 class QString;
 
 #ifndef Q_MOC_OUTPUT_REVISION
-#define Q_MOC_OUTPUT_REVISION 67
+#define Q_MOC_OUTPUT_REVISION 69
 #endif
 
 // The following macros can be defined by tools that understand Qt
@@ -520,7 +516,7 @@ struct Q_CORE_EXPORT QMetaObject
 
     struct { // private data
         const QMetaObject *superdata;
-        const QByteArrayData *stringdata;
+        const char *stringdata;
         const uint *data;
         typedef void (*StaticMetacallFunction)(QObject *, QMetaObject::Call, int, void **);
         StaticMetacallFunction static_metacall;

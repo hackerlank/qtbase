@@ -400,6 +400,7 @@ class Q_CORE_EXPORT QVariant
             qulonglong ull;
             QObject *o;
             void *ptr;
+            void *threeptr[3];
             PrivateShared *shared;
         } data;
         uint type : 30;

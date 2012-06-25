@@ -438,7 +438,13 @@ void QDBusMetaObjectGenerator::write(QDBusMetaObject *obj)
         data_size += 2 + mm.inputTypes.count() + mm.outputTypes.count();
     for (const Method &mm : qAsConst(methods))
         data_size += 2 + mm.inputTypes.count() + mm.outputTypes.count();
+
+    // put the strings last
+    header->stringCount = 0xdeadbeef;
+    header->stringData = data_size;
+
     idata.resize(data_size + 1);
+    header = reinterpret_cast<QDBusMetaObjectPrivate *>(idata.data());
 
     QMetaStringTable strings(className.toLatin1());
 
@@ -535,9 +541,14 @@ void QDBusMetaObjectGenerator::write(QDBusMetaObject *obj)
 
     Q_ASSERT(offset == header->propertyDBusData);
     Q_ASSERT(signatureOffset == header->methodDBusData);
+    Q_ASSERT(data_size + 1 == idata.size());
 
+    // before we resize and lose the header pointer:
+    header->stringCount = strings.count();
+
+    idata.resize(idata.size() + 2 * strings.count() + 1);
     char *string_data = new char[strings.blobSize()];
-    strings.writeBlob(string_data);
+    strings.writeBlob(string_data, idata.data() + data_size);
 
     uint *uint_data = new uint[idata.size()];
     memcpy(uint_data, idata.data(), idata.size() * sizeof(int));
@@ -547,7 +558,7 @@ void QDBusMetaObjectGenerator::write(QDBusMetaObject *obj)
     obj->d.relatedMetaObjects = 0;
     obj->d.static_metacall = 0;
     obj->d.extradata = 0;
-    obj->d.stringdata = reinterpret_cast<const QByteArrayData *>(string_data);
+    obj->d.stringdata = string_data;
     obj->d.superdata = &QDBusAbstractInterface::staticMetaObject;
 }
 

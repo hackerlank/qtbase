@@ -113,42 +113,25 @@ class QString;
 class QDataStream;
 template <typename T> class QList;
 
-typedef QArrayData QByteArrayData;
-
-template<int N> struct QStaticByteArrayData
+struct QByteArrayData
 {
-    QByteArrayData ba;
-    char data[N + 1];
-
-    QByteArrayData *data_ptr() const
-    {
-        Q_ASSERT(ba.isStatic());
-        return const_cast<QByteArrayData *>(&ba);
-    }
+    QArrayData *d;
+    char *b;
+    uint size;
 };
 
-struct QByteArrayDataPtr
-{
-    QByteArrayData *ptr;
-};
-
-#define Q_STATIC_BYTE_ARRAY_DATA_HEADER_INITIALIZER_WITH_OFFSET(size, offset) \
-    Q_STATIC_ARRAY_DATA_HEADER_INITIALIZER_WITH_OFFSET(size, offset)
-    /**/
-
-#define Q_STATIC_BYTE_ARRAY_DATA_HEADER_INITIALIZER(size) \
-    Q_STATIC_BYTE_ARRAY_DATA_HEADER_INITIALIZER_WITH_OFFSET(size, sizeof(QByteArrayData)) \
-    /**/
 
 #if defined(Q_COMPILER_LAMBDA)
 
 #  define QByteArrayLiteral(str) \
     ([]() -> QByteArray { \
         enum { Size = sizeof(str) - 1 }; \
-        static const QStaticByteArrayData<Size> qbytearray_literal = { \
-            Q_STATIC_BYTE_ARRAY_DATA_HEADER_INITIALIZER(Size), \
-            str }; \
-        QByteArrayDataPtr holder = { qbytearray_literal.data_ptr() }; \
+        static const QArrayData qbytearray_literal = { \
+            QArrayData::StaticDataFlags, 0, 0 }; \
+        QByteArrayData holder = { \
+            const_cast<QArrayData *>(&qbytearray_literal), \
+            const_cast<char *>(str), \
+            Size }; \
         const QByteArray ba(holder); \
         return ba; \
     }()) \
@@ -187,7 +170,8 @@ public:
     QByteArray &operator=(const QByteArray &) Q_DECL_NOTHROW;
     QByteArray &operator=(const char *str);
 #ifdef Q_COMPILER_RVALUE_REFS
-    inline QByteArray(QByteArray && other) Q_DECL_NOTHROW : d(other.d) { other.d = Data::sharedNull(); }
+    inline QByteArray(QByteArray && other) Q_DECL_NOTHROW : d(std::move(other.d))
+    { other.d.d = Data::sharedNull(); other.d.b = Data::sharedNullData(); other.d.size = 0; }
     inline QByteArray &operator=(QByteArray &&other) Q_DECL_NOTHROW
     { qSwap(d, other.d); return *this; }
 #endif
@@ -214,7 +198,8 @@ public:
     inline const char *constData() const;
     inline void detach();
     bool isDetached() const;
-    inline bool isSharedWith(const QByteArray &other) const { return d == other.d; }
+    inline bool isSharedWith(const QByteArray &other) const
+    { return data() == other.data() && size() == other.size(); }
     void clear();
 
     char at(int i) const;
@@ -432,18 +417,18 @@ public:
     static inline QByteArray fromStdString(const std::string &s);
     inline std::string toStdString() const;
 
-    inline int count() const { return d->size; }
-    int length() const { return d->size; }
+    inline int count() const { return int(d.size); }
+    int length() const { return int(d.size); }
     bool isNull() const;
 
-    inline QByteArray(QByteArrayDataPtr dd)
-        : d(static_cast<Data *>(dd.ptr))
+    explicit inline QByteArray(const QByteArrayData &dd)
+        : d(dd)
     {
     }
 
 private:
     operator QNoImplicitBoolCast() const;
-    Data *d;
+    QByteArrayData d;
     void reallocData(uint alloc, Data::ArrayOptions options);
     void expand(int i);
     QByteArray nulTerminated() const;
@@ -461,65 +446,65 @@ private:
     friend class QString;
     friend Q_CORE_EXPORT QByteArray qUncompress(const uchar *data, int nbytes);
 public:
-    typedef Data * DataPtr;
+    typedef QByteArrayData DataPtr;
     inline DataPtr &data_ptr() { return d; }
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(QByteArray::Base64Options)
 
-inline QByteArray::QByteArray() Q_DECL_NOTHROW : d(Data::sharedNull()) { }
-inline QByteArray::~QByteArray() { if (!d->deref()) Data::deallocate(d); }
+inline QByteArray::QByteArray() Q_DECL_NOTHROW { d.d = Data::sharedNull(); d.b = Data::sharedNullData(); d.size = 0; }
+inline QByteArray::~QByteArray() { if (!d.d->deref()) Data::deallocate(d.d); }
 inline int QByteArray::size() const
-{ return d->size; }
+{ return int(d.size); }
 
 inline char QByteArray::at(int i) const
-{ Q_ASSERT(uint(i) < uint(size())); return d->data()[i]; }
+{ Q_ASSERT(uint(i) < uint(size())); return d.b[i]; }
 inline char QByteArray::operator[](int i) const
-{ Q_ASSERT(uint(i) < uint(size())); return d->data()[i]; }
+{ Q_ASSERT(uint(i) < uint(size())); return d.b[i]; }
 inline char QByteArray::operator[](uint i) const
-{ Q_ASSERT(i < uint(size())); return d->data()[i]; }
+{ Q_ASSERT(i < uint(size())); return d.b[i]; }
 
 inline bool QByteArray::isEmpty() const
-{ return d->size == 0; }
+{ return size() == 0; }
 #ifndef QT_NO_CAST_FROM_BYTEARRAY
 inline QByteArray::operator const char *() const
-{ return d->data(); }
+{ return data(); }
 inline QByteArray::operator const void *() const
-{ return d->data(); }
+{ return data(); }
 #endif
 inline char *QByteArray::data()
-{ detach(); return d->data(); }
+{ detach(); return d.b; }
 inline const char *QByteArray::data() const
-{ return d->data(); }
+{ return d.b; }
 inline const char *QByteArray::constData() const
-{ return d->data(); }
+{ return d.b; }
 inline void QByteArray::detach()
-{ if (d->needsDetach()) reallocData(uint(d->size) + 1u, d->detachFlags()); }
+{ if (d.d->needsDetach()) reallocData(uint(size()) + 1u, d.d->detachFlags()); }
 inline bool QByteArray::isDetached() const
-{ return !d->isShared(); }
+{ return !d.d->isShared(); }
 inline QByteArray::QByteArray(const QByteArray &a) Q_DECL_NOTHROW : d(a.d)
-{ d->ref(); }
+{ d.d->ref(); }
 
 inline int QByteArray::capacity() const
-{ int realCapacity = d->constAllocatedCapacity(); return realCapacity ? realCapacity - 1 : 0; }
+{ int realCapacity = d.d->constAllocatedCapacity(); return realCapacity ? realCapacity - 1 : 0; }
 
 inline void QByteArray::reserve(int asize)
 {
-    if (d->needsDetach() || asize > capacity()) {
-        reallocData(qMax(uint(size()), uint(asize)) + 1u, d->detachFlags() | Data::CapacityReserved);
+    if (d.d->needsDetach() || asize > capacity()) {
+        reallocData(qMax(uint(size()), uint(asize)) + 1u, d.d->detachFlags() | Data::CapacityReserved);
     } else {
-        d->flags |= Data::CapacityReserved;
+        d.d->flags |= Data::CapacityReserved;
     }
 }
 
 inline void QByteArray::squeeze()
 {
-    if ((d->flags & Data::CapacityReserved) == 0)
+    if ((d.d->flags & Data::CapacityReserved) == 0)
         return;
-    if (d->needsDetach() || d->size < capacity()) {
-        reallocData(uint(d->size) + 1u, d->detachFlags() & ~Data::CapacityReserved);
+    if (d.d->needsDetach() || size() < capacity()) {
+        reallocData(uint(size()) + 1u, d.d->detachFlags() & ~Data::CapacityReserved);
     } else {
-        d->flags &= ~Data::CapacityReserved;
+        d.d->flags &= uint(~Data::CapacityReserved);
     }
 }
 
@@ -531,25 +516,25 @@ class Q_CORE_EXPORT QByteRef {
     friend class QByteArray;
 public:
     inline operator char() const
-        { return i < a.d->size ? a.d->data()[i] : char(0); }
+        { return i < a.size() ? a.data()[i] : char(0); }
     inline QByteRef &operator=(char c)
-        { if (i >= a.d->size) a.expand(i); else a.detach();
-          a.d->data()[i] = c;  return *this; }
+        { if (i >= a.size()) a.expand(i); else a.detach();
+          a.d.b[i] = c;  return *this; }
     inline QByteRef &operator=(const QByteRef &c)
-        { if (i >= a.d->size) a.expand(i); else a.detach();
-          a.d->data()[i] = c.a.d->data()[c.i];  return *this; }
+        { if (i >= a.size()) a.expand(i); else a.detach();
+          a.d.b[i] = c.a.data()[c.i];  return *this; }
     inline bool operator==(char c) const
-    { return a.d->data()[i] == c; }
+    { return a.data()[i] == c; }
     inline bool operator!=(char c) const
-    { return a.d->data()[i] != c; }
+    { return a.data()[i] != c; }
     inline bool operator>(char c) const
-    { return a.d->data()[i] > c; }
+    { return a.data()[i] > c; }
     inline bool operator>=(char c) const
-    { return a.d->data()[i] >= c; }
+    { return a.data()[i] >= c; }
     inline bool operator<(char c) const
-    { return a.d->data()[i] < c; }
+    { return a.data()[i] < c; }
     inline bool operator<=(char c) const
-    { return a.d->data()[i] <= c; }
+    { return a.data()[i] <= c; }
 };
 
 inline QByteRef QByteArray::operator[](int i)
@@ -557,23 +542,23 @@ inline QByteRef QByteArray::operator[](int i)
 inline QByteRef QByteArray::operator[](uint i)
 { return QByteRef(*this, i); }
 inline QByteArray::iterator QByteArray::begin()
-{ detach(); return d->data(); }
+{ return data(); }
 inline QByteArray::const_iterator QByteArray::begin() const
-{ return d->data(); }
+{ return data(); }
 inline QByteArray::const_iterator QByteArray::cbegin() const
-{ return d->data(); }
+{ return data(); }
 inline QByteArray::const_iterator QByteArray::constBegin() const
-{ return d->data(); }
+{ return data(); }
 inline QByteArray::iterator QByteArray::end()
-{ detach(); return d->data() + d->size; }
+{ return data() + size(); }
 inline QByteArray::const_iterator QByteArray::end() const
-{ return d->data() + d->size; }
+{ return data() + size(); }
 inline QByteArray::const_iterator QByteArray::cend() const
-{ return d->data() + d->size; }
+{ return data() + size(); }
 inline QByteArray::const_iterator QByteArray::constEnd() const
-{ return d->data() + d->size; }
+{ return data() + size(); }
 inline QByteArray &QByteArray::append(int n, char ch)
-{ return insert(d->size, n, ch); }
+{ return insert(size(), n, ch); }
 inline QByteArray &QByteArray::prepend(int n, char ch)
 { return insert(0, n, ch); }
 inline QByteArray &QByteArray::operator+=(char c)

@@ -465,8 +465,6 @@ struct QTypedArrayData
         Q_STATIC_ASSERT(sizeof(QTypedArrayData) == sizeof(QArrayData));
         return allocate(/* capacity */ 0);
     }
-#if !defined(QT_NO_UNSHARABLE_CONTAINERS)
-#endif
 
     static T *sharedNullData()
     {

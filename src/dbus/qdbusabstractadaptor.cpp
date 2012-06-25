@@ -337,53 +337,26 @@ void QDBusAdaptorConnector::relay(QObject *senderObj, int lastSignalIdx, void **
 // modify carefully: this has been hand-edited!
 // the relaySlot slot gets called with the void** array
 
-struct qt_meta_stringdata_QDBusAdaptorConnector_t {
-    QByteArrayData data[10];
-    char stringdata[96];
-};
-#define QT_MOC_LITERAL(idx, ofs, len) \
-    Q_STATIC_BYTE_ARRAY_DATA_HEADER_INITIALIZER_WITH_OFFSET(len, \
-        offsetof(qt_meta_stringdata_QDBusAdaptorConnector_t, stringdata) + ofs \
-        - idx * sizeof(QByteArrayData) \
-    )
-static const qt_meta_stringdata_QDBusAdaptorConnector_t qt_meta_stringdata_QDBusAdaptorConnector = {
-    {
-QT_MOC_LITERAL(0, 0, 21),
-QT_MOC_LITERAL(1, 22, 11),
-QT_MOC_LITERAL(2, 34, 0),
-QT_MOC_LITERAL(3, 35, 3),
-QT_MOC_LITERAL(4, 39, 18),
-QT_MOC_LITERAL(5, 58, 10),
-QT_MOC_LITERAL(6, 69, 3),
-QT_MOC_LITERAL(7, 73, 4),
-QT_MOC_LITERAL(8, 78, 9),
-QT_MOC_LITERAL(9, 88, 6)
-    },
-    "QDBusAdaptorConnector\0relaySignal\0\0"
-    "obj\0const QMetaObject*\0metaObject\0sid\0"
-    "args\0relaySlot\0polish\0"
-};
-#undef QT_MOC_LITERAL
-
 static const uint qt_meta_data_QDBusAdaptorConnector[] = {
 
  // content:
        7,       // revision
        0,       // classname
        0,    0, // classinfo
-       3,   14, // methods
+       3,   16, // methods
        0,    0, // properties
        0,    0, // enums/sets
        0,    0, // constructors
        0,       // flags
        1,       // signalCount
+      10,   42, // string table
 
  // signals: name, argc, parameters, tag, flags
-       1,    4,   29,    2, 0x05,
+       1,    4,   31,    2, 0x05,
 
  // slots: name, argc, parameters, tag, flags
-       8,    0,   38,    2, 0x0a,
-       9,    0,   39,    2, 0x0a,
+       8,    0,   40,    2, 0x0a,
+       9,    0,   41,    2, 0x0a,
 
  // signals: parameters
     QMetaType::Void, QMetaType::QObjectStar, 0x80000000 | 4, QMetaType::Int, QMetaType::QVariantList,    3,    5,    6,    7,
@@ -392,8 +365,25 @@ static const uint qt_meta_data_QDBusAdaptorConnector[] = {
     QMetaType::Void,
     QMetaType::Void,
 
+ // string table: offset, length
+       0,   21, // "QDBusAdaptorConnector"
+      22,   11, // "relaySignal"
+      34,    0, // ""
+      35,    3, // "obj"
+      39,   18, // "const QMetaObject*"
+      58,   10, // "metaObject"
+      69,    3, // "sid"
+      73,    4, // "args"
+      78,    9, // "relaySlot"
+      88,    6, // "polish"
+
        0        // eod
 };
+
+static const char qt_meta_stringdata_QDBusAdaptorConnector[] =
+    "QDBusAdaptorConnector\0relaySignal\0\0"
+    "obj\0const QMetaObject*\0metaObject\0sid\0"
+    "args\0relaySlot\0polish\0";
 
 void QDBusAdaptorConnector::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, void **_a)
 {
@@ -406,12 +396,21 @@ void QDBusAdaptorConnector::qt_static_metacall(QObject *_o, QMetaObject::Call _c
         case 2: _t->polish(); break;
         default: ;
         }
+    } else if (_c == QMetaObject::IndexOfMethod) {
+        int *result = reinterpret_cast<int *>(_a[0]);
+        void **func = reinterpret_cast<void **>(_a[1]);
+        {
+            typedef void (QDBusAdaptorConnector::*_t)(QObject * , const QMetaObject * , int , const QVariantList & );
+            if (*reinterpret_cast<_t *>(func) == static_cast<_t>(&QDBusAdaptorConnector::relaySignal)) {
+                *result = 0;
+            }
+        }
     }
 }
 
 const QMetaObject QDBusAdaptorConnector::staticMetaObject = {
-    { &QObject::staticMetaObject, qt_meta_stringdata_QDBusAdaptorConnector.data,
-      qt_meta_data_QDBusAdaptorConnector, qt_static_metacall, 0, 0 }
+    { &QObject::staticMetaObject, qt_meta_stringdata_QDBusAdaptorConnector,
+      qt_meta_data_QDBusAdaptorConnector,  qt_static_metacall, 0, 0}
 };
 
 const QMetaObject *QDBusAdaptorConnector::metaObject() const
@@ -422,7 +421,7 @@ const QMetaObject *QDBusAdaptorConnector::metaObject() const
 void *QDBusAdaptorConnector::qt_metacast(const char *_clname)
 {
     if (!_clname) return 0;
-    if (!strcmp(_clname, qt_meta_stringdata_QDBusAdaptorConnector.stringdata))
+    if (!strcmp(_clname, qt_meta_stringdata_QDBusAdaptorConnector))
         return static_cast<void*>(const_cast< QDBusAdaptorConnector*>(this));
     return QObject::qt_metacast(_clname);
 }

@@ -236,7 +236,7 @@ void tst_QArrayData::simpleVector()
 {
     QArrayData data0 = { QArrayData::StaticDataFlags };
     QStaticArrayData<int, 7> data1 = {
-            Q_STATIC_ARRAY_DATA_HEADER_INITIALIZER(int, 7),
+            { QArrayData::StaticDataFlags },
             { 0, 1, 2, 3, 4, 5, 6 }
         };
 
@@ -583,7 +583,7 @@ void tst_QArrayData::simpleVectorReserve_data()
     QTest::newRow("non-empty") << SimpleVector<int>(5, 42) << size_t(5) << size_t(5);
 
     static const QStaticArrayData<int, 15> array = {
-        Q_STATIC_ARRAY_DATA_HEADER_INITIALIZER(int, 15),
+        { QArrayData::StaticDataFlags },
         { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 } };
     const QArrayDataPointerRef<int> p = {
          static_cast<QTypedArrayData<int> *>(
@@ -1387,7 +1387,7 @@ void tst_QArrayData::setSharable_data()
     QArrayDataPointer<int> empty; empty.clear();
 
     static QStaticArrayData<int, 10> staticArrayData = {
-            Q_STATIC_ARRAY_DATA_HEADER_INITIALIZER(int, 10),
+            { QArrayData::StaticDataFlags },
             { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 }
         };
     QArrayDataPointerRef<int> staticArrayRef = {

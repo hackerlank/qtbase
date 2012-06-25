@@ -50,18 +50,17 @@ QT_WARNING_PUSH
 QT_WARNING_DISABLE_GCC("-Wmissing-field-initializers")
 
 const QArrayData QArrayData::shared_null[2] = {
-    { QArrayData::StaticDataFlags, 0, sizeof(QArrayData) }, // shared null
+    { QArrayData::StaticDataFlags }, // shared null
     /* zero initialized terminator */};
 
 static const QArrayData emptyNotNullShared[2] = {
-    { QArrayData::StaticDataFlags, 0, sizeof(QArrayData) }, // shared empty
+    { QArrayData::StaticDataFlags }, // shared empty
     /* zero initialized terminator */};
 
 QT_WARNING_POP
 
 static const QArrayData emptyNotNullUnsharable[2] = {
-    { QArrayData::StaticDataFlags | QArrayData::Unsharable,
-      0, sizeof(QArrayData) }, // unsharable empty
+    { QArrayData::StaticDataFlags | QArrayData::Unsharable }, // unsharable empty
     /* zero initialized terminator */};
 
 static const QArrayData &qt_array_empty = emptyNotNullShared[0];
@@ -90,7 +89,6 @@ static QArrayData *allocateData(size_t allocSize, uint options)
     if (header) {
         header->flags = options;
         header->refCounter().store(1);
-        header->size = 0;
     }
     return header;
 }
@@ -140,7 +138,6 @@ void *QArrayData::allocate(QArrayData **dptr, size_t objectSize, size_t alignmen
         // find where offset should point to so that data() is aligned to alignment bytes
         data = (quintptr(header) + sizeof(QArrayAllocatedData) + alignment - 1)
                 & ~(alignment - 1);
-        header->offset = data - quintptr(header);
         header->alloc = capacity;
     }
 

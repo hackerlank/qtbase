@@ -127,7 +127,7 @@ struct QByteArrayData
     ([]() -> QByteArray { \
         enum { Size = sizeof(str) - 1 }; \
         static const QArrayData qbytearray_literal = { \
-            QArrayData::StaticDataFlags, 0, 0 }; \
+            QArrayData::StaticDataFlags }; \
         QByteArrayData holder = { \
             const_cast<QArrayData *>(&qbytearray_literal), \
             const_cast<char *>(str), \

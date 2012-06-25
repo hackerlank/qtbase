@@ -75,9 +75,7 @@ struct Q_CORE_EXPORT QArrayData
     Q_DECLARE_FLAGS(ArrayOptions, ArrayOption)
 
     uint flags;
-    int size;       // ### move to the main class body?
-    qptrdiff offset; // in bytes from beginning of header
-    // size is 12 / 16 bytes
+    // size is 4 bytes
 
     inline size_t allocatedCapacity();
     inline size_t constAllocatedCapacity() const;
@@ -106,20 +104,6 @@ struct Q_CORE_EXPORT QArrayData
         if (isStatic())
             return true;
         return refCounter().deref();
-    }
-
-    void *data()
-    {
-        Q_ASSERT(size == 0
-                || offset < 0 || size_t(offset) >= sizeof(QArrayData));
-        return reinterpret_cast<char *>(this) + offset;
-    }
-
-    const void *data() const
-    {
-        Q_ASSERT(size == 0
-                || offset < 0 || size_t(offset) >= sizeof(QArrayData));
-        return reinterpret_cast<const char *>(this) + offset;
     }
 
     // This refers to array data mutability, not "header data" represented by
@@ -215,24 +199,22 @@ struct Q_CORE_EXPORT QArrayData
 struct QArrayRawData : public QArrayData
 {
     QBasicAtomicInt ref_;
-    // 4 bytes tail-padding on 64-bit systems
-    // size is 16 / 24 bytes
+    // size is 8 bytes
 };
 
 struct QArrayAllocatedData : public QArrayData
 {
     QBasicAtomicInt ref_;
     uint alloc;
-    // size is 16 / 24 bytes
+    // size is 12 bytes
 };
 
 struct QArrayForeignData : public QArrayData
 {
     QBasicAtomicInt ref_;
-    // -- 4 bytes padding on 64-bit systems --
     void *token;
     void (*notifyFunction)(void *);
-    // size is 24 / 40 bytes
+    // size is 16 / 24 bytes
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(QArrayData::ArrayOptions)
@@ -397,16 +379,6 @@ struct QTypedArrayData
     typedef const T* const_iterator;
 #endif
 
-    T *data() { return static_cast<T *>(QArrayData::data()); }
-    const T *data() const { return static_cast<const T *>(QArrayData::data()); }
-
-    iterator begin(iterator = iterator()) { return data(); }
-    iterator end(iterator = iterator()) { return data() + size; }
-    const_iterator begin(const_iterator = const_iterator()) const { return data(); }
-    const_iterator end(const_iterator = const_iterator()) const { return data() + size; }
-    const_iterator constBegin(const_iterator = const_iterator()) const { return data(); }
-    const_iterator constEnd(const_iterator = const_iterator()) const { return data() + size; }
-
     class AlignmentDummy { QArrayData header; T data; };
 
     static QPair<QTypedArrayData *, T *> allocate(size_t capacity,
@@ -447,9 +419,6 @@ struct QTypedArrayData
         };
         if (result.ptr) {
             Q_ASSERT(!result.ptr->isShared()); // No shared empty, please!
-            result.ptr->offset = reinterpret_cast<const char *>(data)
-                - reinterpret_cast<const char *>(result.ptr);
-            result.ptr->size = int(n);
         }
         return result;
     }
@@ -472,15 +441,6 @@ struct QTypedArrayData
         return static_cast<T *>(QArrayData::sharedNullData());
     }
 };
-
-#define Q_STATIC_ARRAY_DATA_HEADER_INITIALIZER_WITH_OFFSET(size, offset) \
-    { QArrayData::StaticDataFlags, size, offset } \
-    /**/
-
-#define Q_STATIC_ARRAY_DATA_HEADER_INITIALIZER(type, size) \
-    Q_STATIC_ARRAY_DATA_HEADER_INITIALIZER_WITH_OFFSET(size,\
-        ((sizeof(QArrayData) + (Q_ALIGNOF(type) - 1)) & ~(Q_ALIGNOF(type) - 1) )) \
-    /**/
 
 ////////////////////////////////////////////////////////////////////////////////
 //  Q_ARRAY_LITERAL
@@ -516,16 +476,15 @@ struct QTypedArrayData
     union { Type type_must_be_POD; } dummy; Q_UNUSED(dummy)                     \
                                                                                 \
     /* Portable compile-time array size computation */                          \
-    Type data[] = { __VA_ARGS__ }; Q_UNUSED(data)                               \
+    static Type const data[] = { __VA_ARGS__ };                                 \
     enum { Size = sizeof(data) / sizeof(data[0]) };                             \
                                                                                 \
-    static const QStaticArrayData<Type, Size> literal = {                       \
-        Q_STATIC_ARRAY_DATA_HEADER_INITIALIZER(Type, Size), { __VA_ARGS__ } };  \
+    static const QArrayData literal = { QArrayData::StaticDataFlags };          \
                                                                                 \
     QArrayDataPointerRef<Type> ref =                                            \
         { static_cast<QTypedArrayData<Type> *>(                                 \
-            const_cast<QArrayData *>(&literal.header)),                         \
-          const_cast<Type *>(literal.data),                                     \
+            const_cast<QArrayData *>(&literal)),                                \
+          const_cast<Type *>(data),                                             \
           Size };                                                               \
     /**/
 #else
@@ -540,11 +499,13 @@ namespace QtPrivate {
     {
         union { T type_must_be_POD; } dummy; Q_UNUSED(dummy)
 
-        QArrayDataPointerRef<T> result = { QTypedArrayData<T>::allocate(N) };
-        Q_CHECK_PTR(result.ptr);
+        QPair<QTypedArrayData<T> *, T *> pair = QTypedArrayData<T>::allocate(N);
+        Q_CHECK_PTR(pair.first);
 
-        ::memcpy(result.ptr->data(), array, N * sizeof(T));
-        result.ptr->size = N;
+        ::memcpy(pair.second, array, N * sizeof(T));
+        QArrayDataPointerRef<T> result = {
+            pair.first, pair.second, N
+        };
 
         return result;
     }

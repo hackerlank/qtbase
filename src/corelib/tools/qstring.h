@@ -176,7 +176,7 @@ Q_STATIC_ASSERT_X(sizeof(qunicodechar) == 2,
 #  define QStringLiteral(str) \
     ([]() -> QString { \
         static const QArrayData qstring_literal = { \
-            QArrayData::StaticDataFlags, 0, 0 }; \
+            QArrayData::StaticDataFlags }; \
         QStringPrivate holder = {  \
             const_cast<QArrayData *>(&qstring_literal), \
             reinterpret_cast<ushort *>(const_cast<qunicodechar *>(QT_UNICODE_LITERAL(str))), \

@@ -192,8 +192,8 @@ bool lockInternal_helper(QBasicAtomicPointer<QMutexData> &d_ptr, int timeout = -
 
     struct timespec ts, *pts = 0;
     if (IsTimed && timeout > 0) {
-        ts.tv_sec = timeout / 1000;
-        ts.tv_nsec = (timeout % 1000) * 1000 * 1000;
+        ts.tv_sec = uint(timeout) / 1000u;
+        ts.tv_nsec = (uint(timeout) % 1000) * 1000 * 1000;
     }
 
     // the mutex is locked already, set a bit indicating we're waiting
@@ -206,8 +206,8 @@ bool lockInternal_helper(QBasicAtomicPointer<QMutexData> &d_ptr, int timeout = -
                 // timer expired after we returned
                 return false;
             }
-            ts.tv_sec = xtimeout / Q_INT64_C(1000) / 1000 / 1000;
-            ts.tv_nsec = xtimeout % (Q_INT64_C(1000) * 1000 * 1000);
+            ts.tv_sec = quint64(xtimeout) / Q_UINT64_C(1000) / 1000 / 1000;
+            ts.tv_nsec = quint64(xtimeout) % (Q_UINT64_C(1000) * 1000 * 1000);
         }
         if (IsTimed && timeout > 0)
             pts = &ts;

@@ -54,6 +54,7 @@
 #include <stdio.h>
 
 #include <sys/syscall.h>
+#include <sys/prctl.h>
 #include <sys/ioctl.h>
 
 #include "3rdparty/linux_perf_event_p.h"
@@ -84,6 +85,7 @@
 QT_BEGIN_NAMESPACE
 
 static perf_event_attr attr;
+static bool usingNullCounter;
 
 static void initPerf()
 {
@@ -145,6 +147,7 @@ bool QBenchmarkPerfEventsMeasurer::isAvailable()
 {
     // this generates an EFAULT because attr == NULL if perf_event_open is available
     // if the kernel is too old, it generates ENOSYS
+    prctl(PR_TASK_PERF_EVENTS_DISABLE);
     return perf_event_open(0, 0, 0, 0, 0) == -1 && errno != ENOSYS;
 }
 
@@ -430,6 +433,7 @@ QTest::QBenchmarkMetric QBenchmarkPerfEventsMeasurer::metricForEvent(quint32 typ
 void QBenchmarkPerfEventsMeasurer::setCounter(const char *name)
 {
     initPerf();
+    prctl(PR_TASK_PERF_EVENTS_DISABLE);
     const char *colon = strchr(name, ':');
     int n = colon ? colon - name : strlen(name);
     const Events *ptr = eventlist;
@@ -438,6 +442,9 @@ void QBenchmarkPerfEventsMeasurer::setCounter(const char *name)
         if (c == 0)
             break;
         if (c < 0) {
+            usingNullCounter = strcmp(name, "null") == 0;
+            if (usingNullCounter)
+                return;
             fprintf(stderr, "ERROR: Performance counter type '%s' is unknown\n", name);
             exit(1);
         }
@@ -514,6 +521,10 @@ void QBenchmarkPerfEventsMeasurer::init()
 
 void QBenchmarkPerfEventsMeasurer::start()
 {
+    if (usingNullCounter) {
+        prctl(PR_TASK_PERF_EVENTS_ENABLE);
+        return;
+    }
 
     initPerf();
     if (fd == -1) {
@@ -537,6 +548,8 @@ void QBenchmarkPerfEventsMeasurer::start()
 
 qint64 QBenchmarkPerfEventsMeasurer::checkpoint()
 {
+    if (usingNullCounter)
+        return 1;
     ::ioctl(fd, PERF_EVENT_IOC_DISABLE);
     qint64 value = readValue();
     ::ioctl(fd, PERF_EVENT_IOC_ENABLE);
@@ -545,6 +558,10 @@ qint64 QBenchmarkPerfEventsMeasurer::checkpoint()
 
 qint64 QBenchmarkPerfEventsMeasurer::stop()
 {
+    if (usingNullCounter) {
+        prctl(PR_TASK_PERF_EVENTS_DISABLE);
+        return 1;
+    }
     // disable the counter
     ::ioctl(fd, PERF_EVENT_IOC_DISABLE);
     return readValue();
@@ -567,6 +584,8 @@ int QBenchmarkPerfEventsMeasurer::adjustMedianCount(int)
 
 QTest::QBenchmarkMetric QBenchmarkPerfEventsMeasurer::metricType()
 {
+    if (usingNullCounter)
+        return QTest::Events;
     return metricForEvent(attr.type, attr.config);
 }
 

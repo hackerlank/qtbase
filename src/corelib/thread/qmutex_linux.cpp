@@ -42,6 +42,7 @@
 
 #include <linux/futex.h>
 #include <sys/syscall.h>
+#include <sys/sysinfo.h>
 #include <unistd.h>
 #include <errno.h>
 #include <asm/unistd.h>
@@ -98,6 +99,17 @@ QT_BEGIN_NAMESPACE
 
 static QBasicAtomicInt futexFlagSupport = Q_BASIC_ATOMIC_INITIALIZER(-1);
 
+static inline int cpuCount()
+{
+    // same as QThread::idealThreadCount, but skips a function call
+    // or two, since we know we're on Linux
+
+    // Since glibc 2.15, the get_nprocs call (which is what sysconf uses)
+    // is rate-limited, so we don't need to rate-limit again
+    //return sysconf(_SC_NPROCESSORS_ONLN);
+    return get_nprocs();
+}
+
 static int checkFutexPrivateSupport()
 {
     int value = 0;
@@ -146,6 +158,11 @@ static inline int _q_futex(void *addr, int op, int val, const struct timespec *t
     return syscall(__NR_futex, int_addr, op | futexFlags(), val, timeout, addr2, val2);
 }
 
+static inline QMutexData *dummyLockedValue()
+{
+    return reinterpret_cast<QMutexData *>(quintptr(1));
+}
+
 static inline QMutexData *dummyFutexValue()
 {
     return reinterpret_cast<QMutexData *>(quintptr(3));
@@ -160,6 +177,18 @@ bool lockInternal_helper(QBasicAtomicPointer<QMutexData> &d_ptr, int timeout = -
     // we're here because fastTryLock() has just failed
     if (timeout == 0)
         return false;
+
+    // adaptative section:
+    if (cpuCount() > 1) {
+        unsigned int retries = AdaptiveLockRetries;
+        while (true) {
+            if (d_ptr.testAndSetRelaxed(0, dummyLockedValue()))
+                return true;
+            loopPause();
+            if (!--retries)
+                break;
+        }
+    }
 
     struct timespec ts, *pts = 0;
     if (IsTimed && timeout > 0) {

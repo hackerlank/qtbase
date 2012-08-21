@@ -85,6 +85,14 @@ struct timespec;
 
 QT_BEGIN_NAMESPACE
 
+// The number of retries is arbitrary.
+// The higher the number, the more we'll spin, keeping the CPU busy and
+// consuming power. However, the higher it is, the higher the chance we'll lock
+// the mutex without having to sleep.
+enum {
+    AdaptiveLockRetries = 1000
+};
+
 class QMutexData
 {
 public:

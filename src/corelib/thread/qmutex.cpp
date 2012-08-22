@@ -415,6 +415,15 @@ bool QBasicMutex::lockInternal(int timeout) QT_MUTEX_LOCK_NOEXCEPT
 {
     Q_ASSERT(!isRecursive());
 
+    unsigned int retries = AdaptiveLockRetries;
+    while (true) {
+        loopPause();
+        if (fastTryLock())
+            return true;
+        if (!--retries)
+            break;
+    }
+
     while (!fastTryLock()) {
         QMutexData *copy = d_ptr.loadAcquire();
         if (!copy) // if d is 0, the mutex is unlocked

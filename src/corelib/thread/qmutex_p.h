@@ -57,6 +57,25 @@
 # include <mach/semaphore.h>
 #endif
 
+#if !defined Q_PROCESSOR_X86
+static inline void loopPause() {}
+#else
+#  include <private/qsimd_p.h> // for _mm_pause
+
+static inline void loopPause()
+{
+#  ifdef __SSE2__
+    // 64-bit systems always have SSE2
+    _mm_pause();
+#  elif defined(Q_CC_GNU)
+    asm volatile ("pause");
+#  elif defined(Q_CC_MSVC) && defined(Q_PROCESSOR_X86_32)
+    asm { pause };
+#  endif
+}
+#endif
+
+
 #if defined(Q_OS_LINUX) && !defined(QT_LINUXBASE)
 // use Linux mutexes everywhere except for LSB builds
 #  define QT_LINUX_FUTEX

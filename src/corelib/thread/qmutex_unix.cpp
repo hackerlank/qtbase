@@ -56,7 +56,7 @@ static void report_error(int code, const char *where, const char *what)
 }
 
 QMutexPrivate::QMutexPrivate()
-    : wakeup(false)
+    : refCount(0), wakeup(false)
 {
     report_error(pthread_mutex_init(&mutex, NULL), "QMutex", "mutex init");
     qt_initialize_pthread_cond(&cond, "QMutex");
@@ -66,6 +66,22 @@ QMutexPrivate::~QMutexPrivate()
 {
     report_error(pthread_cond_destroy(&cond), "QMutex", "cv destroy");
     report_error(pthread_mutex_destroy(&mutex), "QMutex", "mutex destroy");
+}
+
+/* Implementation of the semaphore:
+ * - wakeup starts as false
+ * - when a thread unlocks the mutex, it sets the flag to true
+ *   and then it does pthread_cond_signal, to wake up one thread
+ * - the woken up thread queues to get the pthread_mutex
+ * - it's possible that, in the mean time, another thread will get the mutex
+ *   and thus steal the wake-up signal. For that reason, we need to loop in wait().
+ *   [pthread doesn't guarantee that the thread woken up by pthread_cond_signal will
+ *    be the first one to acquire the mutex]
+ */
+
+void QMutexPrivate::eatSignalling()
+{
+    wakeup = false;
 }
 
 bool QMutexPrivate::wait(int timeout)

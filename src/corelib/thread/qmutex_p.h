@@ -112,42 +112,18 @@ public:
     void wakeUp() Q_DECL_NOTHROW;
 
     // Control the lifetime of the privates
-    QAtomicInt refCount;
+    volatile int refCount;
     int id;
 
-    bool ref() {
-        Q_ASSERT(refCount.load() >= 0);
-        int c;
-        do {
-            c = refCount.load();
-            if (c == 0)
-                return false;
-        } while (!refCount.testAndSetRelaxed(c, c + 1));
-        Q_ASSERT(refCount.load() >= 0);
-        return true;
-    }
-    void deref() {
-        Q_ASSERT(refCount.load() >= 0);
-        if (!refCount.deref())
-            release();
-        Q_ASSERT(refCount.load() >= 0);
-    }
     void release();
+    void eatSignalling();
     static QMutexPrivate *allocate();
-
-    QAtomicInt waiters; // Number of threads waiting on this mutex. (may be offset by -BigNumber)
-    QAtomicInt possiblyUnlocked; /* Boolean indicating that a timed wait timed out.
-                                    When it is true, a reference is held.
-                                    It is there to avoid a race that happens if unlock happens right
-                                    when the mutex is unlocked.
-                                  */
-    enum { BigNumber = 0x100000 }; //Must be bigger than the possible number of waiters (number of threads)
-    void derefWaiters(int value) Q_DECL_NOTHROW;
 
     //platform specific stuff
 #if defined(Q_OS_MAC)
     semaphore_t mach_semaphore;
 #elif defined(Q_OS_UNIX)
+    // this implements a semaphore
     bool wakeup;
     pthread_mutex_t mutex;
     pthread_cond_t cond;

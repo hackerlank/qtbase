@@ -39,6 +39,7 @@
 QT_BEGIN_NAMESPACE
 
 QMutexPrivate::QMutexPrivate()
+    : refCount(0)
 {
 #ifndef Q_OS_WINRT
     event = CreateEvent(0, FALSE, FALSE, 0);
@@ -52,6 +53,11 @@ QMutexPrivate::QMutexPrivate()
 
 QMutexPrivate::~QMutexPrivate()
 { CloseHandle(event); }
+
+void QMutexPrivate::eatSignalling()
+{
+    wait(0);
+}
 
 bool QMutexPrivate::wait(int timeout)
 {

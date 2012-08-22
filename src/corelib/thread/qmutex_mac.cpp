@@ -46,6 +46,7 @@
 QT_BEGIN_NAMESPACE
 
 QMutexPrivate::QMutexPrivate()
+    : refCount(0)
 {
     kern_return_t r = semaphore_create(mach_task_self(), &mach_semaphore, SYNC_POLICY_FIFO, 0);
     if (r != KERN_SUCCESS)
@@ -57,6 +58,11 @@ QMutexPrivate::~QMutexPrivate()
     kern_return_t r = semaphore_destroy(mach_task_self(), mach_semaphore);
     if (r != KERN_SUCCESS)
         qWarning("QMutex: failed to destroy semaphore, error %d", r);
+}
+
+void QMutexPrivate::eatSignalling()
+{
+    wait(0);
 }
 
 bool QMutexPrivate::wait(int timeout)

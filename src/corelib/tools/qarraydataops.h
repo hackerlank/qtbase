@@ -66,7 +66,7 @@ struct QPodArrayOps
         Q_ASSERT(newSize <= this->allocatedCapacity());
 
         ::memset(this->end(), 0, (newSize - this->size) * sizeof(T));
-        this->size = int(newSize);
+        this->size = uint(newSize);
     }
 
     void copyAppend(const T *b, const T *e)
@@ -93,7 +93,7 @@ struct QPodArrayOps
         const T *const end = iter + n;
         for (; iter != end; ++iter)
             ::memcpy(iter, &t, sizeof(T));
-        this->size += int(n);
+        this->size += uint(n);
     }
 
     void truncate(size_t newSize)
@@ -102,7 +102,7 @@ struct QPodArrayOps
         Q_ASSERT(!this->isShared());
         Q_ASSERT(newSize < size_t(this->size));
 
-        this->size = int(newSize);
+        this->size = uint(newSize);
     }
 
     void destroyAll() // Call from destructors, ONLY!
@@ -135,7 +135,7 @@ struct QPodArrayOps
         Q_ASSERT(this->allocatedCapacity() - this->size >= n);
 
         ::memmove(where + n, where, (static_cast<const T*>(this->end()) - where) * sizeof(T));
-        this->size += n; // PODs can't throw on copy
+        this->size += uint(n); // PODs can't throw on copy
         while (n--)
             *where++ = t;
     }
@@ -570,7 +570,7 @@ struct QMovableArrayOps
 
         copier.copy(n, t);
         displace.commit();
-        this->size += n;
+        this->size += int(n);
     }
 
     void erase(T *b, T *e)

@@ -486,7 +486,7 @@ inline QByteArray::QByteArray(const QByteArray &a) Q_DECL_NOTHROW : d(a.d)
 { d.d->ref(); }
 
 inline int QByteArray::capacity() const
-{ int realCapacity = d.d->constAllocatedCapacity(); return realCapacity ? realCapacity - 1 : 0; }
+{ int realCapacity = int(d.d->constAllocatedCapacity()); return realCapacity ? realCapacity - 1 : 0; }
 
 inline void QByteArray::reserve(int asize)
 {

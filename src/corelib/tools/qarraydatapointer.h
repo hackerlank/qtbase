@@ -75,12 +75,12 @@ public:
     }
 
     QArrayDataPointer(Data *header, T *adata, size_t n = 0) Q_DECL_NOTHROW
-        : d(header), ptr(adata), size(n)
+        : d(header), ptr(adata), size(uint(n))
     {
     }
 
     explicit QArrayDataPointer(QPair<QTypedArrayData<T> *, T *> adata, size_t n = 0)
-        : d(adata.first), ptr(adata.second), size(n)
+        : d(adata.first), ptr(adata.second), size(uint(n))
     {
         Q_CHECK_PTR(d);
     }

@@ -77,6 +77,7 @@ SOURCES += \
            ../../corelib/tools/qstring.cpp \
            ../../corelib/tools/qstringbuilder.cpp \
            ../../corelib/tools/qstring_compat.cpp \
+           ../../corelib/tools/qstringargbuilder.cpp \
            ../../corelib/tools/qstringlist.cpp \
            ../../corelib/tools/qvector.cpp \
            ../../corelib/tools/qvsnprintf.cpp \

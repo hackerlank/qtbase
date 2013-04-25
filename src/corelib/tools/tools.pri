@@ -106,6 +106,7 @@ SOURCES += \
         tools/qsimd.cpp \
         tools/qsize.cpp \
         tools/qstring.cpp \
+        tools/qstringargbuilder.cpp \
         tools/qstringbuilder.cpp \
         tools/qstringlist.cpp \
         tools/qtextboundaryfinder.cpp \

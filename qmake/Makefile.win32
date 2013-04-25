@@ -106,6 +106,7 @@ QTOBJS= \
 	qutfcodec.obj \
 	qstring.obj \
 	qstring_compat.obj \
+	qstringargbuilder.obj \
 	qstringlist.obj \
 	qstringbuilder.obj \
 	qsystemerror.obj \

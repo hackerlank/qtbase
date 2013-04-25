@@ -648,7 +648,7 @@ static const QLocaleData *systemData()
 #endif
 }
 
-static const QLocaleData *defaultData()
+const QLocaleData *QLocaleData::defaultData()
 {
     if (!default_data)
         default_data = systemData();
@@ -703,7 +703,7 @@ QDataStream &operator>>(QDataStream &ds, QLocale &l)
 static const int locale_data_size = sizeof(locale_data)/sizeof(QLocaleData) - 1;
 
 Q_GLOBAL_STATIC_WITH_ARGS(QSharedDataPointer<QLocalePrivate>, defaultLocalePrivate,
-                          (QLocalePrivate::create(defaultData(), default_number_options)))
+                          (QLocalePrivate::create(QLocaleData::defaultData(), default_number_options)))
 Q_GLOBAL_STATIC_WITH_ARGS(QSharedDataPointer<QLocalePrivate>, systemLocalePrivate,
                           (QLocalePrivate::create(systemData())))
 
@@ -729,7 +729,7 @@ static QLocalePrivate *findLocalePrivate(QLocale::Language language, QLocale::Sc
     // If not found, should default to system
     if (data->m_language_id == QLocale::C && language != QLocale::C) {
         numberOptions = default_number_options;
-        data = defaultData();
+        data = QLocaleData::defaultData();
     }
     return QLocalePrivate::create(data, numberOptions);
 }

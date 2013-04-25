@@ -951,7 +951,7 @@ public:
     float toFloat(const QStringRef &s, bool *ok = Q_NULLPTR) const;
     double toDouble(const QStringRef &s, bool *ok = Q_NULLPTR) const;
 
-    QString toString(qlonglong i) const;
+    QString toString(qlonglong i) const; // ### Qt 6: merge to the above
     QString toString(qulonglong i) const;
     inline QString toString(short i) const;
     inline QString toString(ushort i) const;

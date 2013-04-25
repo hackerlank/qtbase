@@ -172,6 +172,7 @@ public:
                                              QLocale::Script script,
                                              QLocale::Country country);
     static const QLocaleData *c();
+    static const QLocaleData *defaultData();
 
     // Maximum number of significant digits needed to represent a double.
     // We cannot use std::numeric_limits here without constexpr.

@@ -60,6 +60,7 @@ bootstrap { #Qt code
         qutfcodec.cpp \
         qstring.cpp \
         qstring_compat.cpp \
+        qstringargbuilder.cpp \
         qstringlist.cpp \
         qtemporaryfile.cpp \
         qtextstream.cpp \
@@ -166,4 +167,4 @@ bootstrap { #Qt code
   QMAKE_LFLAGS = -pg
 }
 
-PRECOMPILED_HEADER = qmake_pch.h
+CONFIG -= precompile_header

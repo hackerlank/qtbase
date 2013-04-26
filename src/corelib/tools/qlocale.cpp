@@ -588,6 +588,7 @@ static const QSystemLocale *systemLocale()
 
 void QLocalePrivate::updateSystemPrivate()
 {
+    // this function is NOT thread-safe!
     const QSystemLocale *sys_locale = systemLocale();
     if (!system_data)
         system_data = &globalLocaleData;
@@ -637,6 +638,7 @@ static const QLocaleData *systemData()
 {
 #ifndef QT_NO_SYSTEMLOCALE
     // copy over the information from the fallback locale and modify
+    // this function is NOT thread-safe!
     if (!system_data || system_data->m_language_id == 0)
         QLocalePrivate::updateSystemPrivate();
 
@@ -702,6 +704,8 @@ static const int locale_data_size = sizeof(locale_data)/sizeof(QLocaleData) - 1;
 
 Q_GLOBAL_STATIC_WITH_ARGS(QSharedDataPointer<QLocalePrivate>, defaultLocalePrivate,
                           (QLocalePrivate::create(defaultData(), default_number_options)))
+Q_GLOBAL_STATIC_WITH_ARGS(QSharedDataPointer<QLocalePrivate>, systemLocalePrivate,
+                          (QLocalePrivate::create(systemData())))
 
 static QLocalePrivate *localePrivateByName(const QString &name)
 {
@@ -2040,7 +2044,9 @@ QString QLocale::toString(double i, char f, int prec) const
 
 QLocale QLocale::system()
 {
-    return QLocale(*QLocalePrivate::create(systemData()));
+    // this function is NOT thread-safe!
+    QT_PREPEND_NAMESPACE(systemData)(); // trigger updating of the system data if necessary
+    return QLocale(*systemLocalePrivate->data());
 }
 
 

@@ -228,6 +228,152 @@ static QString replaceArgEscapes(const QString &s, const ArgEscapeData &d, int f
     return result;
 }
 
+static QString replaceArg(const QString &pattern, const QString &a, int fieldWidth, QChar fillChar)
+{
+    ArgEscapeData d = findArgEscapes(pattern);
+
+    if (d.occurrences == 0) {
+        qWarning("QString::arg: Argument missing: %s, %s", pattern.toLocal8Bit().data(),
+                  a.toLocal8Bit().data());
+        return pattern;
+    }
+    return replaceArgEscapes(pattern, d, fieldWidth, a, a, fillChar);
+}
+
+static QString replaceArg(const QString &pattern, qlonglong a, int fieldWidth, int base, QChar fillChar)
+{
+    ArgEscapeData d = findArgEscapes(pattern);
+
+    if (d.occurrences == 0) {
+        qWarning() << "QString::arg: Argument missing:" << pattern << ',' << a;
+        return pattern;
+    }
+
+    unsigned flags = QLocaleData::NoFlags;
+    if (fillChar == QLatin1Char('0'))
+        flags = QLocaleData::ZeroPadded;
+
+    QString arg;
+    if (d.occurrences > d.locale_occurrences)
+        arg = QLocaleData::c()->longLongToString(a, -1, base, fieldWidth, flags);
+
+    QString locale_arg;
+    if (d.locale_occurrences > 0) {
+        QLocale locale;
+        if (!(locale.numberOptions() & QLocale::OmitGroupSeparator))
+            flags |= QLocaleData::ThousandsGroup;
+        locale_arg = QLocaleData::defaultData()->longLongToString(a, -1, base, fieldWidth, flags);
+    }
+
+    return replaceArgEscapes(pattern, d, fieldWidth, arg, locale_arg, fillChar);
+}
+
+static QString replaceArg(const QString &pattern, qulonglong a, int fieldWidth, int base, QChar fillChar)
+{
+    ArgEscapeData d = findArgEscapes(pattern);
+
+    if (d.occurrences == 0) {
+        qWarning() << "QString::arg: Argument missing:" << pattern << ',' << a;
+        return pattern;
+    }
+
+    unsigned flags = QLocaleData::NoFlags;
+    if (fillChar == QLatin1Char('0'))
+        flags = QLocaleData::ZeroPadded;
+
+    QString arg;
+    if (d.occurrences > d.locale_occurrences)
+        arg = QLocaleData::c()->unsLongLongToString(a, -1, base, fieldWidth, flags);
+
+    QString locale_arg;
+    if (d.locale_occurrences > 0) {
+        QLocale locale;
+        if (!(locale.numberOptions() & QLocale::OmitGroupSeparator))
+            flags |= QLocaleData::ThousandsGroup;
+        locale_arg = QLocaleData::defaultData()->longLongToString(a, -1, base, fieldWidth, flags);
+    }
+
+    return replaceArgEscapes(pattern, d, fieldWidth, arg, locale_arg, fillChar);
+}
+
+static QString replaceArg(const QString &pattern, double a, int fieldWidth, char fmt, int prec, QChar fillChar)
+{
+    ArgEscapeData d = findArgEscapes(pattern);
+
+    if (d.occurrences == 0) {
+        qWarning("QString::arg: Argument missing: %s, %g", pattern.toLocal8Bit().data(), a);
+        return pattern;
+    }
+
+    unsigned flags = QLocaleData::NoFlags;
+    if (fillChar == QLatin1Char('0'))
+        flags = QLocaleData::ZeroPadded;
+
+    if (qIsUpper(fmt))
+        flags |= QLocaleData::CapitalEorX;
+    fmt = qToLower(fmt);
+
+    QLocaleData::DoubleForm form = QLocaleData::DFDecimal;
+    switch (fmt) {
+    case 'f':
+        form = QLocaleData::DFDecimal;
+        break;
+    case 'e':
+        form = QLocaleData::DFExponent;
+        break;
+    case 'g':
+        form = QLocaleData::DFSignificantDigits;
+        break;
+    default:
+#if defined(QT_CHECK_RANGE)
+        qWarning("QString::arg: Invalid format char '%c'", fmt);
+#endif
+        break;
+    }
+
+    QString arg;
+    if (d.occurrences > d.locale_occurrences)
+        arg = QLocaleData::c()->doubleToString(a, prec, form, fieldWidth, flags);
+
+    QString locale_arg;
+    if (d.locale_occurrences > 0) {
+        QLocale locale;
+        if (!(locale.numberOptions() & QLocale::OmitGroupSeparator))
+            flags |= QLocaleData::ThousandsGroup;
+        if (!(locale.numberOptions() & QLocale::OmitLeadingZeroInExponent))
+            flags |= QLocaleData::ZeroPadExponent;
+        locale_arg = QLocaleData::defaultData()->doubleToString(a, prec, form, fieldWidth, flags);
+    }
+
+    return replaceArgEscapes(pattern, d, fieldWidth, arg, locale_arg, fillChar);
+}
+
+static int getEscape(const QChar *uc, int *pos, int len, int maxNumber = 999)
+{
+    int i = *pos;
+    ++i;
+    if (i < len && uc[i] == QLatin1Char('L'))
+        ++i;
+    if (i < len) {
+        int escape = uc[i].unicode() - '0';
+        if (uint(escape) >= 10U)
+            return -1;
+        ++i;
+        while (i < len) {
+            int digit = uc[i].unicode() - '0';
+            if (uint(digit) >= 10U)
+                break;
+            escape = (escape * 10) + digit;
+            ++i;
+        }
+        if (escape <= maxNumber) {
+            *pos = i;
+            return escape;
+        }
+    }
+    return -1;
+}
+
 /*!
   Returns a copy of this string with the lowest numbered place marker
   replaced by string \a a, i.e., \c %1, \c %2, ..., \c %99.
@@ -259,14 +405,7 @@ static QString replaceArgEscapes(const QString &s, const ArgEscapeData &d, int f
 */
 QString QString::arg(const QString &a, int fieldWidth, QChar fillChar) const
 {
-    ArgEscapeData d = findArgEscapes(*this);
-
-    if (d.occurrences == 0) {
-        qWarning("QString::arg: Argument missing: %s, %s", toLocal8Bit().data(),
-                  a.toLocal8Bit().data());
-        return *this;
-    }
-    return replaceArgEscapes(*this, d, fieldWidth, a, a, fillChar);
+    return replaceArg(*this, a, fieldWidth, fillChar);
 }
 
 /*!
@@ -463,30 +602,7 @@ QString QString::arg(const QString &a, int fieldWidth, QChar fillChar) const
 */
 QString QString::arg(qlonglong a, int fieldWidth, int base, QChar fillChar) const
 {
-    ArgEscapeData d = findArgEscapes(*this);
-
-    if (d.occurrences == 0) {
-        qWarning() << "QString::arg: Argument missing:" << *this << ',' << a;
-        return *this;
-    }
-
-    unsigned flags = QLocaleData::NoFlags;
-    if (fillChar == QLatin1Char('0'))
-        flags = QLocaleData::ZeroPadded;
-
-    QString arg;
-    if (d.occurrences > d.locale_occurrences)
-        arg = QLocaleData::c()->longLongToString(a, -1, base, fieldWidth, flags);
-
-    QString locale_arg;
-    if (d.locale_occurrences > 0) {
-        QLocale locale;
-        if (!(locale.numberOptions() & QLocale::OmitGroupSeparator))
-            flags |= QLocaleData::ThousandsGroup;
-        locale_arg = locale.d->m_data->longLongToString(a, -1, base, fieldWidth, flags);
-    }
-
-    return replaceArgEscapes(*this, d, fieldWidth, arg, locale_arg, fillChar);
+    return replaceArg(*this, a, fieldWidth, base, fillChar);
 }
 
 /*!
@@ -507,30 +623,7 @@ QString QString::arg(qlonglong a, int fieldWidth, int base, QChar fillChar) cons
 */
 QString QString::arg(qulonglong a, int fieldWidth, int base, QChar fillChar) const
 {
-    ArgEscapeData d = findArgEscapes(*this);
-
-    if (d.occurrences == 0) {
-        qWarning() << "QString::arg: Argument missing:" << *this << ',' << a;
-        return *this;
-    }
-
-    unsigned flags = QLocaleData::NoFlags;
-    if (fillChar == QLatin1Char('0'))
-        flags = QLocaleData::ZeroPadded;
-
-    QString arg;
-    if (d.occurrences > d.locale_occurrences)
-        arg = QLocaleData::c()->unsLongLongToString(a, -1, base, fieldWidth, flags);
-
-    QString locale_arg;
-    if (d.locale_occurrences > 0) {
-        QLocale locale;
-        if (!(locale.numberOptions() & QLocale::OmitGroupSeparator))
-            flags |= QLocaleData::ThousandsGroup;
-        locale_arg = locale.d->m_data->unsLongLongToString(a, -1, base, fieldWidth, flags);
-    }
-
-    return replaceArgEscapes(*this, d, fieldWidth, arg, locale_arg, fillChar);
+    return replaceArg(*this, a, fieldWidth, base, fillChar);
 }
 
 /*!
@@ -619,81 +712,7 @@ QString QString::arg(char a, int fieldWidth, QChar fillChar) const
 */
 QString QString::arg(double a, int fieldWidth, char fmt, int prec, QChar fillChar) const
 {
-    ArgEscapeData d = findArgEscapes(*this);
-
-    if (d.occurrences == 0) {
-        qWarning("QString::arg: Argument missing: %s, %g", toLocal8Bit().data(), a);
-        return *this;
-    }
-
-    unsigned flags = QLocaleData::NoFlags;
-    if (fillChar == QLatin1Char('0'))
-        flags = QLocaleData::ZeroPadded;
-
-    if (qIsUpper(fmt))
-        flags |= QLocaleData::CapitalEorX;
-    fmt = qToLower(fmt);
-
-    QLocaleData::DoubleForm form = QLocaleData::DFDecimal;
-    switch (fmt) {
-    case 'f':
-        form = QLocaleData::DFDecimal;
-        break;
-    case 'e':
-        form = QLocaleData::DFExponent;
-        break;
-    case 'g':
-        form = QLocaleData::DFSignificantDigits;
-        break;
-    default:
-#if defined(QT_CHECK_RANGE)
-        qWarning("QString::arg: Invalid format char '%c'", fmt);
-#endif
-        break;
-    }
-
-    QString arg;
-    if (d.occurrences > d.locale_occurrences)
-        arg = QLocaleData::c()->doubleToString(a, prec, form, fieldWidth, flags);
-
-    QString locale_arg;
-    if (d.locale_occurrences > 0) {
-        QLocale locale;
-
-        if (!(locale.numberOptions() & QLocale::OmitGroupSeparator))
-            flags |= QLocaleData::ThousandsGroup;
-        if (!(locale.numberOptions() & QLocale::OmitLeadingZeroInExponent))
-            flags |= QLocaleData::ZeroPadExponent;
-        locale_arg = locale.d->m_data->doubleToString(a, prec, form, fieldWidth, flags);
-    }
-
-    return replaceArgEscapes(*this, d, fieldWidth, arg, locale_arg, fillChar);
-}
-
-static int getEscape(const QChar *uc, int *pos, int len, int maxNumber = 999)
-{
-    int i = *pos;
-    ++i;
-    if (i < len && uc[i] == QLatin1Char('L'))
-        ++i;
-    if (i < len) {
-        int escape = uc[i].unicode() - '0';
-        if (uint(escape) >= 10U)
-            return -1;
-        ++i;
-        while (i < len) {
-            int digit = uc[i].unicode() - '0';
-            if (uint(digit) >= 10U)
-                break;
-            escape = (escape * 10) + digit;
-            ++i;
-        }
-        if (escape <= maxNumber) {
-            *pos = i;
-            return escape;
-        }
-    }
-    return -1;
+    return replaceArg(*this, a, fieldWidth, fmt, prec, fillChar);
 }
 
 /*
@@ -815,12 +834,10 @@ static int resolveStringRefsAndReturnTotalSize(ParseResult &parts, const ArgInde
     return totalSize;
 }
 
-} // unnamed namespace
-
-QString QString::multiArg(int numArgs, const QString **args) const
+static QString replaceMultiArg(const QString &pattern, int numArgs, const QString **args)
 {
     // Step 1-2 above
-    ParseResult parts = parseMultiArgFormatString(*this);
+    ParseResult parts = parseMultiArgFormatString(pattern);
 
     // 3-4
     ArgIndexToPlaceholderMap argIndexToPlaceholderMap = makeArgIndexToPlaceholderMap(parts);
@@ -829,7 +846,7 @@ QString QString::multiArg(int numArgs, const QString **args) const
         argIndexToPlaceholderMap.resize(numArgs);
     else if (argIndexToPlaceholderMap.size() < numArgs) // 3b
         qWarning("QString::arg: %d argument(s) missing in %s",
-                 numArgs - argIndexToPlaceholderMap.size(), toLocal8Bit().data());
+                 numArgs - argIndexToPlaceholderMap.size(), pattern.toLocal8Bit().data());
 
     // 5
     const int totalSize = resolveStringRefsAndReturnTotalSize(parts, argIndexToPlaceholderMap, args);
@@ -846,6 +863,13 @@ QString QString::multiArg(int numArgs, const QString **args) const
     }
 
     return result;
+}
+
+} // unnamed namespace
+
+QString QString::multiArg(int numArgs, const QString **args) const
+{
+    return replaceMultiArg(*this, numArgs, args);
 }
 
 QT_END_NAMESPACE

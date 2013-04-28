@@ -54,6 +54,7 @@
 
 QT_BEGIN_NAMESPACE
 
+class QStringArgBuilder;
 
 struct Q_CORE_EXPORT QAbstractConcatenable
 {
@@ -261,6 +262,10 @@ template <> struct QConcatenable<QString> : private QAbstractConcatenable
         memcpy(out, reinterpret_cast<const char*>(a.constData()), sizeof(QChar) * n);
         out += n;
     }
+};
+
+template <> struct QConcatenable<QStringArgBuilder> : public QConcatenable<QString>
+{
 };
 
 template <> struct QConcatenable<QStringRef> : private QAbstractConcatenable

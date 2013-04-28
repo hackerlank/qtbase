@@ -81,6 +81,7 @@ class QRegularExpression;
 class QRegularExpressionMatch;
 class QString;
 class QStringList;
+class QStringArgBuilder;
 class QTextCodec;
 class QStringRef;
 template <typename T> class QVector;
@@ -253,6 +254,21 @@ public:
     const QChar operator[](uint i) const;
     QCharRef operator[](uint i);
 
+#if defined(Q_COMPILER_VARIADIC_TEMPLATES) && \
+    defined(Q_COMPILER_RVALUE_REFS) && \
+    !defined(QT_COMPILING_QSTRINGARGBUILDER_CPP)
+#  define QT_QSTRING_ARG_NEW
+    // defined in qstringargbuilder.h
+#  ifdef Q_COMPILER_REF_QUALIFIERS
+    template <typename... Args>
+    inline QStringArgBuilder arg(Args &&... args) const & Q_REQUIRED_RESULT;
+    template <typename... Args>
+    inline QStringArgBuilder arg(Args &&... args) && Q_REQUIRED_RESULT;
+#  else
+    template <typename... Args>
+    inline QStringArgBuilder arg(Args &&... args) const Q_REQUIRED_RESULT;
+#  endif
+#else
     QString arg(qlonglong a, int fieldwidth=0, int base=10,
                 QChar fillChar = QLatin1Char(' ')) const Q_REQUIRED_RESULT;
     QString arg(qulonglong a, int fieldwidth=0, int base=10,
@@ -294,6 +310,7 @@ public:
     QString arg(const QString &a1, const QString &a2, const QString &a3,
                 const QString &a4, const QString &a5, const QString &a6,
                 const QString &a7, const QString &a8, const QString &a9) const Q_REQUIRED_RESULT;
+#endif // variadic templates, rvalue refs, !building compat
 
     QString &vsprintf(const char *format, va_list ap) Q_ATTRIBUTE_FORMAT_PRINTF(2, 0);
     QString &sprintf(const char *format, ...) Q_ATTRIBUTE_FORMAT_PRINTF(2, 3);
@@ -909,6 +926,7 @@ inline QString &QString::setNum(ulong n, int base)
 { return setNum(qulonglong(n), base); }
 inline QString &QString::setNum(float n, char f, int prec)
 { return setNum(double(n),f,prec); }
+#ifndef QT_QSTRING_ARG_NEW
 inline QString QString::arg(int a, int fieldWidth, int base, QChar fillChar) const
 { return arg(qlonglong(a), fieldWidth, base, fillChar); }
 inline QString QString::arg(uint a, int fieldWidth, int base, QChar fillChar) const
@@ -946,6 +964,7 @@ inline QString QString::arg(const QString &a1, const QString &a2, const QString 
                             const QString &a4, const QString &a5, const QString &a6,
                             const QString &a7, const QString &a8, const QString &a9) const
 { const QString *args[9] = { &a1, &a2, &a3, &a4, &a5, &a6,  &a7, &a8, &a9 }; return multiArg(9, args); }
+#endif // QT_QSTRING_ARG_NEW
 
 inline QString QString::section(QChar asep, int astart, int aend, SectionFlags aflags) const
 { return section(QString(asep), astart, aend, aflags); }
@@ -1739,5 +1758,6 @@ QT_END_NAMESPACE
 #if defined(QT_USE_FAST_OPERATOR_PLUS) || defined(QT_USE_QSTRINGBUILDER)
 #include <QtCore/qstringbuilder.h>
 #endif
+#include <QtCore/qstringargbuilder.h>
 
 #endif // QSTRING_H

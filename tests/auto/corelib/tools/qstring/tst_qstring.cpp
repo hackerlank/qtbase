@@ -629,6 +629,11 @@ QString verifyZeroTermination(const QString &str)
     return str;
 }
 
+QString verifyZeroTermination(const QStringArgBuilder &str)
+{
+    return verifyZeroTermination(static_cast<const QString &>(str));
+}
+
 // Overriding QTest's QCOMPARE, to check QString for null termination
 #undef QCOMPARE
 #define QCOMPARE(actual, expected)                                      \

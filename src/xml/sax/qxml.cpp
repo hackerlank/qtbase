@@ -4803,8 +4803,9 @@ bool QXmlSimpleReaderPrivate::parseDoctype()
                 break;
             case Mup:
                 if (dtdRecursionLimit > 0 && parameterEntities.size() > dtdRecursionLimit) {
+                    int x = dtdRecursionLimit;
                     reportParseError(QString::fromLatin1(
-                        "DTD parsing exceeded recursion limit of %1.").arg(dtdRecursionLimit));
+                        "DTD parsing exceeded recursion limit of %1.").arg(x));
                     return false;
                 }
                 if (!parseMarkupdecl()) {

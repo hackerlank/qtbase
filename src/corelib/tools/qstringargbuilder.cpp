@@ -1,51 +1,57 @@
 /****************************************************************************
 **
-** Copyright (C) 2015 The Qt Company Ltd.
+** Copyright (C) 2016 The Qt Company.
 ** Copyright (C) 2016 Intel Corporation.
-** Contact: http://www.qt-project.org/legal
+** Contact: http://www.qt.io/licensing/
 **
-** This file is part of the QtCore module of the Qt Toolkit.
+** This file is part of the QtNetwork module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
 ** Commercial License Usage
 ** Licensees holding valid commercial Qt licenses may use this file in
 ** accordance with the commercial license agreement provided with the
 ** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Digia.  For licensing terms and
-** conditions see http://qt.digia.com/licensing.  For further information
-** use the contact form at http://qt.digia.com/contact-us.
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
 **
 ** GNU Lesser General Public License Usage
 ** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Digia gives you certain additional
-** rights.  These rights are described in the Digia Qt LGPL Exception
-** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
+** General Public License version 3 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL3 included in the
+** packaging of this file. Please review the following information to
+** ensure the GNU Lesser General Public License version 3 requirements
+** will be met: https://www.gnu.org/licenses/lgpl-3.0.html.
 **
 ** GNU General Public License Usage
 ** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
-**
+** General Public License version 2.0 or (at your option) the GNU General
+** Public license version 3 or any later version approved by the KDE Free
+** Qt Foundation. The licenses are as published by the Free Software
+** Foundation and appearing in the file LICENSE.GPL2 and LICENSE.GPL3
+** included in the packaging of this file. Please review the following
+** information to ensure the GNU General Public License requirements will
+** be met: https://www.gnu.org/licenses/gpl-2.0.html and
+** https://www.gnu.org/licenses/gpl-3.0.html.
 **
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
 
-#include "qstring.h"
+#if defined(QSTRING_H) && !defined(QT_BOOTSTRAPPED)
+#  error "This file cannot be compiled with pre-compiled headers"
+//       except for configure.exe
+#endif
+#define QT_COMPILING_QSTRINGARGBUILDER_CPP
+
+#include "qstringargbuilder.h"
 #include <qdebug.h>
 #include "qlocale.h"
 #include "qlocale_p.h"
+#include "qvarlengtharray.h"
 
 #include <limits.h>
+#include <stdarg.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -149,7 +155,7 @@ static QString replaceArgEscapes(const QString &s, const ArgEscapeData &d, int f
                      *qMax(abs_field_width, larg.length());
 
     QString result(result_len, Qt::Uninitialized);
-    QChar *result_buff = (QChar*) result.unicode();
+    QChar *result_buff = (QChar*) result.data();
 
     QChar *rc = result_buff;
     const QChar *c = uc_begin;
@@ -373,6 +379,9 @@ static int getEscape(const QChar *uc, int *pos, int len, int maxNumber = 999)
     }
     return -1;
 }
+
+#ifndef QT_QSTRING_ARG_NEW
+// this can be defined if we're in a bootstrapped build
 
 /*!
   Returns a copy of this string with the lowest numbered place marker
@@ -714,6 +723,7 @@ QString QString::arg(double a, int fieldWidth, char fmt, int prec, QChar fillCha
 {
     return replaceArg(*this, a, fieldWidth, fmt, prec, fillChar);
 }
+#endif // QT_QSTRING_ARG_NEW
 
 /*
     Algorithm for multiArg:
@@ -819,7 +829,7 @@ static ArgIndexToPlaceholderMap makeArgIndexToPlaceholderMap(const ParseResult &
     return result;
 }
 
-static int resolveStringRefsAndReturnTotalSize(ParseResult &parts, const ArgIndexToPlaceholderMap &argIndexToPlaceholderMap, const QString *args[])
+static int resolveStringRefsAndReturnTotalSize(ParseResult &parts, const ArgIndexToPlaceholderMap &argIndexToPlaceholderMap, const QString *const args[])
 {
     int totalSize = 0;
     for (ParseResult::iterator pit = parts.begin(), end = parts.end(); pit != end; ++pit) {
@@ -834,7 +844,7 @@ static int resolveStringRefsAndReturnTotalSize(ParseResult &parts, const ArgInde
     return totalSize;
 }
 
-static QString replaceMultiArg(const QString &pattern, int numArgs, const QString **args)
+static QString replaceMultiArg(const QString &pattern, int numArgs, const QString *const *args)
 {
     // Step 1-2 above
     ParseResult parts = parseMultiArgFormatString(pattern);
@@ -867,9 +877,43 @@ static QString replaceMultiArg(const QString &pattern, int numArgs, const QStrin
 
 } // unnamed namespace
 
+#ifndef QT_QSTRING_ARG_NEW
 QString QString::multiArg(int numArgs, const QString **args) const
 {
     return replaceMultiArg(*this, numArgs, args);
+}
+#endif // QT_QSTRING_ARG_NEW
+
+void QStringArgBuilder::applyArg(qlonglong a, int fieldWidth, int base, QChar fillChar)
+{
+    QString::operator =(replaceArg(*this, a, fieldWidth, base, fillChar));
+}
+
+void QStringArgBuilder::applyArg(qulonglong a, int fieldWidth, int base, QChar fillChar)
+{
+    QString::operator =(replaceArg(*this, a, fieldWidth, base, fillChar));
+}
+
+void QStringArgBuilder::applyArg(double a, int fieldWidth, char fmt, int prec, QChar fillChar)
+{
+    QString::operator =(replaceArg(*this, a, fieldWidth, fmt, prec, fillChar));
+}
+
+void QStringArgBuilder::applyArg(QChar a, int fieldWidth, QChar fillChar)
+{
+    QString s(1, Qt::Uninitialized);
+    s[0] = a;
+    applyArg(s, fieldWidth, fillChar);
+}
+
+void QStringArgBuilder::applyArg(const QString &a, int fieldWidth, QChar fillChar)
+{
+    QString::operator =(replaceArg(*this, a, fieldWidth, fillChar));
+}
+
+void QStringArgBuilder::applyMultiArg(unsigned count, const QString * const *args)
+{
+    QString::operator =(replaceMultiArg(*this, count, args));
 }
 
 QT_END_NAMESPACE

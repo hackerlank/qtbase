@@ -376,6 +376,20 @@ namespace QTest
     template <typename T1, typename T2>
     bool qCompare(T1 const &, T2 const &, const char *, const char *, const char *, int);
 
+    template <>
+    inline bool qCompare(const QStringArgBuilder &s1, const QString &s2, const char *actual,
+                         const char *expected, const char *file, int line)
+    {
+        return qCompare<QString>(static_cast<QString>(s1), s2, actual, expected, file, line);
+    }
+
+    template <>
+    inline bool qCompare(const QString &s1, const QStringArgBuilder &s2, const char *actual,
+                         const char *expected, const char *file, int line)
+    {
+        return qCompare(s1, static_cast<QString>(s2), actual, expected, file, line);
+    }
+
     inline bool qCompare(double const &t1, float const &t2, const char *actual,
                                  const char *expected, const char *file, int line)
     {

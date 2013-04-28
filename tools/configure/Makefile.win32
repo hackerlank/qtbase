@@ -67,6 +67,7 @@ OBJECTS = \
     qregexp.obj \
     qstring.obj \
     qstring_compat.obj \
+    qstringargbuilder.obj \
     qstringbuilder.obj \
     qstringlist.obj \
     qvsnprintf.obj \
@@ -142,6 +143,7 @@ qdatetime.obj: $(CORESRC)\tools\qdatetime.cpp $(PCH)
 qmap.obj: $(CORESRC)\tools\qmap.cpp $(PCH)
 qregexp.obj: $(CORESRC)\tools\qregexp.cpp $(PCH)
 qstring.obj: $(CORESRC)\tools\qstring.cpp $(PCH)
+qstringargbuilder.obj: $(CORESRC)\tools\qstringargbuilder.cpp $(PCH)
 qstringbuilder.obj: $(CORESRC)\tools\qstringbuilder.cpp $(PCH)
 qstringlist.obj: $(CORESRC)\tools\qstringlist.cpp $(PCH)
 qvsnprintf.obj: $(CORESRC)\tools\qvsnprintf.cpp $(PCH)

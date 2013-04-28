@@ -60,6 +60,7 @@ HEADERS +=  \
         tools/qstack.h \
         tools/qstring.h \
         tools/qstringalgorithms_p.h \
+        tools/qstringargbuilder.h \
         tools/qstringbuilder.h \
         tools/qstringiterator_p.h \
         tools/qstringlist.h \
@@ -106,7 +107,6 @@ SOURCES += \
         tools/qsimd.cpp \
         tools/qsize.cpp \
         tools/qstring.cpp \
-        tools/qstringargbuilder.cpp \
         tools/qstringbuilder.cpp \
         tools/qstringlist.cpp \
         tools/qtextboundaryfinder.cpp \
@@ -116,7 +116,8 @@ SOURCES += \
         tools/qvsnprintf.cpp \
         tools/qversionnumber.cpp
 
-NO_PCH_SOURCES = tools/qstring_compat.cpp
+NO_PCH_SOURCES = tools/qstring_compat.cpp \
+        tools/qstringargbuilder.cpp
 msvc: NO_PCH_SOURCES += tools/qvector_msvc.cpp
 false: SOURCES += $$NO_PCH_SOURCES # Hack for QtCreator
 

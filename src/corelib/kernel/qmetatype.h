@@ -2247,6 +2247,10 @@ namespace QtPrivate {
     };
 }
 
+class QStringArgBuilder;
+template<> struct QMetaTypeId2<QStringArgBuilder> : public QMetaTypeId2<QString>
+{};
+
 QT_END_NAMESPACE
 
 #endif // QMETATYPE_H

@@ -62,6 +62,7 @@ OBJECTS = \
     qregexp.o \
     qstring.o \
     qstring_compat.o \
+    qstringargbuilder.o \
     qstringbuilder.o \
     qstringlist.o \
     qvsnprintf.o \

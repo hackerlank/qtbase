@@ -234,25 +234,25 @@ static QString replaceArgEscapes(const QString &s, const ArgEscapeData &d, int f
     return result;
 }
 
-static QString replaceArg(const QString &pattern, const QString &a, int fieldWidth, QChar fillChar)
+static void replaceArg(QString &pattern, const QString &a, int fieldWidth, QChar fillChar)
 {
     ArgEscapeData d = findArgEscapes(pattern);
 
     if (d.occurrences == 0) {
         qWarning("QString::arg: Argument missing: %s, %s", pattern.toLocal8Bit().data(),
                   a.toLocal8Bit().data());
-        return pattern;
+        return;
     }
-    return replaceArgEscapes(pattern, d, fieldWidth, a, a, fillChar);
+    pattern = replaceArgEscapes(pattern, d, fieldWidth, a, a, fillChar);
 }
 
-static QString replaceArg(const QString &pattern, qlonglong a, int fieldWidth, int base, QChar fillChar)
+static void replaceArg(QString &pattern, qlonglong a, int fieldWidth, int base, QChar fillChar)
 {
     ArgEscapeData d = findArgEscapes(pattern);
 
     if (d.occurrences == 0) {
         qWarning() << "QString::arg: Argument missing:" << pattern << ',' << a;
-        return pattern;
+        return;
     }
 
     unsigned flags = QLocaleData::NoFlags;
@@ -271,16 +271,16 @@ static QString replaceArg(const QString &pattern, qlonglong a, int fieldWidth, i
         locale_arg = QLocaleData::defaultData()->longLongToString(a, -1, base, fieldWidth, flags);
     }
 
-    return replaceArgEscapes(pattern, d, fieldWidth, arg, locale_arg, fillChar);
+    pattern = replaceArgEscapes(pattern, d, fieldWidth, arg, locale_arg, fillChar);
 }
 
-static QString replaceArg(const QString &pattern, qulonglong a, int fieldWidth, int base, QChar fillChar)
+static void replaceArg(QString &pattern, qulonglong a, int fieldWidth, int base, QChar fillChar)
 {
     ArgEscapeData d = findArgEscapes(pattern);
 
     if (d.occurrences == 0) {
         qWarning() << "QString::arg: Argument missing:" << pattern << ',' << a;
-        return pattern;
+        return;
     }
 
     unsigned flags = QLocaleData::NoFlags;
@@ -299,16 +299,16 @@ static QString replaceArg(const QString &pattern, qulonglong a, int fieldWidth, 
         locale_arg = QLocaleData::defaultData()->longLongToString(a, -1, base, fieldWidth, flags);
     }
 
-    return replaceArgEscapes(pattern, d, fieldWidth, arg, locale_arg, fillChar);
+    pattern = replaceArgEscapes(pattern, d, fieldWidth, arg, locale_arg, fillChar);
 }
 
-static QString replaceArg(const QString &pattern, double a, int fieldWidth, char fmt, int prec, QChar fillChar)
+static void replaceArg(QString &pattern, double a, int fieldWidth, char fmt, int prec, QChar fillChar)
 {
     ArgEscapeData d = findArgEscapes(pattern);
 
     if (d.occurrences == 0) {
         qWarning("QString::arg: Argument missing: %s, %g", pattern.toLocal8Bit().data(), a);
-        return pattern;
+        return;
     }
 
     unsigned flags = QLocaleData::NoFlags;
@@ -351,7 +351,7 @@ static QString replaceArg(const QString &pattern, double a, int fieldWidth, char
         locale_arg = QLocaleData::defaultData()->doubleToString(a, prec, form, fieldWidth, flags);
     }
 
-    return replaceArgEscapes(pattern, d, fieldWidth, arg, locale_arg, fillChar);
+    pattern = replaceArgEscapes(pattern, d, fieldWidth, arg, locale_arg, fillChar);
 }
 
 static int getEscape(const QChar *uc, int *pos, int len, int maxNumber = 999)
@@ -414,7 +414,9 @@ static int getEscape(const QChar *uc, int *pos, int len, int maxNumber = 999)
 */
 QString QString::arg(const QString &a, int fieldWidth, QChar fillChar) const
 {
-    return replaceArg(*this, a, fieldWidth, fillChar);
+    QString retval(*this);
+    replaceArg(retval, a, fieldWidth, fillChar);
+    return retval;
 }
 
 /*!
@@ -611,7 +613,9 @@ QString QString::arg(const QString &a, int fieldWidth, QChar fillChar) const
 */
 QString QString::arg(qlonglong a, int fieldWidth, int base, QChar fillChar) const
 {
-    return replaceArg(*this, a, fieldWidth, base, fillChar);
+    QString retval(*this);
+    replaceArg(retval, a, fieldWidth, base, fillChar);
+    return retval;
 }
 
 /*!
@@ -632,7 +636,9 @@ QString QString::arg(qlonglong a, int fieldWidth, int base, QChar fillChar) cons
 */
 QString QString::arg(qulonglong a, int fieldWidth, int base, QChar fillChar) const
 {
-    return replaceArg(*this, a, fieldWidth, base, fillChar);
+    QString retval(*this);
+    replaceArg(retval, a, fieldWidth, base, fillChar);
+    return retval;
 }
 
 /*!
@@ -721,7 +727,9 @@ QString QString::arg(char a, int fieldWidth, QChar fillChar) const
 */
 QString QString::arg(double a, int fieldWidth, char fmt, int prec, QChar fillChar) const
 {
-    return replaceArg(*this, a, fieldWidth, fmt, prec, fillChar);
+    QString retval(*this);
+    replaceArg(retval, a, fieldWidth, fmt, prec, fillChar);
+    return retval;
 }
 #endif // QT_QSTRING_ARG_NEW
 
@@ -886,17 +894,17 @@ QString QString::multiArg(int numArgs, const QString **args) const
 
 void QStringArgBuilder::applyArg(qlonglong a, int fieldWidth, int base, QChar fillChar)
 {
-    QString::operator =(replaceArg(*this, a, fieldWidth, base, fillChar));
+    replaceArg(*this, a, fieldWidth, base, fillChar);
 }
 
 void QStringArgBuilder::applyArg(qulonglong a, int fieldWidth, int base, QChar fillChar)
 {
-    QString::operator =(replaceArg(*this, a, fieldWidth, base, fillChar));
+    replaceArg(*this, a, fieldWidth, base, fillChar);
 }
 
 void QStringArgBuilder::applyArg(double a, int fieldWidth, char fmt, int prec, QChar fillChar)
 {
-    QString::operator =(replaceArg(*this, a, fieldWidth, fmt, prec, fillChar));
+    replaceArg(*this, a, fieldWidth, fmt, prec, fillChar);
 }
 
 void QStringArgBuilder::applyArg(QChar a, int fieldWidth, QChar fillChar)
@@ -908,7 +916,7 @@ void QStringArgBuilder::applyArg(QChar a, int fieldWidth, QChar fillChar)
 
 void QStringArgBuilder::applyArg(const QString &a, int fieldWidth, QChar fillChar)
 {
-    QString::operator =(replaceArg(*this, a, fieldWidth, fillChar));
+    replaceArg(*this, a, fieldWidth, fillChar);
 }
 
 void QStringArgBuilder::applyMultiArg(unsigned count, const QString * const *args)

@@ -169,6 +169,15 @@ void tst_QDnsLookup::lookup_data()
     QTest::newRow("txt-multi-onerr") << int(QDnsLookup::TXT) << "txt-multi-onerr" << int(QDnsLookup::NoError) << "" << "" << "" << "" << "" << ""
                                      << QString::fromLatin1("Hello\0World", sizeof("Hello\0World") - 1);
     QTest::newRow("txt-multi-multirr") << int(QDnsLookup::TXT) << "txt-multi-multirr" << int(QDnsLookup::NoError) << "" << "" << "" << "" << "" << "" << "Hello;World";
+
+    // This record contains a lot of stuff
+    QTest::newRow("everything-a")   << int(QDnsLookup::A)   << "everything" << int(QDnsLookup::NoError) << "" << "192.0.2.4" << "" << "" << "" << "" << "";
+    QTest::newRow("everything-aaaa")<< int(QDnsLookup::AAAA)<< "everything" << int(QDnsLookup::NoError) << "" << "2001:db8::3:0" << "" << "" << "" << "" << "";
+    QTest::newRow("everything-mx")  << int(QDnsLookup::MX)  << "everything" << int(QDnsLookup::NoError) << "" << "" << "0 everything" << "" << "" << "" << "" ;
+    QTest::newRow("everything-ptr") << int(QDnsLookup::PTR) << "everything" << int(QDnsLookup::NoError) << "" << "" << "" << "" << "everything" << "" << "";
+    QTest::newRow("everything-srv") << int(QDnsLookup::SRV) << "everything" << int(QDnsLookup::NoError) << "" << "" << "" << "" << "" << "1 0 7 everything" << "";
+    QTest::newRow("everything-txt") << int(QDnsLookup::TXT) << "everything" << int(QDnsLookup::NoError) << "" << "" << "" << "" << "" << "" << "Hello World";
+    QTest::newRow("everything-any") << int(QDnsLookup::ANY) << "everything" << int(QDnsLookup::NoError) << "" << "192.0.2.4;2001:db8::3:0" << "0 everything" << "" << "everything" << "1 0 7 everything" << "Hello World";
 }
 
 static QByteArray msgDnsLookup(QDnsLookup::Error actualError,

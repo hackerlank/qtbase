@@ -238,6 +238,11 @@ void QDnsLookupRunnable::query(const int requestType, const QByteArray &requestN
             reply->errorString = tr("Could not expand domain name");
             return;
         }
+        if (*host == '\0') {
+            // root zone
+            host[0] = '.';
+            host[1] = '\0';
+        }
         const QString name = QUrl::fromAce(host);
 
         p += status;

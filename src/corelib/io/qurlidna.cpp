@@ -2477,6 +2477,8 @@ QString qt_ACE_do(const QString &domain, AceOperation op, AceLeadingDot dot)
         if (labelLength == 0) {
             if (idx == domain.length())
                 break;
+            if (domain == QLatin1String("."))
+                return domain;
             if (dot == ForbidLeadingDot || idx > 0)
                 return QString(); // two delimiters in a row -- empty label not allowed
         }

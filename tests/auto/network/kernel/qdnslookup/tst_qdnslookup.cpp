@@ -62,6 +62,7 @@ private slots:
     void lookup();
     void lookupReuse();
     void lookupAbortRetry();
+    void lookupRootZone();
 };
 
 void tst_QDnsLookup::initTestCase()
@@ -398,6 +399,21 @@ void tst_QDnsLookup::lookupAbortRetry()
     QVERIFY(!lookup.hostAddressRecords().isEmpty());
     QCOMPARE(lookup.hostAddressRecords().first().name(), domainName("aaaa-single"));
     QCOMPARE(lookup.hostAddressRecords().first().value(), QHostAddress("2001:db8::1"));
+}
+
+void tst_QDnsLookup::lookupRootZone()
+{
+    QDnsLookup lookup(QDnsLookup::NS, ".");
+    lookup.lookup();
+    QVERIFY(waitForDone(&lookup));
+    QVERIFY(lookup.isFinished());
+    QCOMPARE(int(lookup.error()), int(QDnsLookup::NoError));
+    QVERIFY(!lookup.nameServerRecords().isEmpty());
+
+    foreach (const QDnsDomainNameRecord &record, lookup.nameServerRecords()) {
+        QCOMPARE(record.name(), QString("."));
+        QVERIFY2(record.value().contains("root-servers.net"), qPrintable(record.value()));
+    }
 }
 
 QTEST_MAIN(tst_QDnsLookup)

@@ -173,6 +173,8 @@ private slots:
     void componentEncodings();
     void setComponents_data();
     void setComponents();
+    void scopeId_data();
+    void scopeId();
     void streaming_data();
     void streaming();
     void detach();
@@ -2208,6 +2210,10 @@ void tst_QUrl::strictParser_data()
     QTest::newRow("invalid-ipv6") << "http://[:::]" << "Invalid IPv6 address";
     QTest::newRow("invalid-ipv6-char1") << "http://[::g]" << "Invalid IPv6 address (character 'g' not permitted)";
     QTest::newRow("invalid-ipv6-char2") << "http://[z::]" << "Invalid IPv6 address (character 'z' not permitted)";
+    QTest::newRow("invalid-ipv6-emptyscope") << "http://[::%25]" << "Invalid IPv6 address (character '%' not permitted)";
+    QTest::newRow("invalid-ipv6-decoded-percent") << "http://[::%zz]" << "Invalid IPv6 address (character '%' not permitted)";
+    QTest::newRow("invalid-ipv6-scope-char1") << "http://[::%25+]" << "Invalid IPv6 address (character '+' not permitted)";
+    QTest::newRow("invalid-ipv6-scope-char2") << "http://[::%25^]" << "Invalid IPv6 address (character '^' not permitted)";
     QTest::newRow("invalid-ipvfuture-1") << "http://[v7]" << "Invalid IPvFuture address";
     QTest::newRow("invalid-ipvfuture-2") << "http://[v7.]" << "Invalid IPvFuture address";
     QTest::newRow("invalid-ipvfuture-3") << "http://[v789]" << "Invalid IPvFuture address";
@@ -3912,6 +3918,40 @@ void tst_QUrl::setComponents()
     } else {
         QVERIFY(copy.toString().isEmpty());
     }
+}
+
+void tst_QUrl::scopeId_data()
+{
+    QTest::addColumn<QUrl>("url");
+    QTest::addColumn<QString>("decodedHost");
+    QTest::addColumn<QString>("prettyHost");
+    QTest::addColumn<QString>("encodedHost");
+
+    QTest::newRow("digit") << QUrl("x://[::%251]") << "::%1" << "::%251" << "::%251";
+    QTest::newRow("eth0") << QUrl("x://[::%25eth0]") << "::%eth0" << "::%25eth0" << "::%25eth0";
+    QTest::newRow("percent") << QUrl("x://[::%25%25]") << "::%%" << "::%25%25" << "::%25%25";
+    QTest::newRow("space") << QUrl("x://[::%25%20]") << "::% " << "::%25%20" << "::%25%20";
+    QTest::newRow("subdelims") << QUrl("x://[::%25eth%2b]") << "::%eth+" << "::%25eth+" << "::%25eth%2B";
+    QTest::newRow("gendelims") << QUrl("x://[::%25%5b%2f%23%3f%5d]") << "::%[/#?]" << "::%25[/#?]" << "::%25%5B%2F%23%3F%5D";
+    QTest::newRow("other") << QUrl("x://[::%25^]") << "::%^" << "::%25^" << "::%25%5E";
+    QTest::newRow("control") << QUrl("x://[::%25%7F]") << "::%\x7f" << "::%25%7F" << "::%25%7F";
+    QTest::newRow("unicode") << QUrl("x://[::%25wlán0]") << "::%wlán0" << "::%25wlán0" << "::%25wl%C3%A1n0";
+    QTest::newRow("non-utf8") << QUrl("x://[::%25%80]") << QString("::%") + QChar(QChar::ReplacementCharacter) << "::%25%80" << "::%25%80";
+}
+
+void tst_QUrl::scopeId()
+{
+    QFETCH(QUrl, url);
+    QFETCH(QString, decodedHost);
+    QFETCH(QString, prettyHost);
+    QFETCH(QString, encodedHost);
+
+    QVERIFY2(url.isValid(), qPrintable(url.errorString()));
+    QCOMPARE(url.host(QUrl::FullyDecoded), decodedHost);
+    QCOMPARE(url.host(QUrl::PrettyDecoded), prettyHost);
+    QCOMPARE(url.host(QUrl::FullyEncoded), encodedHost);
+    //QCOMPARE(url.toString(), "x://[" + encodedHost + "]");
+    QCOMPARE(url.toString(QUrl::FullyEncoded), "x://[" + encodedHost + "]");
 }
 
 void tst_QUrl::streaming_data()

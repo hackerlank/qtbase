@@ -108,8 +108,9 @@
     object.
 
     QUrl conforms to the URI specification from
-    \l{RFC 3986} (Uniform Resource Identifier: Generic Syntax), and includes
-    scheme extensions from \l{RFC 1738} (Uniform Resource Locators). Case
+    \l{RFC 3986} (Uniform Resource Identifier: Generic Syntax), and includes its update
+    \l{RFC 6874} (Representing IPv6 Zone Identifiers in Address Literals and Uniform Resource Identifiers)
+    and scheme extensions from \l{RFC 1738} (Uniform Resource Locators). Case
     folding rules in QUrl conform to \l{RFC 3491} (Nameprep: A Stringprep
     Profile for Internationalized Domain Names (IDN)). It is also compatible with the
     \l{http://freedesktop.org/wiki/Specifications/file-uri-spec/}{file URI specification}
@@ -460,8 +461,9 @@ public:
         Password = 0x04,
         UserInfo = UserName | Password,
         Host = 0x08,
+        ZoneId = 0x10, // overloaded with Port
         Port = 0x10,
-        Authority = UserInfo | Host | Port,
+        Authority = UserInfo | Host,
         Path = 0x20,
         Hierarchy = Authority | Path,
         Query = 0x40,
@@ -533,7 +535,7 @@ public:
     void appendUserInfo(QString &appendTo, QUrl::FormattingOptions options, Section appendingTo) const;
     void appendUserName(QString &appendTo, QUrl::FormattingOptions options) const;
     void appendPassword(QString &appendTo, QUrl::FormattingOptions options) const;
-    void appendHost(QString &appendTo, QUrl::FormattingOptions options) const;
+    void appendHost(QString &appendTo, QUrl::FormattingOptions options, Section appendingTo) const;
     void appendPath(QString &appendTo, QUrl::FormattingOptions options, Section appendingTo) const;
     void appendQuery(QString &appendTo, QUrl::FormattingOptions options, Section appendingTo) const;
     void appendFragment(QString &appendTo, QUrl::FormattingOptions options, Section appendingTo) const;
@@ -555,6 +557,7 @@ public:
     inline bool hasUserName() const { return sectionIsPresent & UserName; }
     inline bool hasPassword() const { return sectionIsPresent & Password; }
     inline bool hasHost() const { return sectionIsPresent & Host; }
+    inline bool hasZoneId() const { return sectionIsPresent & ZoneId; }
     inline bool hasPort() const { return port != -1; }
     inline bool hasPath() const { return !path.isEmpty(); }
     inline bool hasQuery() const { return sectionIsPresent & Query; }
@@ -733,16 +736,54 @@ inline void QUrlPrivate::setError(ErrorCode errorCode, const QString &source, in
 #define leave(x)  ushort(0x100 | (x))
 #define encode(x) ushort(0x200 | (x))
 
-static const ushort userNameInIsolation[] = {
-    decode(':'), // 0
-    decode('@'), // 1
-    decode(']'), // 2
-    decode('['), // 3
-    decode('/'), // 4
-    decode('?'), // 5
-    decode('#'), // 6
+static const ushort encodeAllDelimiters[] = {
+    encode('!'), // 0
+    encode('$'), // 1
+    encode('&'), // 2
+    encode('\''),// 3
+    encode('('), // 4
+    encode(')'), // 5
+    encode('*'), // 6
+    encode('+'), // 7
+    encode(','), // 8
+    encode(';'), // 9
+    encode(';'), // 10
+    encode('='), // 11
 
-    decode('"'), // 7
+    encode(':'), // 12 - 0
+    encode('@'), // 13 - 1
+    encode(']'), // 14 - 2
+    encode('['), // 15 - 3
+    encode('/'), // 16 - 4
+    encode('?'), // 17 - 5
+    encode('#'), // 18 - 6
+    0
+};
+static const ushort * const encodeGenDelimiters = encodeAllDelimiters + 12;
+
+static const ushort decodeEverything[] = {
+    decode('!'), // 0
+    decode('$'), // 1
+    decode('&'), // 2
+    decode('\''),// 3
+    decode('('), // 4
+    decode(')'), // 5
+    decode('*'), // 6
+    decode('+'), // 7
+    decode(','), // 8
+    decode(';'), // 9
+    decode(';'), // 10
+    decode('='), // 11
+
+    decode(':'), // 12 - 0
+    decode('@'), // 13 - 1
+    decode(']'), // 14 - 2
+    decode('['), // 15 - 3
+    decode('/'), // 16 - 4
+    decode('?'), // 17 - 5
+    decode('#'), // 18 - 6
+
+    decode('"'), // 19 - 7
     decode('<'),
     decode('>'),
     decode('^'),
@@ -752,6 +793,8 @@ static const ushort userNameInIsolation[] = {
     decode('}'),
     0
 };
+
+static const ushort * const userNameInIsolation = decodeEverything + 12;
 static const ushort * const passwordInIsolation = userNameInIsolation + 1;
 static const ushort * const pathInIsolation = userNameInIsolation + 5;
 static const ushort * const queryInIsolation = userNameInIsolation + 6;
@@ -799,18 +842,7 @@ static const ushort userNameInAuthority[] = {
 };
 static const ushort * const passwordInAuthority = userNameInAuthority + 1;
 
-static const ushort userNameInUrl[] = {
-    encode(':'), // 0
-    encode('@'), // 1
-    encode(']'), // 2
-    encode('['), // 3
-    encode('/'), // 4
-    encode('?'), // 5
-    encode('#'), // 6
-
-    // no need to list encode(x) for the other characters
-    0
-};
+static const ushort * const userNameInUrl = encodeGenDelimiters;
 static const ushort * const passwordInUrl = userNameInUrl + 1;
 static const ushort * const pathInUrl = userNameInUrl + 5;
 static const ushort * const queryInUrl = userNameInUrl + 6;
@@ -863,7 +895,7 @@ inline void QUrlPrivate::appendAuthority(QString &appendTo, QUrl::FormattingOpti
         if (hasUserName() || (hasPassword() && (options & QUrl::RemovePassword) == 0))
             appendTo += QLatin1Char('@');
     }
-    appendHost(appendTo, options);
+    appendHost(appendTo, options, appendingTo);
     if (!(options & QUrl::RemovePort) && port != -1)
         appendTo += QLatin1Char(':') + QString::number(port);
 }
@@ -1147,12 +1179,23 @@ inline void QUrlPrivate::setQuery(const QString &value, int from, int iend)
 }
 
 // Host handling
-// The RFC says the host is:
+// RFC 3986 says the host is:
 //    host          = IP-literal / IPv4address / reg-name
 //    IP-literal    = "[" ( IPv6address / IPvFuture  ) "]"
 //    IPvFuture     = "v" 1*HEXDIG "." 1*( unreserved / sub-delims / ":" )
 //  [a strict definition of IPv6Address and IPv4Address]
 //     reg-name      = *( unreserved / pct-encoded / sub-delims )
+//
+// RFC 6874 updates the above to:
+//    IP-literal    = "[" ( IPv6address / IPv6addrz / IPvFuture  ) "]"
+//    ZoneID        = 1*( unreserved / pct-encoded )
+//    IPv6addrz     = IPv6address "%25" ZoneID
+//
+// In StrictMode parsing, none of the IP address formats support any
+// percent-encoded sequences. In TolerantMode, however, we do decode
+// percent-encoded data, which may form IP addresses again. Note that the
+// brackets in IP-literal can never be encoded -- colons found there would
+// conflict with the parsing of the port delimiter.
 //
 // We deviate from the standard in all but IPvFuture. For IPvFuture we accept
 // and store only exactly what the RFC says we should. No percent-encoding is
@@ -1166,8 +1209,10 @@ inline void QUrlPrivate::setQuery(const QString &value, int from, int iend)
 // For IPv6 addresses, we accept addresses including trailing (embedded) IPv4
 // addresses, the so-called v4-compat and v4-mapped addresses. We also store
 // those addresses like that in the hostname field, which violates the spec.
-// IPv6 hosts are stored with the square brackets in the QString. It also
-// requires no transformation in any way.
+// IPv6 hosts are stored with the square brackets in the QString. The main part
+// of the IPv6 address is stored in fully decoded mode and requires no
+// transformation. If any ZoneId is present, it's stored in the most-decoded
+// form possible (short of FullyDecoded, which causes data loss).
 //
 // As for registered names, it's the other way around: we accept only valid
 // hostnames as specified by STD 3 and IDNA. That means everything we accept is
@@ -1176,18 +1221,53 @@ inline void QUrlPrivate::setQuery(const QString &value, int from, int iend)
 // do accept IDNA, reg-names are subject to ACE encoding and decoding, which is
 // specified by the DecodeUnicode flag. The hostname is stored in its Unicode form.
 
-inline void QUrlPrivate::appendHost(QString &appendTo, QUrl::FormattingOptions options) const
+inline void QUrlPrivate::appendHost(QString &appendTo, QUrl::FormattingOptions options, Section appendingTo) const
 {
-    // EncodeUnicode is the only flag that matters
-    if ((options & QUrl::FullyDecoded) == QUrl::FullyDecoded)
-        options = 0;
-    else
-        options &= QUrl::EncodeUnicode;
     if (host.isEmpty())
         return;
-    if (host.at(0).unicode() == '[') {
-        // IPv6Address and IPvFuture address never require any transformation
-        appendTo += host;
+    if (Q_UNLIKELY(host.at(0).unicode() == '[')) {
+        // IPv6Address and IPvFuture never require any transformation
+        // IPv6Addrz might (because ZoneId might)
+        if ((options == QUrl::PrettyDecoded && appendingTo == Host) || !hasZoneId()) {
+            appendTo += host;
+            return;
+        }
+
+        // we might need to re-encode the ZoneId
+        const QChar * const end = host.constEnd() - 1; // chop ']'
+        const QChar *begin = host.constBegin() + 1; // skip '['
+        appendTo.reserve(appendTo.size() + (end - begin));
+        appendTo += QLatin1Char('[');
+
+        // find the beginning of the ZoneId and copy the address part
+        for ( ; begin < end; ++begin) {
+            if (begin->unicode() == '%')
+                break;
+            appendTo += *begin;
+        }
+        Q_ASSERT_X(end - begin >= 4, "QUrl", "Corrupted state: hasScopeId() == true but couldn't find a ZoneId");
+        Q_ASSERT(begin[1].unicode() == '2' && begin[2].unicode() == '5');
+        begin += 3;
+
+        appendTo += QLatin1Char('%');
+        if (options != QUrl::FullyDecoded) {
+            appendTo += QLatin1Char('2');
+            appendTo += QLatin1Char('5');
+        }
+
+        // now use the recode
+        const ushort *actions = 0;
+        if (!(options & QUrl::EncodeReserved))
+            options |= QUrl::DecodeReserved;
+        if (options & QUrl::EncodeDelimiters || appendingTo != Host)
+            actions = encodeAllDelimiters;
+        options |= QUrl::EncodeSpaces;
+        if (!qt_urlRecode(appendTo, begin, end, options, actions)) {
+            for ( ; begin != end; ++begin)
+                appendTo += *begin;
+        }
+
+        appendTo += QLatin1Char(']');
     } else {
         // this is either an IPv4Address or a reg-name
         // if it is a reg-name, it is already stored in Unicode form
@@ -1251,33 +1331,67 @@ static const QChar *parseIpFuture(QString &host, const QChar *begin, const QChar
 }
 
 // ONLY the IPv6 address is parsed here, WITHOUT the brackets
-static const QChar *parseIp6(QString &host, const QChar *begin, const QChar *end, QUrl::ParsingMode mode)
+static const QChar *parseIp6(QString &host, const QChar *begin, const QChar *end, QUrl::ParsingMode mode, uchar *sectionIsPresent)
 {
     QIPAddressUtils::IPv6Address address;
+    const QChar *scopeStart = 0;
     const QChar *ret = QIPAddressUtils::parseIp6(address, begin, end);
     if (ret) {
+        // parsing failed, it could be because:
+        //  - bad IPv6 address
+        //  - trailing ZoneId
+        //  - percent encoded hex digit or colon
+        // so we'll try to run the percent-decoder first
+
         // this struct is kept in automatic storage because it's only 4 bytes
         const ushort decodeColon[] = { decode(':'), 0 };
 
-        // IPv6 failed parsing, check if it was a percent-encoded character in
-        // the middle and try again
         QString decoded;
         if (mode == QUrl::TolerantMode && qt_urlRecode(decoded, begin, end, 0, decodeColon)) {
             // recurse
             // if the parsing fails again, the qt_urlRecode above will return 0
-            ret = parseIp6(host, decoded.constBegin(), decoded.constEnd(), mode);
+            ret = parseIp6(host, decoded.constBegin(), decoded.constEnd(), mode, sectionIsPresent);
 
             // we can't return ret, otherwise it would be dangling
             return ret ? end : 0;
         }
 
         // no transformation, nothing to re-parse
-        return ret;
+        // but it could be a zone ID from RFC 6874
+        //    IPv6addrz     = IPv6address "%25" ZoneID
+        const QChar *percent = ret;
+        if (ret < end && ret[0].unicode() != '%') {
+            // usually QIPAddressUtils::parseIp6 will return a pointer to the '%', but
+            // it's possible for it to point out an error elsewhere too.
+            // scan from the beginning
+            for (percent = begin; percent < end - 3; ++percent)
+                if (percent->unicode() == '%')
+                    break;
+        }
+
+        if (end - percent <= 3)
+            return ret;
+
+        if (percent[0].unicode() == '%' && percent[1].unicode() == '2' && percent[2].unicode() == '5') {
+            // found a ZoneId: strip it off to parse the address again
+            scopeStart = percent;
+            ret = QIPAddressUtils::parseIp6(address, begin, percent);
+        }
+
+        if (ret)
+            return ret;
     }
 
     host.reserve(host.size() + (end - begin));
     host += QLatin1Char('[');
     QIPAddressUtils::toString(host, address);
+    if (scopeStart) {
+        *sectionIsPresent |= QUrlPrivate::ZoneId;
+        if (!qt_urlRecode(host, scopeStart, end, QUrl::EncodeSpaces, decodeEverything)) {
+            for (const QChar *p = scopeStart; p < end; ++p)
+                host += *p;
+        }
+    }
     host += QLatin1Char(']');
     return 0;
 }
@@ -1304,17 +1418,20 @@ inline bool QUrlPrivate::setHost(const QString &value, int from, int iend, QUrl:
 
         if (len > 5 && begin[1].unicode() == 'v') {
             const QChar *c = parseIpFuture(host, begin, end, mode);
-            if (c)
+            if (c) {
                 setError(InvalidIPvFutureError, value, c - value.constData());
+                host.clear();
+            }
             return !c;
         } else if (begin[1].unicode() == 'v') {
             setError(InvalidIPvFutureError, value, from);
         }
 
-        const QChar *c = parseIp6(host, begin + 1, end - 1, mode);
+        const QChar *c = parseIp6(host, begin + 1, end - 1, mode, &sectionIsPresent);
         if (!c)
             return true;
 
+        host.clear();
         if (c == end - 1)
             setError(InvalidIPv6AddressError, value, from);
         else
@@ -1679,7 +1796,8 @@ bool QUrlPrivate::validateComponent(QUrlPrivate::Section section, const QString 
     //  - delimiters not allowed in certain positions
     //    . scheme: parser is already strict
     //    . user info: gen-delims except ":" disallowed ("/" / "?" / "#" / "[" / "]" / "@")
-    //    . host: parser is stricter than the standard
+    //    . host: reg-name parser is stricter than the standard
+    //            this code is used only for IPvFuture and ZoneId
     //    . port: parser is stricter than the standard
     //    . path: all delimiters allowed
     //    . fragment: all delimiters allowed
@@ -2358,7 +2476,7 @@ void QUrl::setHost(const QString &host, ParsingMode mode)
 
     if (d->setHost(data, 0, data.length(), mode)) {
         if (host.isNull())
-            d->sectionIsPresent &= ~QUrlPrivate::Host;
+            d->sectionIsPresent &= ~(QUrlPrivate::Host | QUrlPrivate::ZoneId);
     } else if (!data.startsWith(QLatin1Char('['))) {
         // setHost failed, it might be IPv6 or IPvFuture in need of bracketing
         Q_ASSERT(d->error);
@@ -2400,7 +2518,7 @@ QString QUrl::host(ComponentFormattingOptions options) const
 {
     QString result;
     if (d) {
-        d->appendHost(result, options);
+        d->appendHost(result, options, QUrlPrivate::Host);
         if (result.startsWith(QLatin1Char('[')))
             result = result.mid(1, result.length() - 2);
     }

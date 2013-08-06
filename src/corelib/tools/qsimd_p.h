@@ -254,6 +254,7 @@ enum CPUFeatures {
     AVX2        = 0x100,
     HLE         = 0x200,
     RTM         = 0x400,
+    AVX512F     = 0x800, /* Note: no checking for AVX512 conflict detection, exponential, reciprocal or prefetch instructions */
     DSP         = 0x800,
     DSPR2       = 0x1000,
 
@@ -262,6 +263,9 @@ enum CPUFeatures {
 };
 
 static const uint qCompilerCpuFeatures = 0
+#if defined __AVX512F__
+        | AVX512F
+#endif
 #if defined __RTM__
         | RTM
 #endif

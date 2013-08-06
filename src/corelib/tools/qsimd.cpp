@@ -298,6 +298,12 @@ static inline uint detectProcessorFeatures()
 
         if (cpuid0700EBX & (1u << 5))
             features |= AVX2;
+
+        if ((xgetbvA & 224) == 224) {
+            // ZMM registers are also enabled (bits 7:5 set - opmask state, upper half of ZMM0-15 and full ZMM16-31)
+            if (cpuid0700EBX & (1u << 16))
+                features |= AVX512F;
+        }
     }
 
     if (cpuid0700EBX & (1u << 4))
@@ -465,6 +471,7 @@ static inline uint detectProcessorFeatures()
  avx2
  hle
  rtm
+ avx512f
  dsp
  dspr2
   */
@@ -482,13 +489,14 @@ static const char features_string[] =
     " avx2\0"
     " hle\0"
     " rtm\0"
+    " avx512f\0"
     " dsp\0"
     " dspr2\0"
     "\0";
 
 static const int features_indices[] = {
     0,    1,    7,   13,   19,   26,   34,   42,
-   47,   53,   58,   63,   68,   -1
+   47,   53,   58,   63,   72,   77,   84,   -1
 };
 // end generated
 

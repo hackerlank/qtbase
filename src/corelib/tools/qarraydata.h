@@ -186,15 +186,31 @@ struct Q_CORE_EXPORT QArrayData
     static void deallocate(QArrayData *data, size_t objectSize,
             size_t alignment) Q_DECL_NOTHROW;
 
-    static const QArrayData shared_null[2];
-    static QArrayData *sharedNull() Q_DECL_NOTHROW { return const_cast<QArrayData*>(shared_null); }
-    static void *sharedNullData()
-    {
-        QArrayData *const null = const_cast<QArrayData *>(&shared_null[1]);
-        Q_ASSERT(sharedNull()->data() == null);
-        return null;
-    }
+    struct SharedNull;
+    static const SharedNull shared_null;
+
+    static inline QArrayData *sharedNull();
+    static inline void *sharedNullData();
 };
+
+struct QArrayData::SharedNull
+{
+    QArrayData d;
+#ifdef Q_DECL_ALIGN
+    Q_DECL_ALIGN(16)
+#endif
+    char data[16];
+};
+
+inline QArrayData *QArrayData::sharedNull()
+{
+    return const_cast<QArrayData*>(&shared_null.d);
+}
+
+inline void *QArrayData::sharedNullData()
+{
+    return const_cast<char *>(shared_null.data);
+}
 
 struct QArrayRawData : public QArrayData
 {
@@ -202,11 +218,23 @@ struct QArrayRawData : public QArrayData
     // size is 8 bytes
 };
 
-struct QArrayAllocatedData : public QArrayData
+struct
+#if defined(Q_PROCESSOR_X86) && defined(Q_DECL_ALIGN)
+Q_DECL_ALIGN(16)
+#endif
+QArrayAllocatedData : public QArrayData
 {
+    struct Padding { int i, j; };
     QBasicAtomicInt ref_;
-    uint alloc;
-    // size is 12 bytes
+    union {
+        size_t alloc;
+#ifdef Q_PROCESSOR_X86
+        Padding padding;
+#endif
+    };
+    // size is 16 bytes on x86
+    // size is 16 bytes on other 64-bit platforms
+    // size is 12 bytes on other 32-bit platforms
 };
 
 struct QArrayForeignData : public QArrayData
@@ -225,6 +253,7 @@ inline size_t QArrayData::detachCapacity(size_t newSize) const
         return asAllocatedData()->alloc;
     return newSize;
 }
+
 
 inline QArrayAllocatedData *QArrayData::asAllocatedData()
 {
@@ -379,7 +408,7 @@ struct QTypedArrayData
     typedef const T* const_iterator;
 #endif
 
-    class AlignmentDummy { QArrayData header; T data; };
+    class AlignmentDummy { QArrayAllocatedData header; T data; };
 
     static QPair<QTypedArrayData *, T *> allocate(size_t capacity,
             ArrayOptions options = DefaultAllocationFlags) Q_REQUIRED_RESULT

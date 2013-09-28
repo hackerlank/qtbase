@@ -46,27 +46,39 @@
 
 QT_BEGIN_NAMESPACE
 
-QT_WARNING_PUSH
-QT_WARNING_DISABLE_GCC("-Wmissing-field-initializers")
-
-const QArrayData QArrayData::shared_null[2] = {
+const QArrayData::SharedNull QArrayData::shared_null = {
     { QArrayData::StaticDataFlags }, // shared null
-    /* zero initialized terminator */};
+    { /* zero initialized terminator */ } };
+#ifdef Q_DECL_ALIGN
+Q_STATIC_ASSERT(sizeof(QArrayData::SharedNull) >= 32);
+Q_STATIC_ASSERT(Q_ALIGNOF(QArrayData::SharedNull) >= 16);
+#endif
+#ifdef Q_PROCESSOR_X86
+Q_STATIC_ASSERT(sizeof(QArrayAllocatedData) == 16);
+#endif
 
-static const QArrayData emptyNotNullShared[2] = {
-    { QArrayData::StaticDataFlags }, // shared empty
-    /* zero initialized terminator */};
+static const QArrayData qt_array_empty =
+    { QArrayData::StaticDataFlags };
 
-QT_WARNING_POP
+#ifndef QT_NO_UNSHARABLE_CONTAINERS
+static const QArrayData qt_array_unsharable_empty =
+    { QArrayData::StaticDataFlags | QArrayData::Unsharable };
+#endif
 
-static const QArrayData emptyNotNullUnsharable[2] = {
-    { QArrayData::StaticDataFlags | QArrayData::Unsharable }, // unsharable empty
-    /* zero initialized terminator */};
+enum {
+    AlignOfDouble = Q_ALIGNOF(double),
+    AlignOfPointer = Q_ALIGNOF(void*),
+#ifdef __GLIBC__
+    KnownPlatformAlign = 2 * sizeof(void*)
+#else
+    KnownPlatformAlign = 1
+#endif
+};
 
-static const QArrayData &qt_array_empty = emptyNotNullShared[0];
-static const QArrayData &qt_array_unsharable_empty = emptyNotNullUnsharable[0];
-
-static void *const dummydataptr = const_cast<QArrayData *>(emptyNotNullShared + 1);
+Q_DECL_CONSTEXPR static size_t platformMallocAlign()
+{
+    return qMax<size_t>(qMax<size_t>(AlignOfDouble, AlignOfPointer), KnownPlatformAlign);
+}
 
 static inline size_t calculateBlockSize(size_t &capacity, size_t objectSize, size_t headerSize,
                                         uint options)
@@ -87,6 +99,7 @@ static QArrayData *allocateData(size_t allocSize, uint options)
 {
     QArrayData *header = static_cast<QArrayData *>(::malloc(allocSize));
     if (header) {
+        Q_ASSERT((quintptr(header) & (platformMallocAlign() - 1)) == 0);
         header->flags = options;
         header->refCounter().store(1);
     }
@@ -120,11 +133,11 @@ void *QArrayData::allocate(QArrayData **dptr, size_t objectSize, size_t alignmen
     }
 
     size_t headerSize = sizeof(QArrayAllocatedData);
-    if (alignment > Q_ALIGNOF(QArrayAllocatedData)) {
+    if (alignment > platformMallocAlign()) {
         // Allocate extra (alignment - Q_ALIGNOF(QArrayAllocatedData)) padding bytes so we
         // can properly align the data array. This assumes malloc is able to
-        // provide appropriate alignment for the header -- as it should!
-        headerSize += alignment - Q_ALIGNOF(QArrayAllocatedData);
+        // provide appropriate alignment for the header -- that isn't the case on x86!
+        headerSize += alignment - platformMallocAlign();
     }
 
     if (headerSize > size_t(MaxAllocSize))
@@ -159,14 +172,13 @@ QArrayData::reallocateUnaligned(QArrayData *data, void *dataPointer,
     Q_ASSERT(!data->isShared());
 
     options |= ArrayOption(AllocatedDataType);
-    size_t headerSize = sizeof(QArrayAllocatedData);
+    size_t headerSize = reinterpret_cast<char *>(dataPointer) - reinterpret_cast<char *>(data);
     size_t allocSize = calculateBlockSize(capacity, objectSize, headerSize, options);
-    qptrdiff offset = reinterpret_cast<char *>(dataPointer) - reinterpret_cast<char *>(data);
     options |= AllocatedDataType | MutableData;
     QArrayAllocatedData *header = static_cast<QArrayAllocatedData *>(reallocateData(data, allocSize, options));
     if (header) {
         header->alloc = uint(capacity);
-        dataPointer = reinterpret_cast<char *>(header) + offset;
+        dataPointer = reinterpret_cast<char *>(header) + headerSize;
     }
     return qMakePair(static_cast<QArrayData *>(header), dataPointer);
 }

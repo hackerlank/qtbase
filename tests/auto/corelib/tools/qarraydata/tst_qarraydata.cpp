@@ -37,10 +37,10 @@ struct SharedNullVerifier
 {
     SharedNullVerifier()
     {
-        Q_ASSERT(QArrayData::shared_null[0].isStatic());
-        Q_ASSERT(QArrayData::shared_null[0].isShared());
+        Q_ASSERT(QArrayData::shared_null.d.isStatic());
+        Q_ASSERT(QArrayData::shared_null.d.isShared());
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
-        Q_ASSERT(QArrayData::shared_null[0].isSharable());
+        Q_ASSERT(QArrayData::shared_null.d.isSharable());
 #endif
     }
 };
@@ -180,7 +180,7 @@ void tst_QArrayData::referenceCounting()
 
 void tst_QArrayData::sharedNullEmpty()
 {
-    QArrayData *null = const_cast<QArrayData *>(QArrayData::shared_null);
+    QArrayData *null = const_cast<QArrayData *>(&QArrayData::shared_null.d);
     QArrayData *empty;
     QArrayData::allocate(&empty, 1, Q_ALIGNOF(QArrayData), 0);
 
@@ -765,7 +765,7 @@ void tst_QArrayData::reallocate()
 
     // Maximum alignment that can be requested is that of QArrayData,
     // otherwise, we can't use reallocate().
-    Q_ASSERT(alignment <= Q_ALIGNOF(QArrayData));
+    Q_ASSERT(alignment <= Q_ALIGNOF(QArrayAllocatedData));
 
     // Minimum alignment that can be requested is that of QArrayData.
     // Typically, this alignment is sizeof(void *) and ensured by malloc.

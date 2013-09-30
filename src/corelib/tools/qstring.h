@@ -1576,6 +1576,33 @@ inline bool QStringRef::contains(QChar c, Qt::CaseSensitivity cs) const
 inline bool QStringRef::contains(const QStringRef &s, Qt::CaseSensitivity cs) const
 { return indexOf(s, 0, cs) != -1; }
 
+#if !defined(QT_USE_FAST_OPERATOR_PLUS) && !defined(QT_USE_QSTRINGBUILDER)
+inline const QString operator+(const QStringRef &s1, const QString &s2)
+{ QString t(s1.toString()); t += s2; return t; }
+inline const QString operator+(const QStringRef &s1, const QStringRef &s2)
+{ QString t(s1.toString()); t += s2; return t; }
+inline const QString operator+(const QString &s1, const QStringRef &s2)
+{ QString t(s1); t += s2; return t; }
+inline const QString operator+(const QStringRef &s1, QChar s2)
+{ QString t(s1.toString()); t += s2; return t; }
+inline const QString operator+(QChar s1, const QStringRef &s2)
+{ QString t(s1); t += s2.toString(); return t; }
+#  ifndef QT_NO_CAST_FROM_ASCII
+inline QT_ASCII_CAST_WARN const QString operator+(const QStringRef &s1, const char *s2)
+{ QString t(s1.toString()); t += QString::fromUtf8(s2); return t; }
+inline QT_ASCII_CAST_WARN const QString operator+(const char *s1, const QStringRef &s2)
+{ QString t = QString::fromUtf8(s1); t += s2; return t; }
+inline QT_ASCII_CAST_WARN const QString operator+(char c, const QStringRef &s)
+{ QString t = s.toString(); t.prepend(QChar::fromLatin1(c)); return t; }
+inline QT_ASCII_CAST_WARN const QString operator+(const QStringRef &s, char c)
+{ QString t = s.toString(); t += QChar::fromLatin1(c); return t; }
+inline QT_ASCII_CAST_WARN const QString operator+(const QByteArray &ba, const QStringRef &s)
+{ QString t = QString::fromUtf8(ba); t += s; return t; }
+inline QT_ASCII_CAST_WARN const QString operator+(const QStringRef &s, const QByteArray &ba)
+{ QString t(s.toString()); t += QString::fromUtf8(ba); return t; }
+#  endif // QT_NO_CAST_FROM_ASCII
+#endif // QT_USE_QSTRINGBUILDER
+
 namespace Qt {
 #if QT_DEPRECATED_SINCE(5, 0)
 QT_DEPRECATED inline QString escape(const QString &plain) {

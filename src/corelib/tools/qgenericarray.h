@@ -524,8 +524,11 @@ QGenericArray<T>::insert(int i, int n, parameter_type t)
         i += size();
 
     const size_t newSize = size() + n;
-    if (d->needsDetach() || newSize > d->allocatedCapacity()) {
-        typename Data::ArrayOptions flags = d->detachFlags() | Data::GrowsForward;
+    const bool isTooSmall = newSize > d->allocatedCapacity();
+    if (isTooSmall || d->needsDetach()) {
+        typename Data::ArrayOptions flags = d->detachFlags();
+        if (isTooSmall)
+            flags |= Data::GrowsForward;
         if (size_t(i) <= newSize / 4)
             flags |= Data::GrowsBackwards;
 
@@ -551,9 +554,12 @@ inline void QGenericArray<T>::append(const_iterator i1, const_iterator i2)
     if (i1 == i2)
         return;
     const size_t newSize = size() + std::distance(i1, i2);
-    if (d->needsDetach() || newSize > d->allocatedCapacity()) {
-        DataPointer detached(Data::allocate(d->detachCapacity(newSize),
-                                            d->detachFlags() | Data::GrowsBackwards));
+    const bool isTooSmall = newSize > d->allocatedCapacity();
+    if (isTooSmall || d->needsDetach()) {
+        typename Data::ArrayOptions flags = d->detachFlags();
+        if (isTooSmall)
+            flags |= Data::GrowsForward;
+        DataPointer detached(Data::allocate(d->detachCapacity(newSize), flags));
         detached->copyAppend(constBegin(), constEnd());
         detached->copyAppend(i1, i2);
         d.swap(detached);
@@ -590,9 +596,12 @@ template <typename T>
 inline void QGenericArray<T>::prepend(const_iterator i1, const_iterator i2)
 {
     const size_t newSize = size() + std::distance(i1, i2);
-    if (d->needsDetach() || newSize > d->allocatedCapacity()) {
-        DataPointer detached(Data::allocate(d->detachCapacity(newSize),
-                                            d->detachFlags() | Data::GrowsBackwards));
+    const bool isTooSmall = newSize > d->allocatedCapacity();
+    if (isTooSmall || d->needsDetach()) {
+        typename Data::ArrayOptions flags = d->detachFlags();
+        if (isTooSmall)
+            flags |= Data::GrowsBackwards;
+        DataPointer detached(Data::allocate(d->detachCapacity(newSize), flags));
         detached->copyAppend(i1, i2);
         detached->copyAppend(constBegin(), constEnd());
         d.swap(detached);

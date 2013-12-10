@@ -46,6 +46,13 @@
 #include <new>
 #include <string.h>
 
+#if __cplusplus >= 201103L
+#  include <type_traits>
+#  define Q_IS_POD(T)       std::is_pod<T>::value
+#else
+#  define Q_IS_POD(T)       false
+#endif
+
 QT_BEGIN_NAMESPACE
 
 template <class T> struct QArrayDataPointer;
@@ -56,7 +63,7 @@ template <class T>
 struct QPodArrayOps
         : public QArrayDataPointer<T>
 {
-    typedef T parameter_type;
+    typedef typename QArrayDataPointer<T>::parameter_type parameter_type;
 
     void appendInitialize(size_t newSize)
     {
@@ -92,7 +99,7 @@ struct QPodArrayOps
         T *iter = this->end();
         const T *const end = iter + n;
         for (; iter != end; ++iter)
-            ::memcpy(iter, &t, sizeof(T));
+            *iter = t;
         this->size += uint(n);
     }
 
@@ -170,7 +177,7 @@ template <class T>
 struct QGenericArrayOps
         : public QArrayDataPointer<T>
 {
-    typedef const T &parameter_type;
+    typedef typename QArrayDataPointer<T>::parameter_type parameter_type;
 
     void appendInitialize(size_t newSize)
     {
@@ -662,7 +669,7 @@ struct QArrayOpsSelector
 template <class T>
 struct QArrayOpsSelector<T,
     typename QEnableIf<
-        !QTypeInfo<T>::isComplex && !QTypeInfo<T>::isStatic
+        (!QTypeInfo<T>::isComplex && !QTypeInfo<T>::isStatic) || Q_IS_POD(T)
     >::Type>
 {
     typedef QPodArrayOps<T> Type;
@@ -671,7 +678,7 @@ struct QArrayOpsSelector<T,
 template <class T>
 struct QArrayOpsSelector<T,
     typename QEnableIf<
-        QTypeInfo<T>::isComplex && !QTypeInfo<T>::isStatic
+        QTypeInfo<T>::isComplex && !QTypeInfo<T>::isStatic && !Q_IS_POD(T)
     >::Type>
 {
     typedef QMovableArrayOps<T> Type;
@@ -686,5 +693,7 @@ struct QArrayDataOps
 };
 
 QT_END_NAMESPACE
+
+#undef Q_IS_POD
 
 #endif // include guard

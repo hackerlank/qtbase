@@ -78,8 +78,7 @@ public:
     typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
 
 protected:
-    //typedef typename DataOps::parameter_type parameter_type;
-    typedef const_reference parameter_type;
+    typedef typename DataPointer::parameter_type parameter_type;
 
     // this class is not meant to be used directly
     // for that reason, constructors and destructors are protected
@@ -298,9 +297,9 @@ public:
     { return insert(before, 1, t); }
     iterator insert(iterator before, int n, parameter_type t)
     { return insert(std::distance(begin(), before), n, t); }
-    void append(const_reference t)
+    void append(parameter_type t)
     { append(const_iterator(&t), const_iterator(&t) + 1); }
-    void prepend(const_reference t)
+    void prepend(parameter_type t)
     { prepend(const_iterator(&t), const_iterator(&t) + 1); }
 #ifdef Q_COMPILER_RVALUE_REFS
     template <typename Dummy = int>

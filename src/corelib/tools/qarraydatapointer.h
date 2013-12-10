@@ -42,6 +42,10 @@
 
 #include <QtCore/qarraydataops.h>
 
+#if __cplusplus >= 201103L
+#  include <type_traits>
+#endif
+
 QT_BEGIN_NAMESPACE
 
 template <class T>
@@ -54,6 +58,11 @@ private:
 public:
     typedef typename Data::iterator iterator;
     typedef typename Data::const_iterator const_iterator;
+#if __cplusplus >= 201103L
+    typedef typename std::conditional<std::is_fundamental<T>::value || std::is_pointer<T>::value, T, const T &>::type parameter_type;
+#else
+    typedef const T &parameter_type;
+#endif
 
     QArrayDataPointer() Q_DECL_NOTHROW
         : d(Data::sharedNull()), ptr(Data::sharedNullData()), size(0)
@@ -68,7 +77,7 @@ public:
     {
         if (!other.d->ref()) {
             // must clone
-            QPair<Data *, T *> pair = other.clone(other.d->cloneFlags());
+            QPair<Data *, T *> pair = other.clone(other->cloneFlags());
             d = pair.first;
             ptr = pair.second;
         }
@@ -143,8 +152,8 @@ public:
 
     ~QArrayDataPointer()
     {
-        if (!d->deref()) {
-            if (d->isMutable())
+        if (!deref()) {
+            if (isMutable())
                 (*this)->destroyAll();
             Data::deallocate(d);
         }

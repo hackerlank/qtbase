@@ -10,6 +10,7 @@
 #
 
 QMAKE_DIR_REPLACE_SANE += DESTDIR
+
 CONFIG -= debug_and_release_target
 
 qtConfig(c++11): CONFIG += c++11 strict_c++

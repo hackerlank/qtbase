@@ -525,6 +525,7 @@ QGenericArray<T>::insert(int i, int n, parameter_type t)
 
     const size_t newSize = size() + n;
     const bool isTooSmall = newSize > d->allocatedCapacity();
+    const bool isOverlapping = d->begin() <= const_iterator(&t) && const_iterator(&t) < d->end();
     if (isTooSmall || d->needsDetach()) {
         typename Data::ArrayOptions flags = d->detachFlags();
         if (isTooSmall)
@@ -540,10 +541,12 @@ QGenericArray<T>::insert(int i, int n, parameter_type t)
         d.swap(detached);
     } else {
         // we're detached and we can just move data around
-        if (i == size())
+        if (i == size()) {
             d->copyAppend(n, t);
-        else
-            d->insert(d.begin() + i, n, t);
+        } else {
+            const_reference copy = isOverlapping ? value_type(t) : t;
+            d->insert(d.begin() + i, n, copy);
+        }
     }
     return d.begin() + i;
 }
@@ -555,7 +558,8 @@ inline void QGenericArray<T>::append(const_iterator i1, const_iterator i2)
         return;
     const size_t newSize = size() + std::distance(i1, i2);
     const bool isTooSmall = newSize > d->allocatedCapacity();
-    if (isTooSmall || d->needsDetach()) {
+    const bool isOverlapping = d->begin() <= i1 && i2 <= d->end();
+    if (isTooSmall || d->needsDetach() || Q_UNLIKELY(isOverlapping)) {
         typename Data::ArrayOptions flags = d->detachFlags();
         if (isTooSmall)
             flags |= Data::GrowsForward;
@@ -597,7 +601,8 @@ inline void QGenericArray<T>::prepend(const_iterator i1, const_iterator i2)
 {
     const size_t newSize = size() + std::distance(i1, i2);
     const bool isTooSmall = newSize > d->allocatedCapacity();
-    if (isTooSmall || d->needsDetach()) {
+    const bool isOverlapping = d->begin() <= i1 && i2 <= d->end();
+    if (isTooSmall || d->needsDetach() || Q_UNLIKELY(isOverlapping)) {
         typename Data::ArrayOptions flags = d->detachFlags();
         if (isTooSmall)
             flags |= Data::GrowsBackwards;

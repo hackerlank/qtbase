@@ -48,6 +48,7 @@
 
 #include "qutfcodec_p.h"
 #include "qlatincodec_p.h"
+#include "private/qsimd_p.h"
 
 #if !defined(QT_BOOTSTRAPPED)
 #  include "qtsciicodec_p.h"
@@ -726,6 +727,72 @@ QTextCodec* QTextCodec::codecForLocale()
 QList<QByteArray> QTextCodec::aliases() const
 {
     return QList<QByteArray>();
+}
+
+int QTextCodec::checkUsAscii(const char *data, int length)
+{
+    size_t i = 0;
+    if (length >= 0) {
+#ifdef __SSE2__
+        // we're going to read data[0..15] (16 bytes)
+        for ( ; i + 15 < size_t(length); i += 16) {
+            __m128i chunk = _mm_loadu_si128((__m128i*)(data + i)); // load
+            // movemask extracts the high bit
+            if (uint mask = _mm_movemask_epi8(chunk))
+                return int(i) + _bit_scan_forward(mask);
+        }
+
+        length &= 0xf;
+#endif
+        for ( ; i < size_t(length); ++i)
+            if (data[i] & 0x80)
+                return int(i);
+    } else {
+#ifdef __SSE2__
+        // prologue: align data to 16 bytes:
+        while (quintptr(data + i) & 0xf && data[i]) {
+            if (data[i++] < 0)
+                return int(i - 1);
+        }
+
+        // now do 16-byte aligned loads, which can never segfault, as
+        // we need to find the end of the string (the null byte) first
+        const __m128i zero = _mm_setzero_si128();
+        forever {
+            __m128i chunk = _mm_load_si128((__m128i*)(data + i));
+            i += 16;
+
+            // if (data[i] <= 0):
+            // but since SSE2 has no compare-greater-or-equal instruction, we do:
+            // if (data[i] & 0x80 | data[i] == 0):
+            // like above, we check for the high bit by simply doing the movemask
+            __m128i nullFound = _mm_cmpeq_epi8(zero, chunk);
+            uint nullMask = _mm_movemask_epi8(nullFound);
+            uint highBitMask = _mm_movemask_epi8(chunk);
+            if (nullMask || highBitMask) {
+                // what did we find?
+                if (!nullMask) {
+                    // no null found, that means we found a high bit
+                    return false;
+                }
+
+                uint highBit = _bit_scan_forward(highBitMask);
+                uint nullBit = _bit_scan_forward(nullMask);
+                return nullBit < highBit ? -1 : int(i + highBit);
+            }
+        }
+#endif
+        while (data[i]) {
+            if (data[i++] & 0x80)
+                return i - 1;
+        }
+    }
+    return i - 1;
+}
+
+        }
+    }
+    return -1;
 }
 
 /*!

@@ -111,6 +111,10 @@ public:
     virtual QList<QByteArray> aliases() const;
     virtual int mibEnum() const = 0;
 
+    static int checkUsAscii(const char *data, int length);
+    static int checkUsAscii(const QByteArray &ba)
+    { return checkUsAscii(ba.constData(), ba.length()); }
+
 protected:
     virtual QString convertToUnicode(const char *in, int length, ConverterState *state) const = 0;
     virtual QByteArray convertFromUnicode(const QChar *in, int length, ConverterState *state) const = 0;

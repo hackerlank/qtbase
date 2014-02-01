@@ -191,6 +191,12 @@ struct Q_CORE_EXPORT QArrayData
 
     static inline QArrayData *sharedNull();
     static inline void *sharedNullData();
+
+#ifdef Q_DECL_ALIGN
+    Q_DECL_ALIGN(16)
+#endif
+    static const QArrayData shared_static_data;
+    static inline QArrayData *sharedStatic();
 };
 
 struct QArrayData::SharedNull
@@ -210,6 +216,11 @@ inline QArrayData *QArrayData::sharedNull()
 inline void *QArrayData::sharedNullData()
 {
     return const_cast<char *>(shared_null.data);
+}\
+
+inline QArrayData *QArrayData::sharedStatic()
+{
+    return const_cast<QArrayData *>(&shared_static_data);
 }
 
 struct QArrayRawData : public QArrayData

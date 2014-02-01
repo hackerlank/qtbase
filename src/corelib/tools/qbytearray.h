@@ -126,10 +126,8 @@ struct QByteArrayData
 #  define QByteArrayLiteral(str) \
     ([]() -> QByteArray { \
         enum { Size = sizeof(str) - 1 }; \
-        static const QArrayData qbytearray_literal = { \
-            QArrayData::StaticDataFlags }; \
         QByteArrayData holder = { \
-            const_cast<QArrayData *>(&qbytearray_literal), \
+            QArrayData::sharedStatic(), \
             const_cast<char *>(str), \
             Size }; \
         const QByteArray ba(holder); \

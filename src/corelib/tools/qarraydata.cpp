@@ -57,6 +57,13 @@ Q_STATIC_ASSERT(Q_ALIGNOF(QArrayData::SharedNull) >= 16);
 Q_STATIC_ASSERT(sizeof(QArrayAllocatedData) == 16);
 #endif
 
+#ifdef Q_DECL_ALIGN
+Q_DECL_ALIGN(16)
+#endif
+const QArrayData QArrayData::shared_static_data = {
+    QArrayData::StaticDataFlags
+};
+
 static const QArrayData qt_array_empty =
     { QArrayData::StaticDataFlags };
 

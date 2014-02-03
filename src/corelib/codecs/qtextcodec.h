@@ -114,6 +114,9 @@ public:
     static int checkUsAscii(const char *data, int length);
     static int checkUsAscii(const QByteArray &ba)
     { return checkUsAscii(ba.constData(), ba.length()); }
+    static int checkUtf8(const char *data, int length);
+    static int checkUtf8(const QByteArray &ba)
+    { return checkUtf8(ba.constData(), ba.length()); }
 
 protected:
     virtual QString convertToUnicode(const char *in, int length, ConverterState *state) const = 0;

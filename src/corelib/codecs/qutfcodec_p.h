@@ -105,6 +105,15 @@ struct QUtf8BaseTraitsNoAscii : public QUtf8BaseTraits
     static const bool skipAsciiHandling = true;
 };
 
+struct QUtf8IteratorTraits : public QUtf8BaseTraits
+{
+    static void appendUtf16(...)
+    { }
+
+    static void appendUcs4(...)
+    { }
+};
+
 namespace QUtf8Functions
 {
     /// returns 0 on success; errors can only happen if \a u is a surrogate:
@@ -281,6 +290,7 @@ enum DataEndianness
 
 struct QUtf8
 {
+    static int checkValidity(const char *, int);
     static QString convertToUnicode(const char *, int);
     static QString convertToUnicode(const char *, int, QTextCodec::ConverterState *);
     static QByteArray convertFromUnicode(const QChar *, int);

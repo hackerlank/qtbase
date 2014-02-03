@@ -790,9 +790,27 @@ int QTextCodec::checkUsAscii(const char *data, int length)
     return i - 1;
 }
 
+int QTextCodec::checkUtf8(const char *data, int length)
+{
+    if (length >= 0)
+        return QUtf8::checkValidity(data, length);
+
+    ushort dummy;
+    const uchar *src = reinterpret_cast<const uchar *>(data);
+    forever {
+        uchar b = *src++;
+        if (!b)
+            return -1;
+
+        // we don't know where the string ends, so we pass src + 3, which is enough
+        // for the longest UTF-8 sequence. If there's a NUL in one of those bytes, it
+        // will show up as a decode error.
+        int res = QUtf8Functions::fromUtf8<QUtf8IteratorTraits>(b, dummy, src, src + 3);
+        if (res < 0) {
+            // decoding error
+            return int(reinterpret_cast<const char*>(src) - data);
         }
     }
-    return -1;
 }
 
 /*!

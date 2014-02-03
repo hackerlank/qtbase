@@ -47,6 +47,31 @@ enum { Endian = 0, Data = 1 };
 static const uchar utf8bom[] = { 0xef, 0xbb, 0xbf };
 
 #if defined(__SSE2__) && defined(QT_COMPILER_SUPPORTS_SSE2)
+static inline bool simdCheckAscii(const uchar *&nextAscii, const uchar *&src, const uchar *end)
+{
+    // we're going to read data[0..15] (16 bytes)
+    for ( ; end - src >= 16; src += 16) {
+        __m128i data = _mm_loadu_si128((__m128i*)src);
+        // check if everything is ASCII
+        // movemask extracts the high bit of every byte, so n is non-zero if something isn't ASCII
+        uint n = _mm_movemask_epi8(data);
+        if (n) {
+            // find the next probable ASCII character
+            // we don't want to load 16 bytes again in this loop if we know there are non-ASCII
+            // characters still coming
+            n = _bit_scan_reverse(n);
+            nextAscii = src + n;
+            return false;
+        }
+    }
+    return true;
+}
+
+static inline bool simdCheckAscii(const uchar *&, const uchar *&, const uchar *)
+{
+    return false;
+}
+
 static inline bool simdEncodeAscii(uchar *&dst, const ushort *&nextAscii, const ushort *&src, const ushort *end)
 {
     // do sixteen characters at a time
@@ -239,6 +264,28 @@ QByteArray QUtf8::convertFromUnicode(const QChar *uc, int len, QTextCodec::Conve
         }
     }
     return rstr;
+}
+
+int QUtf8::checkValidity(const char *chars, int len)
+{
+    ushort dummy;
+    const uchar *src = reinterpret_cast<const uchar *>(chars);
+    const uchar *end = src + len;
+    while (src < end) {
+        const uchar *nextAscii = end;
+        if (simdCheckAscii(nextAscii, src, end))
+            return -1;
+
+        do {
+            uchar b = *src++;
+            int res = QUtf8Functions::fromUtf8<QUtf8IteratorTraits>(b, dummy, src, end);
+            if (res < 0) {
+                // decoding error
+                return int(reinterpret_cast<const char*>(src) - chars);
+            }
+        } while (src < nextAscii);
+    }
+    return -1;
 }
 
 QString QUtf8::convertToUnicode(const char *chars, int len)

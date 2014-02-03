@@ -607,6 +607,25 @@ public:
     int localeAwareCompare(const QStringRef &s) const;
     static int localeAwareCompare(const QString& s1, const QStringRef& s2);
 
+    template <typename T> typename QtPrivate::QEnableIf<QTypeInfo<T>::isIntegral, T>::Type
+    toIntegral(bool *ok = 0, int base=10) const
+    {
+        // ### Qt6: use std::conditional<std::is_unsigned<T>::value, qulonglong, qlonglong>::type
+        const bool isUnsigned = T(0) < T(-1);
+        typedef typename QtPrivate::QConditional<isUnsigned, qulonglong, qlonglong>::Type Int64;
+        Int64 val;
+        if (isUnsigned)
+            val = Int64(toULongLong(ok, base));
+        else
+            val = Int64(toLongLong(ok, base));
+        if (T(val) != val) {
+            if (ok)
+                *ok = false;
+            val = 0;
+        }
+        return T(val);
+    }
+
     // ### Qt6: make inline except for the long long versions
     short  toShort(bool *ok=Q_NULLPTR, int base=10) const;
     ushort toUShort(bool *ok=Q_NULLPTR, int base=10) const;
@@ -1527,6 +1546,27 @@ public:
     static int localeAwareCompare(const QStringRef &s1, const QStringRef &s2);
 
     QStringRef trimmed() const Q_REQUIRED_RESULT;
+
+    template <typename T> typename QtPrivate::QEnableIf<QTypeInfo<T>::isIntegral, T>::Type
+    toIntegral(bool *ok = 0, int base=10) const
+    {
+        // ### Qt6: use std::conditional<std::is_unsigned<T>::value, qulonglong, qlonglong>::type
+        const bool isUnsigned = T(0) < T(-1);
+        typedef typename QtPrivate::QConditional<isUnsigned, qulonglong, qlonglong>::Type Int64;
+        Int64 val;
+        if (isUnsigned)
+            val = Int64(toULongLong(ok, base));
+        else
+            val = Int64(toLongLong(ok, base));
+        if (T(val) != val) {
+            if (ok)
+                *ok = false;
+            val = 0;
+        }
+        return T(val);
+    }
+
+    // ### Qt6: make inline, except for the long long versions
     short  toShort(bool *ok = Q_NULLPTR, int base = 10) const;
     ushort toUShort(bool *ok = Q_NULLPTR, int base = 10) const;
     int toInt(bool *ok = Q_NULLPTR, int base = 10) const;

@@ -232,6 +232,7 @@ private slots:
     void fromUtf16_char16_data();
     void fromUtf16_char16();
     void latin1String();
+    void nanAndInf_data();
     void nanAndInf();
     void compare_data();
     void compare();
@@ -2502,20 +2503,33 @@ void tst_QString::remove_regexp()
     }
 }
 
+template <size_t N>
+static int rtrimlen(const char (&str)[N])
+{
+    const char *end = str + N - 1;
+    for ( ; str < end; --end)
+        if (!isspace(end[-1]))
+            break;
+    return int(end - str);
+}
+
 void tst_QString::toNum()
 {
 #if defined (Q_OS_WIN) && defined (Q_CC_MSVC)
 #define TEST_TO_INT(num, func) \
     a = #num; \
-    QVERIFY2(a.func(&ok) == num ## i64 && ok, "Failed: num=" #num ", func=" #func);
+    QVERIFY2(a.func(&ok) == num ## i64 && ok, "Failed: num=" #num ", func=" #func); \
+    QVERIFY2(a.func(&ok, &endpos) == num ## i64 && ok && endpos == strlen(#num), "Failed: num=" #num ", func=" #func);
 #else
 #define TEST_TO_INT(num, func) \
     a = #num; \
-    QVERIFY2(a.func(&ok) == num ## LL && ok, "Failed: num=" #num ", func=" #func);
+    QVERIFY2(a.func(&ok) == num ## LL && ok, "Failed: num=" #num ", func=" #func); \
+    QVERIFY2(a.func(&ok, 10, &endpos) == num ## LL && ok && endpos == strlen(#num), "Failed: num=" #num ", func=" #func);
 #endif
 
     QString a;
     bool ok = false;
+    int endpos;
 
     TEST_TO_INT(0, toInt)
     TEST_TO_INT(-1, toInt)
@@ -2545,11 +2559,13 @@ void tst_QString::toNum()
 #if defined (Q_OS_WIN) && defined (Q_CC_MSVC)
 #define TEST_TO_UINT(num, func) \
     a = #num; \
-    QVERIFY2(a.func(&ok) == num ## i64 && ok, "Failed: num=" #num ", func=" #func);
+    QVERIFY2(a.func(&ok) == num ## i64 && ok, "Failed: num=" #num ", func=" #func); \
+    QVERIFY2(a.func(&ok, 10, &endpos) == num ## i64 && ok && endpos == strlen(#num), "Failed: num=" #num ", func=" #func);
 #else
 #define TEST_TO_UINT(num, func) \
     a = #num; \
-    QVERIFY2(a.func(&ok) == num ## ULL && ok, "Failed: num=" #num ", func=" #func);
+    QVERIFY2(a.func(&ok) == num ## ULL && ok, "Failed: num=" #num ", func=" #func); \
+    QVERIFY2(a.func(&ok, 10, &endpos) == num ## ULL && ok && endpos == strlen(#num), "Failed: num=" #num ", func=" #func);
 #endif
 
     TEST_TO_UINT(0, toUInt)
@@ -2579,7 +2595,15 @@ void tst_QString::toNum()
     QVERIFY2(a.toLong(&ok, base) == num && ok, "Failed: str=" #str " base= "#base " num=" #num ", func=toLong"); \
     QVERIFY2(a.toULong(&ok, base) == num && ok, "Failed: str=" #str " base= "#base " num=" #num ", func=toULong"); \
     QVERIFY2(a.toLongLong(&ok, base) == num && ok, "Failed: str=" #str " base= "#base " num=" #num ", func=toLongLong"); \
-    QVERIFY2(a.toULongLong(&ok, base) == num && ok, "Failed: str=" #str " base= "#base " num=" #num ", func=toULongLong");
+    QVERIFY2(a.toULongLong(&ok, base) == num && ok, "Failed: str=" #str " base= "#base " num=" #num ", func=toULongLong"); \
+    QVERIFY2(a.toInt(&ok, base, &endpos) == num && ok && endpos == rtrimlen(str), "Failed: str=" #str " base= "#base " num=" #num ", func=toInt"); \
+    QVERIFY2(a.toUInt(&ok, base, &endpos) == num && ok && endpos == rtrimlen(str), "Failed: str=" #str " base= "#base " num=" #num ", func=toUInt"); \
+    QVERIFY2(a.toShort(&ok, base, &endpos) == num && ok && endpos == rtrimlen(str), "Failed: str=" #str " base= "#base " num=" #num ", func=toShort"); \
+    QVERIFY2(a.toUShort(&ok, base, &endpos) == num && ok && endpos == rtrimlen(str), "Failed: str=" #str " base= "#base " num=" #num ", func=toUShort"); \
+    QVERIFY2(a.toLong(&ok, base, &endpos) == num && ok && endpos == rtrimlen(str), "Failed: str=" #str " base= "#base " num=" #num ", func=toLong"); \
+    QVERIFY2(a.toULong(&ok, base, &endpos) == num && ok && endpos == rtrimlen(str), "Failed: str=" #str " base= "#base " num=" #num ", func=toULong"); \
+    QVERIFY2(a.toLongLong(&ok, base, &endpos) == num && ok && endpos == rtrimlen(str), "Failed: str=" #str " base= "#base " num=" #num ", func=toLongLong"); \
+    QVERIFY2(a.toULongLong(&ok, base, &endpos) == num && ok && endpos == rtrimlen(str), "Failed: str=" #str " base= "#base " num=" #num ", func=toULongLong");
 
     TEST_BASE("FF", 16, 255)
     TEST_BASE("0xFF", 16, 255)
@@ -2611,7 +2635,11 @@ void tst_QString::toNum()
     QVERIFY2(a.toInt(&ok, base) == num && ok, "Failed: str=" #str " base= "#base " num=" #num ", func=toInt"); \
     QVERIFY2(a.toShort(&ok, base) == num && ok, "Failed: str=" #str " base= "#base " num=" #num ", func=toShort"); \
     QVERIFY2(a.toLong(&ok, base) == num && ok, "Failed: str=" #str " base= "#base " num=" #num ", func=toLong"); \
-    QVERIFY2(a.toLongLong(&ok, base) == num && ok, "Failed: str=" #str " base= "#base " num=" #num ", func=toLongLong");
+    QVERIFY2(a.toLongLong(&ok, base) == num && ok, "Failed: str=" #str " base= "#base " num=" #num ", func=toLongLong"); \
+    QVERIFY2(a.toInt(&ok, base, &endpos) == num && ok && endpos == rtrimlen(str), "Failed: str=" #str " base= "#base " num=" #num ", func=toInt"); \
+    QVERIFY2(a.toShort(&ok, base, &endpos) == num && ok && endpos == rtrimlen(str), "Failed: str=" #str " base= "#base " num=" #num ", func=toShort"); \
+    QVERIFY2(a.toLong(&ok, base, &endpos) == num && ok && endpos == rtrimlen(str), "Failed: str=" #str " base= "#base " num=" #num ", func=toLong"); \
+    QVERIFY2(a.toLongLong(&ok, base, &endpos) == num && ok && endpos == rtrimlen(str), "Failed: str=" #str " base= "#base " num=" #num ", func=toLongLong");
 
     TEST_NEG_BASE("-FE", 16, -254)
     TEST_NEG_BASE("-0xFE", 16, -254)
@@ -2627,7 +2655,10 @@ void tst_QString::toNum()
 #define TEST_DOUBLE(num, str) \
     a = str; \
     QCOMPARE(a.toDouble(&ok), num); \
-    QVERIFY(ok);
+    QVERIFY(ok); \
+    QCOMPARE(a.toDouble(&ok, &endpos), num); \
+    QVERIFY(ok); \
+    QCOMPARE(endpos, rtrimlen(str));
 
     TEST_DOUBLE(1.2345, "1.2345")
     TEST_DOUBLE(12.345, "1.2345e+01")
@@ -2640,7 +2671,9 @@ void tst_QString::toNum()
 #define TEST_BAD(str, func) \
     a = str; \
     a.func(&ok); \
-    QVERIFY2(!ok, "Failed: str=" #str " func=" #func);
+    QVERIFY2(!ok, "Failed: str=" #str " func=" #func); \
+    a.func(&ok, 10, &endpos); \
+    QVERIFY2(!ok && endpos == 0, "Failed: str=" #str " func=" #func);
 
     TEST_BAD("32768", toShort)
     TEST_BAD("-32769", toShort)
@@ -2683,7 +2716,27 @@ void tst_QString::toNum()
     a.toFloat(&ok); \
     QVERIFY2(!ok, "Failed: str=" #str); \
     a.toDouble(&ok); \
-    QVERIFY2(!ok, "Failed: str=" #str);
+    QVERIFY2(!ok, "Failed: str=" #str); \
+    a.toShort(&ok, 10, &endpos); \
+    QVERIFY2(!ok && endpos == 0, "Failed: str=" #str); \
+    a.toUShort(&ok, 10, &endpos); \
+    QVERIFY2(!ok && endpos == 0, "Failed: str=" #str); \
+    a.toInt(&ok, 10, &endpos); \
+    QVERIFY2(!ok && endpos == 0, "Failed: str=" #str); \
+    a.toUInt(&ok, 10, &endpos); \
+    QVERIFY2(!ok && endpos == 0, "Failed: str=" #str); \
+    a.toLong(&ok, 10, &endpos); \
+    QVERIFY2(!ok && endpos == 0, "Failed: str=" #str); \
+    a.toULong(&ok, 10, &endpos); \
+    QVERIFY2(!ok && endpos == 0, "Failed: str=" #str); \
+    a.toLongLong(&ok, 10, &endpos); \
+    QVERIFY2(!ok && endpos == 0, "Failed: str=" #str); \
+    a.toULongLong(&ok, 10, &endpos); \
+    QVERIFY2(!ok && endpos == 0, "Failed: str=" #str); \
+    a.toFloat(&ok, &endpos); \
+    QVERIFY2(!ok && endpos == 0, "Failed: str=" #str); \
+    a.toDouble(&ok, &endpos); \
+    QVERIFY2(!ok && endpos == 0, "Failed: str=" #str);
 
     TEST_BAD_ALL((const char*)0);
     TEST_BAD_ALL("");
@@ -2691,12 +2744,67 @@ void tst_QString::toNum()
     TEST_BAD_ALL(".");
     TEST_BAD_ALL("-");
     TEST_BAD_ALL("hello");
-    TEST_BAD_ALL("1.2.3");
-    TEST_BAD_ALL("0x0x0x");
-    TEST_BAD_ALL("123-^~<");
-    TEST_BAD_ALL("123ThisIsNotANumber");
 
 #undef TEST_BAD_ALL
+
+#define TEST_SHORT(str, intvalue, floatvalue) \
+    a = str; \
+    a.toShort(&ok); \
+    QVERIFY2(!ok, "Failed: str=" #str); \
+    a.toUShort(&ok); \
+    QVERIFY2(!ok, "Failed: str=" #str); \
+    a.toInt(&ok); \
+    QVERIFY2(!ok, "Failed: str=" #str); \
+    a.toUInt(&ok); \
+    QVERIFY2(!ok, "Failed: str=" #str); \
+    a.toLong(&ok); \
+    QVERIFY2(!ok, "Failed: str=" #str); \
+    a.toULong(&ok); \
+    QVERIFY2(!ok, "Failed: str=" #str); \
+    a.toLongLong(&ok); \
+    QVERIFY2(!ok, "Failed: str=" #str); \
+    a.toULongLong(&ok); \
+    QVERIFY2(!ok, "Failed: str=" #str); \
+    a.toFloat(&ok); \
+    QVERIFY2(!ok, "Failed: str=" #str); \
+    a.toDouble(&ok); \
+    QVERIFY2(!ok, "Failed: str=" #str); \
+    QVERIFY(a.toShort(&ok, 10, &endpos) == intvalue); \
+    QVERIFY2(ok, "Failed: str=" #str); \
+    QCOMPARE(size_t(endpos), strlen(#intvalue)); \
+    QVERIFY(a.toUShort(&ok, 10, &endpos) == intvalue); \
+    QVERIFY2(ok, "Failed: str=" #str); \
+    QCOMPARE(size_t(endpos), strlen(#intvalue)); \
+    QVERIFY(a.toInt(&ok, 10, &endpos) == intvalue); \
+    QVERIFY2(ok, "Failed: str=" #str); \
+    QCOMPARE(size_t(endpos), strlen(#intvalue)); \
+    QVERIFY(a.toUInt(&ok, 10, &endpos) == intvalue); \
+    QVERIFY2(ok, "Failed: str=" #str); \
+    QCOMPARE(size_t(endpos), strlen(#intvalue)); \
+    QVERIFY(a.toLong(&ok, 10, &endpos) == intvalue); \
+    QVERIFY2(ok, "Failed: str=" #str); \
+    QCOMPARE(size_t(endpos), strlen(#intvalue)); \
+    QVERIFY(a.toULong(&ok, 10, &endpos) == intvalue); \
+    QVERIFY2(ok, "Failed: str=" #str); \
+    QCOMPARE(size_t(endpos), strlen(#intvalue)); \
+    QVERIFY(a.toLongLong(&ok, 10, &endpos) == intvalue); \
+    QVERIFY2(ok, "Failed: str=" #str); \
+    QCOMPARE(size_t(endpos), strlen(#intvalue)); \
+    QVERIFY(a.toULongLong(&ok, 10, &endpos) == intvalue); \
+    QVERIFY2(ok, "Failed: str=" #str); \
+    QCOMPARE(size_t(endpos), strlen(#intvalue)); \
+    QVERIFY(qFuzzyCompare(a.toFloat(&ok, &endpos), float(floatvalue))); \
+    QVERIFY2(ok, "Failed: str=" #str); \
+    QCOMPARE(size_t(endpos), strlen(#floatvalue)); \
+    QVERIFY(qFuzzyCompare(a.toDouble(&ok, &endpos), floatvalue)); \
+    QVERIFY2(ok, "Failed: str=" #str); \
+    QCOMPARE(size_t(endpos), strlen(#floatvalue));
+
+    // these are valid with reporting a suffix
+    TEST_SHORT("0x0x0x", 0, 0);
+    TEST_SHORT("123-^~<", 123, 123);
+    TEST_SHORT("123ThisIsNotANumber", 123, 123);
+    TEST_SHORT("1.2.3", 1, 1.2);
 
     a = "FF";
     a.toULongLong(&ok, 10);
@@ -2729,75 +2837,118 @@ void tst_QString::toUShort()
 {
     QString a;
     bool ok;
+    int endpos;
     QCOMPARE(a.toUShort(),(ushort)0);
     QCOMPARE(a.toUShort(&ok),(ushort)0);
     QVERIFY(!ok);
+    QCOMPARE(a.toUShort(&ok, 10, &endpos),(ushort)0);
+    QVERIFY(!ok);
+    QCOMPARE(endpos, 0);
 
     a="";
     QCOMPARE(a.toUShort(),(ushort)0);
     QCOMPARE(a.toUShort(&ok),(ushort)0);
     QVERIFY(!ok);
+    QCOMPARE(a.toUShort(&ok, 10, &endpos),(ushort)0);
+    QVERIFY(!ok);
+    QCOMPARE(endpos, 0);
 
     a="COMPARE";
     QCOMPARE(a.toUShort(),(ushort)0);
     QCOMPARE(a.toUShort(&ok),(ushort)0);
     QVERIFY(!ok);
+    QCOMPARE(a.toUShort(&ok, 10, &endpos),(ushort)0);
+    QVERIFY(!ok);
+    QCOMPARE(endpos, 0);
 
     a="123";
     QCOMPARE(a.toUShort(),(ushort)123);
     QCOMPARE(a.toUShort(&ok),(ushort)123);
     QVERIFY(ok);
+    QCOMPARE(a.toUShort(&ok, 10, &endpos),(ushort)123);
+    QVERIFY(ok);
+    QCOMPARE(endpos, 3);
 
     a="123A";
     QCOMPARE(a.toUShort(),(ushort)0);
     QCOMPARE(a.toUShort(&ok),(ushort)0);
     QVERIFY(!ok);
+    QCOMPARE(a.toUShort(&ok, 10, &endpos),(ushort)123);
+    QVERIFY(ok);
+    QCOMPARE(endpos, 3);
 
     a="1234567";
     QCOMPARE(a.toUShort(),(ushort)0);
     QCOMPARE(a.toUShort(&ok),(ushort)0);
     QVERIFY(!ok);
+    QCOMPARE(a.toUShort(&ok, 10, &endpos),(ushort)0);
+    QVERIFY(!ok);
+    QCOMPARE(endpos, 0);
 
     a = "aaa123aaa";
     QCOMPARE(a.toUShort(),(ushort)0);
     QCOMPARE(a.toUShort(&ok),(ushort)0);
     QVERIFY(!ok);
+    QCOMPARE(a.toUShort(&ok, 10, &endpos),(ushort)0);
+    QVERIFY(!ok);
+    QCOMPARE(endpos, 0);
 
     a = "aaa123";
     QCOMPARE(a.toUShort(),(ushort)0);
     QCOMPARE(a.toUShort(&ok),(ushort)0);
     QVERIFY(!ok);
+    QCOMPARE(a.toUShort(&ok, 10, &endpos),(ushort)0);
+    QVERIFY(!ok);
+    QCOMPARE(endpos, 0);
 
     a = "123aaa";
     QCOMPARE(a.toUShort(),(ushort)0);
     QCOMPARE(a.toUShort(&ok),(ushort)0);
     QVERIFY(!ok);
+    QCOMPARE(a.toUShort(&ok, 10, &endpos),(ushort)123);
+    QVERIFY(ok);
+    QCOMPARE(endpos, 3);
 
     a = "32767";
     QCOMPARE(a.toUShort(),(ushort)32767);
     QCOMPARE(a.toUShort(&ok),(ushort)32767);
     QVERIFY(ok);
+    QCOMPARE(a.toUShort(&ok, 10, &endpos),(ushort)32767);
+    QVERIFY(ok);
+    QCOMPARE(endpos, 5);
 
     a = "-32767";
     QCOMPARE(a.toUShort(),(ushort)0);
     QCOMPARE(a.toUShort(&ok),(ushort)0);
     QVERIFY(!ok);
+    QCOMPARE(a.toUShort(&ok, 10, &endpos),(ushort)0);
+    QVERIFY(!ok);
+    QCOMPARE(endpos, 0);
 
     a = "65535";
     QCOMPARE(a.toUShort(),(ushort)65535);
     QCOMPARE(a.toUShort(&ok),(ushort)65535);
     QVERIFY(ok);
+    QCOMPARE(a.toUShort(&ok, 10, &endpos),(ushort)65535);
+    QVERIFY(ok);
+    QCOMPARE(endpos, 5);
 
     if (sizeof(short) == 2) {
         a = "65536";
         QCOMPARE(a.toUShort(),(ushort)0);
         QCOMPARE(a.toUShort(&ok),(ushort)0);
         QVERIFY(!ok);
+        QCOMPARE(a.toUShort(&ok, 10, &endpos),(ushort)0);
+        QVERIFY(!ok);
+        QCOMPARE(endpos, 0);
 
         a = "123456";
         QCOMPARE(a.toUShort(),(ushort)0);
         QCOMPARE(a.toUShort(&ok),(ushort)0);
         QVERIFY(!ok);
+        QCOMPARE(a.toUShort(&ok, 10, &endpos),(ushort)0);
+        QVERIFY(!ok);
+        QCOMPARE(endpos, 0);
     }
 }
 
@@ -2805,75 +2956,118 @@ void tst_QString::toShort()
 {
     QString a;
     bool ok;
+    int endpos;
     QCOMPARE(a.toShort(),(short)0);
     QCOMPARE(a.toShort(&ok),(short)0);
     QVERIFY(!ok);
+    QCOMPARE(a.toShort(&ok, 10, &endpos),(short)0);
+    QVERIFY(!ok);
+    QCOMPARE(endpos, 0);
 
     a="";
     QCOMPARE(a.toShort(),(short)0);
     QCOMPARE(a.toShort(&ok),(short)0);
     QVERIFY(!ok);
+    QCOMPARE(a.toShort(&ok, 10, &endpos),(short)0);
+    QVERIFY(!ok);
+    QCOMPARE(endpos, 0);
 
     a="COMPARE";
     QCOMPARE(a.toShort(),(short)0);
     QCOMPARE(a.toShort(&ok),(short)0);
     QVERIFY(!ok);
+    QCOMPARE(a.toShort(&ok, 10, &endpos),(short)0);
+    QVERIFY(!ok);
+    QCOMPARE(endpos, 0);
 
     a="123";
     QCOMPARE(a.toShort(),(short)123);
     QCOMPARE(a.toShort(&ok),(short)123);
     QVERIFY(ok);
+    QCOMPARE(a.toShort(&ok, 10, &endpos),(short)123);
+    QVERIFY(ok);
+    QCOMPARE(endpos, 3);
 
     a="123A";
     QCOMPARE(a.toShort(),(short)0);
     QCOMPARE(a.toShort(&ok),(short)0);
     QVERIFY(!ok);
+    QCOMPARE(a.toShort(&ok, 10, &endpos),(short)123);
+    QVERIFY(ok);
+    QCOMPARE(endpos, 3);
 
     a="1234567";
     QCOMPARE(a.toShort(),(short)0);
     QCOMPARE(a.toShort(&ok),(short)0);
     QVERIFY(!ok);
+    QCOMPARE(a.toShort(&ok, 10, &endpos),(short)0);
+    QVERIFY(!ok);
+    QCOMPARE(endpos, 0);
 
     a = "aaa123aaa";
     QCOMPARE(a.toShort(),(short)0);
     QCOMPARE(a.toShort(&ok),(short)0);
     QVERIFY(!ok);
+    QCOMPARE(a.toShort(&ok, 10, &endpos),(short)0);
+    QVERIFY(!ok);
+    QCOMPARE(endpos, 0);
 
     a = "aaa123";
     QCOMPARE(a.toShort(),(short)0);
     QCOMPARE(a.toShort(&ok),(short)0);
     QVERIFY(!ok);
+    QCOMPARE(a.toShort(&ok, 10, &endpos),(short)0);
+    QVERIFY(!ok);
+    QCOMPARE(endpos, 0);
 
     a = "123aaa";
     QCOMPARE(a.toShort(),(short)0);
     QCOMPARE(a.toShort(&ok),(short)0);
     QVERIFY(!ok);
+    QCOMPARE(a.toShort(&ok, 10, &endpos),(short)123);
+    QVERIFY(ok);
+    QCOMPARE(endpos, 3);
 
     a = "32767";
     QCOMPARE(a.toShort(),(short)32767);
     QCOMPARE(a.toShort(&ok),(short)32767);
     QVERIFY(ok);
+    QCOMPARE(a.toShort(&ok, 10, &endpos),(short)32767);
+    QVERIFY(ok);
+    QCOMPARE(endpos, 5);
 
     a = "-32767";
     QCOMPARE(a.toShort(),(short)-32767);
     QCOMPARE(a.toShort(&ok),(short)-32767);
     QVERIFY(ok);
+    QCOMPARE(a.toShort(&ok, 10, &endpos),(short)-32767);
+    QVERIFY(ok);
+    QCOMPARE(endpos, 6);
 
     a = "-32768";
     QCOMPARE(a.toShort(),(short)-32768);
     QCOMPARE(a.toShort(&ok),(short)-32768);
     QVERIFY(ok);
+    QCOMPARE(a.toShort(&ok, 10, &endpos),(short)-32768);
+    QVERIFY(ok);
+    QCOMPARE(endpos, 6);
 
     if (sizeof(short) == 2) {
         a = "32768";
         QCOMPARE(a.toShort(),(short)0);
         QCOMPARE(a.toShort(&ok),(short)0);
         QVERIFY(!ok);
+        QCOMPARE(a.toShort(&ok, 10, &endpos),(short)0);
+        QVERIFY(!ok);
+        QCOMPARE(endpos, 0);
 
         a = "-32769";
         QCOMPARE(a.toShort(),(short)0);
         QCOMPARE(a.toShort(&ok),(short)0);
         QVERIFY(!ok);
+        QCOMPARE(a.toShort(&ok, 10, &endpos),(short)0);
+        QVERIFY(!ok);
+        QCOMPARE(endpos, 0);
     }
 }
 
@@ -2881,64 +3075,101 @@ void tst_QString::toInt()
 {
     QString a;
     bool ok;
+    int endpos;
     QCOMPARE(a.toInt(),0);
     QCOMPARE(a.toInt(&ok),0);
     QVERIFY(!ok);
+    QCOMPARE(a.toInt(&ok, 10, &endpos),0);
+    QVERIFY(!ok);
+    QCOMPARE(endpos, 0);
 
     a = "";
     QCOMPARE(a.toInt(),0);
     QCOMPARE(a.toInt(&ok),0);
     QVERIFY(!ok);
+    QCOMPARE(a.toInt(&ok, 10, &endpos),0);
+    QVERIFY(!ok);
+    QCOMPARE(endpos, 0);
 
     a="COMPARE";
     QCOMPARE(a.toInt(),0);
     QCOMPARE(a.toInt(&ok),0);
     QVERIFY(!ok);
+    QCOMPARE(a.toInt(&ok, 10, &endpos),0);
+    QVERIFY(!ok);
+    QCOMPARE(endpos, 0);
 
     a="123";
     QCOMPARE(a.toInt(),123);
     QCOMPARE(a.toInt(&ok),123);
     QVERIFY(ok);
+    QCOMPARE(a.toInt(&ok, 10, &endpos),123);
+    QVERIFY(ok);
+    QCOMPARE(endpos, 3);
 
     a="123A";
     QCOMPARE(a.toInt(),0);
     QCOMPARE(a.toInt(&ok),0);
     QVERIFY(!ok);
+    QCOMPARE(a.toInt(&ok, 10, &endpos),123);
+    QVERIFY(ok);
+    QCOMPARE(endpos, 3);
 
     a="1234567";
     QCOMPARE(a.toInt(),1234567);
     QCOMPARE(a.toInt(&ok),1234567);
     QVERIFY(ok);
+    QCOMPARE(a.toInt(&ok, 10, &endpos),1234567);
+    QVERIFY(ok);
+    QCOMPARE(endpos, 7);
 
     a="12345678901234";
     QCOMPARE(a.toInt(),0);
     QCOMPARE(a.toInt(&ok),0);
     QVERIFY(!ok);
+    QCOMPARE(a.toInt(&ok, 10, &endpos),0);
+    QVERIFY(!ok);
+    QCOMPARE(endpos, 0);
 
     a="3234567890";
     QCOMPARE(a.toInt(),0);
     QCOMPARE(a.toInt(&ok),0);
     QVERIFY(!ok);
+    QCOMPARE(a.toInt(&ok, 10, &endpos),0);
+    QVERIFY(!ok);
+    QCOMPARE(endpos, 0);
 
     a = "aaa12345aaa";
     QCOMPARE(a.toInt(),0);
     QCOMPARE(a.toInt(&ok),0);
     QVERIFY(!ok);
+    QCOMPARE(a.toInt(&ok, 10, &endpos),0);
+    QVERIFY(!ok);
+    QCOMPARE(endpos, 0);
 
     a = "aaa12345";
     QCOMPARE(a.toInt(),0);
     QCOMPARE(a.toInt(&ok),0);
     QVERIFY(!ok);
+    QCOMPARE(a.toInt(&ok, 10, &endpos),0);
+    QVERIFY(!ok);
+    QCOMPARE(endpos, 0);
 
     a = "12345aaa";
     QCOMPARE(a.toInt(),0);
     QCOMPARE(a.toInt(&ok),0);
     QVERIFY(!ok);
+    QCOMPARE(a.toInt(&ok, 10, &endpos),12345);
+    QVERIFY(ok);
+    QCOMPARE(endpos, 5);
 
     a = "2147483647"; // 2**31 - 1
     QCOMPARE(a.toInt(),2147483647);
     QCOMPARE(a.toInt(&ok),2147483647);
     QVERIFY(ok);
+    QCOMPARE(a.toInt(&ok, 10, &endpos),2147483647);
+    QVERIFY(ok);
+    QCOMPARE(endpos, 10);
 
     if (sizeof(int) == 4) {
         a = "-2147483647"; // -(2**31 - 1)
@@ -2950,42 +3181,64 @@ void tst_QString::toInt()
         QCOMPARE(a.toInt(),0);
         QCOMPARE(a.toInt(&ok),0);
         QVERIFY(!ok);
+        QCOMPARE(a.toInt(&ok, 10, &endpos),0);
+        QVERIFY(!ok);
+        QCOMPARE(endpos, 0);
 
         a = "-2147483648"; // -2**31
         QCOMPARE(a.toInt(),-2147483647 - 1);
         QCOMPARE(a.toInt(&ok),-2147483647 - 1);
         QVERIFY(ok);
+        QCOMPARE(a.toInt(&ok, 10, &endpos),-2147483647 - 1);
+        QVERIFY(ok);
+        QCOMPARE(endpos, 11);
 
         a = "2147483649"; // 2**31 + 1
         QCOMPARE(a.toInt(),0);
         QCOMPARE(a.toInt(&ok),0);
         QVERIFY(!ok);
+        QCOMPARE(a.toInt(&ok, 10, &endpos),0);
+        QVERIFY(!ok);
+        QCOMPARE(endpos, 0);
     }
 }
 
 void tst_QString::toUInt()
 {
     bool ok;
+    int endpos;
     QString a;
     a="3234567890";
     QCOMPARE(a.toUInt(&ok),3234567890u);
     QVERIFY(ok);
+    QCOMPARE(a.toUInt(&ok, 10, &endpos),3234567890u);
+    QVERIFY(ok);
+    QCOMPARE(endpos, 10);
 
     a = "-50";
     QCOMPARE(a.toUInt(),0u);
     QCOMPARE(a.toUInt(&ok),0u);
     QVERIFY(!ok);
+    QCOMPARE(a.toUInt(&ok, 10, &endpos),0u);
+    QVERIFY(!ok);
+    QCOMPARE(endpos, 0);
 
     a = "4294967295"; // 2**32 - 1
     QCOMPARE(a.toUInt(),4294967295u);
     QCOMPARE(a.toUInt(&ok),4294967295u);
     QVERIFY(ok);
+    QCOMPARE(a.toUInt(&ok, 10, &endpos),4294967295u);
+    QVERIFY(ok);
+    QCOMPARE(endpos, 10);
 
     if (sizeof(int) == 4) {
         a = "4294967296"; // 2**32
         QCOMPARE(a.toUInt(),0u);
         QCOMPARE(a.toUInt(&ok),0u);
         QVERIFY(!ok);
+        QCOMPARE(a.toUInt(&ok, 10, &endpos),0u);
+        QVERIFY(!ok);
+        QCOMPARE(endpos, 0);
     }
 }
 
@@ -3015,6 +3268,11 @@ void tst_QString::toULong()
     QCOMPARE( str.toULong( 0, base ), result );
     QCOMPARE( str.toULong( &b, base ), result );
     QCOMPARE( b, ok );
+
+    int endpos;
+    QCOMPARE( str.toULong( &b, base, &endpos ), result );
+    QCOMPARE( b, ok );
+    QCOMPARE( endpos, str.length() );
 }
 
 void tst_QString::toLong_data()
@@ -3047,6 +3305,11 @@ void tst_QString::toLong()
     QCOMPARE( str.toLong( 0, base ), result );
     QCOMPARE( str.toLong( &b, base ), result );
     QCOMPARE( b, ok );
+
+    int endpos;
+    QCOMPARE( str.toLong( &b, base, &endpos ), result );
+    QCOMPARE( b, ok );
+    QCOMPARE( endpos, str.length() );
 }
 
 
@@ -3056,31 +3319,42 @@ void tst_QString::toULongLong()
 {
     QString str;
     bool ok;
+    int endpos;
     str = "18446744073709551615"; // ULLONG_MAX
     QCOMPARE( str.toULongLong( 0 ), Q_UINT64_C(18446744073709551615) );
     QCOMPARE( str.toULongLong( &ok ), Q_UINT64_C(18446744073709551615) );
     QVERIFY( ok );
+    QCOMPARE(str.toULongLong(&ok, 10, &endpos), Q_UINT64_C(18446744073709551615));
+    QVERIFY(ok);
+    QCOMPARE(endpos, 20);
 
     str = "18446744073709551616"; // ULLONG_MAX + 1
     QCOMPARE( str.toULongLong( 0 ), Q_UINT64_C(0) );
     QCOMPARE( str.toULongLong( &ok ), Q_UINT64_C(0) );
     QVERIFY( !ok );
+    QCOMPARE(str.toULongLong(&ok, 10, &endpos),Q_UINT64_C(0));
+    QVERIFY(!ok);
+    QCOMPARE(endpos, 0);
 
     str = "-150";
-    QCOMPARE( str.toULongLong( 0 ), Q_UINT64_C(0) );
-    QCOMPARE( str.toULongLong( &ok ), Q_UINT64_C(0) );
-    QVERIFY( !ok );
+    QCOMPARE( str.toULongLong( 0 ), Q_UINT64_C(18446744073709551466) );
+    QCOMPARE( str.toULongLong( &ok ), Q_UINT64_C(18446744073709551466) );
+    QVERIFY(ok);
 }
 
 void tst_QString::toLongLong()
 {
     QString str;
     bool ok;
+    int endpos;
 
     str = "9223372036854775807"; // LLONG_MAX
     QCOMPARE( str.toLongLong( 0 ), Q_INT64_C(9223372036854775807) );
     QCOMPARE( str.toLongLong( &ok ), Q_INT64_C(9223372036854775807) );
     QVERIFY( ok );
+    QCOMPARE(str.toLongLong(&ok, 10, &endpos),Q_INT64_C(9223372036854775807));
+    QVERIFY(ok);
+    QCOMPARE(endpos, 19);
 
     str = "-9223372036854775808"; // LLONG_MIN
     QCOMPARE( str.toLongLong( 0 ),
@@ -3088,21 +3362,34 @@ void tst_QString::toLongLong()
     QCOMPARE( str.toLongLong( &ok ),
              -Q_INT64_C(9223372036854775807) - Q_INT64_C(1) );
     QVERIFY( ok );
+    QCOMPARE(str.toLongLong(&ok, 10, &endpos),
+             -Q_INT64_C(9223372036854775807) - Q_INT64_C(1));
+    QVERIFY(ok);
+    QCOMPARE(endpos, 20);
 
     str = "aaaa9223372036854775807aaaa";
     QCOMPARE( str.toLongLong( 0 ), Q_INT64_C(0) );
     QCOMPARE( str.toLongLong( &ok ), Q_INT64_C(0) );
     QVERIFY( !ok );
+    QCOMPARE(str.toLongLong(&ok, 10, &endpos),Q_INT64_C(0));
+    QVERIFY(!ok);
+    QCOMPARE(endpos, 0);
 
     str = "9223372036854775807aaaa";
     QCOMPARE( str.toLongLong( 0 ), Q_INT64_C(0) );
     QCOMPARE( str.toLongLong( &ok ), Q_INT64_C(0) );
     QVERIFY( !ok );
+    QCOMPARE(str.toLongLong(&ok, 10, &endpos),Q_INT64_C(9223372036854775807));
+    QVERIFY(ok);
+    QCOMPARE(endpos, 19);
 
     str = "aaaa9223372036854775807";
     QCOMPARE( str.toLongLong( 0 ), Q_INT64_C(0) );
     QCOMPARE( str.toLongLong( &ok ), Q_INT64_C(0) );
     QVERIFY( !ok );
+    QCOMPARE(str.toLongLong(&ok, 10, &endpos),Q_INT64_C(0));
+    QVERIFY(!ok);
+    QCOMPARE(endpos, 0);
 
     static char digits[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
@@ -3129,6 +3416,11 @@ void tst_QString::toFloat()
     a="0.000000000931322574615478515625";
     QCOMPARE(a.toFloat(&ok),(float)(0.000000000931322574615478515625));
     QVERIFY(ok);
+
+    int endpos;
+    QCOMPARE(a.toFloat(&ok, &endpos),(float)(0.000000000931322574615478515625));
+    QVERIFY(ok);
+    QCOMPARE(endpos, a.length());
 }
 
 void tst_QString::toDouble_data()
@@ -3136,34 +3428,35 @@ void tst_QString::toDouble_data()
     QTest::addColumn<QString>("str" );
     QTest::addColumn<double>("result" );
     QTest::addColumn<bool>("result_ok" );
+    QTest::addColumn<int>("result_endpos");
 
-    QTest::newRow( "ok00" ) << QString("0.000000000931322574615478515625") << 0.000000000931322574615478515625 << true;
-    QTest::newRow( "ok01" ) << QString(" 123.45") << 123.45 << true;
+    QTest::newRow( "ok00" ) << QString("0.000000000931322574615478515625") << 0.000000000931322574615478515625 << true << 32;
+    QTest::newRow( "ok01" ) << QString(" 123.45") << 123.45 << true << 7;
 
-    QTest::newRow( "ok02" ) << QString("0.1e10") << 0.1e10 << true;
-    QTest::newRow( "ok03" ) << QString("0.1e-10") << 0.1e-10 << true;
+    QTest::newRow( "ok02" ) << QString("0.1e10") << 0.1e10 << true << 6;
+    QTest::newRow( "ok03" ) << QString("0.1e-10") << 0.1e-10 << true << 7;
 
-    QTest::newRow( "ok04" ) << QString("1e10") << 1.0e10 << true;
-    QTest::newRow( "ok05" ) << QString("1e+10") << 1.0e10 << true;
-    QTest::newRow( "ok06" ) << QString("1e-10") << 1.0e-10 << true;
+    QTest::newRow( "ok04" ) << QString("1e10") << 1.0e10 << true << 4;
+    QTest::newRow( "ok05" ) << QString("1e+10") << 1.0e10 << true << 5;
+    QTest::newRow( "ok06" ) << QString("1e-10") << 1.0e-10 << true << 5;
 
-    QTest::newRow( "ok07" ) << QString(" 1e10") << 1.0e10 << true;
-    QTest::newRow( "ok08" ) << QString("  1e+10") << 1.0e10 << true;
-    QTest::newRow( "ok09" ) << QString("   1e-10") << 1.0e-10 << true;
+    QTest::newRow( "ok07" ) << QString(" 1e10") << 1.0e10 << true << 5;
+    QTest::newRow( "ok08" ) << QString("  1e+10") << 1.0e10 << true << 7;
+    QTest::newRow( "ok09" ) << QString("   1e-10") << 1.0e-10 << true << 8;
 
-    QTest::newRow( "ok10" ) << QString("1.") << 1.0 << true;
-    QTest::newRow( "ok11" ) << QString(".1") << 0.1 << true;
+    QTest::newRow( "ok10" ) << QString("1.") << 1.0 << true << 2;
+    QTest::newRow( "ok11" ) << QString(".1") << 0.1 << true << 2;
 
-    QTest::newRow( "wrong00" ) << QString("123.45 ") << 123.45 << true;
-    QTest::newRow( "wrong01" ) << QString(" 123.45 ") << 123.45 << true;
+    QTest::newRow( "wrong00" ) << QString("123.45 ") << 123.45 << true << 6;
+    QTest::newRow( "wrong01" ) << QString(" 123.45 ") << 123.45 << true << 7;
 
-    QTest::newRow( "wrong02" ) << QString("aa123.45aa") << 0.0 << false;
-    QTest::newRow( "wrong03" ) << QString("123.45aa") << 0.0 << false;
-    QTest::newRow( "wrong04" ) << QString("123erf") << 0.0 << false;
+    QTest::newRow( "wrong02" ) << QString("aa123.45aa") << 0.0 << false << 0;
+    QTest::newRow( "wrong03" ) << QString("123.45aa") << 0.0 << false << 6;
+    QTest::newRow( "wrong04" ) << QString("123erf") << 0.0 << false << 3;
 
-    QTest::newRow( "wrong05" ) << QString("abc") << 0.0 << false;
-    QTest::newRow( "wrong06" ) << QString() << 0.0 << false;
-    QTest::newRow( "wrong07" ) << QString("") << 0.0 << false;
+    QTest::newRow( "wrong05" ) << QString("abc") << 0.0 << false << 0;
+    QTest::newRow( "wrong06" ) << QString() << 0.0 << false << 0;
+    QTest::newRow( "wrong07" ) << QString("") << 0.0 << false << 0;
 }
 
 void tst_QString::toDouble()
@@ -3175,6 +3468,18 @@ void tst_QString::toDouble()
     if ( result_ok ) {
         QTEST( d, "result" );
         QVERIFY( ok );
+    } else {
+        QVERIFY( !ok );
+    }
+
+    QFETCH(int, result_endpos);
+    int endpos;
+    d = str.toDouble( &ok, &endpos );
+    if ( result_endpos ) {
+        if (result_ok)
+            QTEST( d, "result" );
+        QVERIFY( ok );
+        QCOMPARE(endpos, result_endpos);
     } else {
         QVERIFY( !ok );
     }
@@ -5270,88 +5575,126 @@ void tst_QString::latin1String()
     QVERIFY(!(s < QLatin1String("Hell")));
 }
 
+void tst_QString::nanAndInf_data()
+{
+    QTest::addColumn<QString>("text");
+    QTest::addColumn<double>("expected_value");
+
+    // when parsing with endpos, some of the options below change meaning
+    QTest::addColumn<int>("expected_endpos");
+    QTest::addColumn<double>("expected_value_endpos");
+
+    QTest::newRow("inf") << "inf" << qInf() << -1 << qInf();
+    QTest::newRow("INF") << "INF" << qInf() << -1 << qInf();
+    QTest::newRow("inf  ") << "inf  " << qInf() << -1 << qInf();
+    QTest::newRow("+inf") << "+inf" << qInf() << -1 << qInf();
+    QTest::newRow("\t +INF") << "\t +INF" << qInf() << -1 << qInf();
+    QTest::newRow("\t INF") << "\t INF" << qInf() << -1 << qInf();
+    QTest::newRow("inF  ") << "inF  " << qInf() << -1 << qInf();
+    QTest::newRow("+iNf") << "+iNf" << qInf() << -1 << qInf();
+    QTest::newRow("INFe-10") << "INFe-10" << 0. << -1 << 0.;
+    QTest::newRow("0xINF") << "0xINF" << 0.  << 1 << 0.;
+    QTest::newRow("- INF") << "- INF" << 0. << -1 << 0.;
+    QTest::newRow("+ INF") << "+ INF" << 0. << -1 << 0.;
+    QTest::newRow("-- INF") << "-- INF" << 0. << -1 << 0.;
+    QTest::newRow("inf0") << "inf0" << 0. << 0 << 0.;
+    QTest::newRow("--INF") << "--INF" << 0. << -1 << 0.;
+    QTest::newRow("++INF") << "++INF" << 0. << -1 << 0.;
+    QTest::newRow("INF++") << "INF++" << 0. << -1 << 0.;
+    QTest::newRow("INF--") << "INF--" << 0. << -1 << 0.;
+    QTest::newRow("INF +") << "INF +" << 0. << 3 << qInf();
+    QTest::newRow("INF -") << "INF -" << 0. << 3 << qInf();
+    QTest::newRow("0INF") << "0INF" << 0. << 1 << 0.;
+
+    QTest::newRow("-inf") << "-inf" << -qInf() << -1 << -qInf();
+
+    QTest::newRow("nan") << "nan" << qQNaN() << -1 << qQNaN();
+    QTest::newRow("NAN") << "NAN" << qQNaN() << -1 << qQNaN();
+    QTest::newRow("nan  ") << "nan  " << qQNaN() << -1 << qQNaN();
+    QTest::newRow("\t NAN") << "\t NAN" << qQNaN() << -1 << qQNaN();
+    QTest::newRow("\t NAN  ") << "\t NAN  " << qQNaN() << -1 << qQNaN();
+    QTest::newRow("-nan") << "-nan" << 0. << -1 << 0.;
+    QTest::newRow("+NAN") << "+NAN" << 0. << -1 << 0.;
+    QTest::newRow("NaN") << "NaN" << qQNaN() << -1 << qQNaN();
+    QTest::newRow("nAn") << "nAn" << qQNaN() << -1 << qQNaN();
+    QTest::newRow("NANe-10") << "NANe-10" << 0. << -1 << 0.;
+    QTest::newRow("0xNAN") << "0xNAN" << 0. << 1 << 0.;
+    QTest::newRow("0NAN") << "0NAN" << 0. << 1 << 0.;
+}
+
+static int rtrimlen(const QString &str)
+{
+    const QChar *begin = str.constBegin();
+    const QChar *end = str.constEnd();
+    for ( ; begin < end; --end)
+        if (!end[-1].isSpace())
+            break;
+    return int(end - begin);
+}
+
 void tst_QString::nanAndInf()
 {
+    QFETCH(QString, text);
+    QFETCH(int, expected_endpos);
+    QFETCH(double, expected_value);
+    QFETCH(double, expected_value_endpos);
+    int endpos;
     bool ok;
     double d;
+    float f;
 
-#define CHECK_DOUBLE(str, expected_ok, expected_inf) \
-    d = QString(str).toDouble(&ok); \
-    QVERIFY(ok == expected_ok); \
-    QVERIFY(qIsInf(d) == expected_inf);
+    bool expected_ok = expected_value != 0;
+    if (expected_endpos == -1)
+        expected_endpos = int(expected_ok) * rtrimlen(text);
 
-    CHECK_DOUBLE("inf", true, true)
-    CHECK_DOUBLE("INF", true, true)
-    CHECK_DOUBLE("inf  ", true, true)
-    CHECK_DOUBLE("+inf", true, true)
-    CHECK_DOUBLE("\t +INF", true, true)
-    CHECK_DOUBLE("\t INF", true, true)
-    CHECK_DOUBLE("inF  ", true, true)
-    CHECK_DOUBLE("+iNf", true, true)
-    CHECK_DOUBLE("INFe-10", false, false)
-    CHECK_DOUBLE("0xINF", false, false)
-    CHECK_DOUBLE("- INF", false, false)
-    CHECK_DOUBLE("+ INF", false, false)
-    CHECK_DOUBLE("-- INF", false, false)
-    CHECK_DOUBLE("inf0", false, false)
-    CHECK_DOUBLE("--INF", false, false)
-    CHECK_DOUBLE("++INF", false, false)
-    CHECK_DOUBLE("INF++", false, false)
-    CHECK_DOUBLE("INF--", false, false)
-    CHECK_DOUBLE("INF +", false, false)
-    CHECK_DOUBLE("INF -", false, false)
-    CHECK_DOUBLE("0INF", false, false)
-#undef CHECK_INF
+    d = text.toDouble(&ok);
+    QCOMPARE(ok, expected_ok);
+    if (ok) {
+        if (qIsNaN(expected_value))
+            QVERIFY2(qIsNaN(d), QByteArray::number(d));
+        else
+            QVERIFY2(qIsInf(d), QByteArray::number(d));
+    }
 
-#define CHECK_NAN(str, expected_ok, expected_nan) \
-    d = QString(str).toDouble(&ok); \
-    QVERIFY(ok == expected_ok); \
-    QVERIFY(qIsNaN(d) == expected_nan);
+    // check float too
+    f = text.toFloat(&ok);
+    QCOMPARE(ok, expected_ok);
+    if (ok) {
+        if (qIsNaN(expected_value))
+            QVERIFY2(qIsNaN(f), QByteArray::number(f));
+        else
+            QVERIFY2(qIsInf(f), QByteArray::number(f));
+    }
 
-    CHECK_NAN("nan", true, true)
-    CHECK_NAN("NAN", true, true)
-    CHECK_NAN("nan  ", true, true)
-    CHECK_NAN("\t NAN", true, true)
-    CHECK_NAN("\t NAN  ", true, true)
-    CHECK_NAN("-nan", false, false)
-    CHECK_NAN("+NAN", false, false)
-    CHECK_NAN("NaN", true, true)
-    CHECK_NAN("nAn", true, true)
-    CHECK_NAN("NANe-10", false, false)
-    CHECK_NAN("0xNAN", false, false)
-    CHECK_NAN("0NAN", false, false)
-#undef CHECK_NAN
+    // check conversions back into string form
+    if (qIsInf(expected_value) && expected_value > 0) {
+        QCOMPARE(QString::number(d), QString("inf"));
+        QCOMPARE(QString::number(f), QString("inf"));
+    }
+    if (qIsNaN(expected_value)) {
+        QCOMPARE(QString::number(d), QString("nan"));
+        QCOMPARE(QString::number(f), QString("nan"));
+    }
 
-    d = QString("-INF").toDouble(&ok);
-    QVERIFY(ok);
-    QVERIFY(d == -qInf());
+    d = text.toDouble(&ok, &endpos);
+    QCOMPARE(endpos, expected_endpos);
+    QCOMPARE(ok, endpos != 0);
+    if (ok && d) {
+        if (qIsNaN(expected_value_endpos))
+            QVERIFY2(qIsNaN(d), QByteArray::number(d));
+        else
+            QVERIFY2(qIsInf(d), QByteArray::number(d));
+    }
 
-    QString("INF").toLong(&ok);
-    QVERIFY(!ok);
-
-    QString("INF").toLong(&ok, 36);
-    QVERIFY(ok);
-
-    QString("INF0").toLong(&ok, 36);
-    QVERIFY(ok);
-
-    QString("0INF0").toLong(&ok, 36);
-    QVERIFY(ok);
-
-    // Check that inf (float) => "inf" (QString) => inf (float).
-    float value = qInf();
-    QString valueAsString = QString::number(value);
-    QCOMPARE(valueAsString, QString::fromLatin1("inf"));
-    float valueFromString = valueAsString.toFloat();
-    QVERIFY(qIsInf(valueFromString));
-
-    // Check that -inf (float) => "-inf" (QString) => -inf (float).
-    value = -qInf();
-    valueAsString = QString::number(value);
-    QCOMPARE(valueAsString, QString::fromLatin1("-inf"));
-    valueFromString = valueAsString.toFloat();
-    QVERIFY(value == -qInf());
-    QVERIFY(qIsInf(valueFromString));
+    f = text.toFloat(&ok, &endpos);
+    QCOMPARE(endpos, expected_endpos);
+    QCOMPARE(ok, endpos != 0);
+    if (ok && f) {
+        if (qIsNaN(expected_value_endpos))
+            QVERIFY2(qIsNaN(f), QByteArray::number(f));
+        else
+            QVERIFY2(qIsInf(f), QByteArray::number(f));
+    }
 }
 
 void tst_QString::arg_fillChar_data()

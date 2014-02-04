@@ -602,6 +602,28 @@ public:
     float toFloat(bool *ok=0) const;
     double toDouble(bool *ok=0) const;
 
+    // ### Qt6: merge with the above set
+    short toShort(bool *ok, int base, int *endpos) const
+    { return toIntegral_helper<short>(constData(), size(), ok, base, endpos); }
+    ushort toUShort(bool *ok, int base, int *endpos) const
+    { return toIntegral_helper<ushort>(constData(), size(), ok, base, endpos); }
+    int toInt(bool *ok, int base, int *endpos) const
+    { return toIntegral_helper<int>(constData(), size(), ok, base, endpos); }
+    uint toUInt(bool *ok, int base, int *endpos) const
+    { return toIntegral_helper<uint>(constData(), size(), ok, base, endpos); }
+    long toLong(bool *ok, int base, int *endpos) const
+    { return toIntegral_helper<long>(constData(), size(), ok, base, endpos); }
+    ulong toULong(bool *ok, int base, int *endpos) const
+    { return toIntegral_helper<ulong>(constData(), size(), ok, base, endpos); }
+    qlonglong toLongLong(bool *ok, int base, int *endpos) const
+    { return toIntegral_helper<qlonglong>(constData(), size(), ok, base, endpos); }
+    qulonglong toULongLong(bool *ok, int base, int *endpos) const
+    { return toIntegral_helper<qulonglong>(constData(), size(), ok, base, endpos); }
+
+    // ### Qt6: merge them
+    float toFloat(bool *ok, int *endpos) const;
+    double toDouble(bool *ok, int *endpos) const;
+
     QString &setNum(short, int base=10);
     QString &setNum(ushort, int base=10);
     QString &setNum(int, int base=10);
@@ -810,8 +832,8 @@ private:
     static QByteArray toUtf8_helper(const QString &);
     static QByteArray toLocal8Bit_helper(const QChar *data, int size);
     static int toUcs4_helper(const ushort *uc, int length, uint *out);
-    static qlonglong toIntegral_helper(const QChar *data, int len, bool *ok, int base);
-    static qulonglong toIntegral_helper(const QChar *data, uint len, bool *ok, int base);
+    static qlonglong toIntegral_helper(const QChar *data, int len, bool *ok, int base, int *endpos);
+    static qulonglong toIntegral_helper(const QChar *data, uint len, bool *ok, int base, int *endpos);
     void replace_helper(uint *indices, int nIndices, int blen, const QChar *after, int alen);
     friend class QCharRef;
     friend class QTextCodec;
@@ -821,7 +843,7 @@ private:
     friend struct QAbstractConcatenable;
 
     template <typename T> static
-    T toIntegral_helper(const QChar *data, int len, bool *ok, int base)
+    T toIntegral_helper(const QChar *data, int len, bool *ok, int base, int *endpos)
     {
         // ### Qt6: use std::conditional<std::is_unsigned<T>::value, qulonglong, qlonglong>::type
         const bool isUnsigned = T(0) < T(-1);
@@ -829,10 +851,12 @@ private:
         typedef typename QtPrivate::QConditional<isUnsigned, uint, int>::Type Int32;
 
         // we select the right overload by casting size() to int or uint
-        Int64 val = toIntegral_helper(data, Int32(len), ok, base);
+        Int64 val = toIntegral_helper(data, Int32(len), ok, base, endpos);
         if (T(val) != val) {
             if (ok)
                 *ok = false;
+            if (endpos)
+                *endpos = 0;
             val = 0;
         }
         return T(val);
@@ -1469,8 +1493,13 @@ public:
     ulong toULong(bool *ok = 0, int base = 10) const;
     qlonglong toLongLong(bool *ok = 0, int base = 10) const;
     qulonglong toULongLong(bool *ok = 0, int base = 10) const;
-    float toFloat(bool *ok = 0) const;
-    double toDouble(bool *ok = 0) const;
+
+    // ### Qt6: merge the two pairs
+    float toFloat(bool *ok = Q_NULLPTR) const;
+    float toFloat(bool *ok, int *endpos) const;
+    double toDouble(bool *ok, int *endpos) const;
+    double toDouble(bool *ok = Q_NULLPTR) const;
+
 };
 Q_DECLARE_TYPEINFO(QStringRef, Q_PRIMITIVE_TYPE);
 

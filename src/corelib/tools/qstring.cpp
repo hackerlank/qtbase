@@ -6086,10 +6086,10 @@ QString QString::vasprintf(const char *cformat, va_list ap)
 
 qint64 QString::toLongLong(bool *ok, int base) const
 {
-    return toIntegral_helper<qlonglong>(constData(), size(), ok, base);
+    return toIntegral_helper<qlonglong>(constData(), size(), ok, base, Q_NULLPTR);
 }
 
-qlonglong QString::toIntegral_helper(const QChar *data, int len, bool *ok, int base)
+qlonglong QString::toIntegral_helper(const QChar *data, int len, bool *ok, int base, int *endpos)
 {
 #if defined(QT_CHECK_RANGE)
     if (base != 0 && (base < 2 || base > 36)) {
@@ -6098,7 +6098,7 @@ qlonglong QString::toIntegral_helper(const QChar *data, int len, bool *ok, int b
     }
 #endif
 
-    return QLocaleData::c()->stringToLongLong(data, len, base, ok, QLocaleData::FailOnGroupSeparators);
+    return QLocaleData::c()->stringToLongLong(data, len, base, ok, endpos, QLocaleData::FailOnGroupSeparators);
 }
 
 
@@ -6126,10 +6126,10 @@ qlonglong QString::toIntegral_helper(const QChar *data, int len, bool *ok, int b
 
 quint64 QString::toULongLong(bool *ok, int base) const
 {
-    return toIntegral_helper<qulonglong>(constData(), size(), ok, base);
+    return toIntegral_helper<qulonglong>(constData(), size(), ok, base, Q_NULLPTR);
 }
 
-qulonglong QString::toIntegral_helper(const QChar *data, uint len, bool *ok, int base)
+qulonglong QString::toIntegral_helper(const QChar *data, uint len, bool *ok, int base, int *endpos)
 {
 #if defined(QT_CHECK_RANGE)
     if (base != 0 && (base < 2 || base > 36)) {
@@ -6138,7 +6138,7 @@ qulonglong QString::toIntegral_helper(const QChar *data, uint len, bool *ok, int
     }
 #endif
 
-    return QLocaleData::c()->stringToUnsLongLong(data, len, base, ok, QLocaleData::FailOnGroupSeparators);
+    return QLocaleData::c()->stringToUnsLongLong(data, len, base, ok, endpos, QLocaleData::FailOnGroupSeparators);
 }
 
 /*!
@@ -6167,7 +6167,7 @@ qulonglong QString::toIntegral_helper(const QChar *data, uint len, bool *ok, int
 
 long QString::toLong(bool *ok, int base) const
 {
-    return toIntegral_helper<long>(constData(), size(), ok, base);
+    return toIntegral_helper<long>(constData(), size(), ok, base, Q_NULLPTR);
 }
 
 /*!
@@ -6196,7 +6196,7 @@ long QString::toLong(bool *ok, int base) const
 
 ulong QString::toULong(bool *ok, int base) const
 {
-    return toIntegral_helper<ulong>(constData(), size(), ok, base);
+    return toIntegral_helper<ulong>(constData(), size(), ok, base, Q_NULLPTR);
 }
 
 
@@ -6224,7 +6224,7 @@ ulong QString::toULong(bool *ok, int base) const
 
 int QString::toInt(bool *ok, int base) const
 {
-    return toIntegral_helper<int>(constData(), size(), ok, base);
+    return toIntegral_helper<int>(constData(), size(), ok, base, Q_NULLPTR);
 }
 
 /*!
@@ -6251,7 +6251,7 @@ int QString::toInt(bool *ok, int base) const
 
 uint QString::toUInt(bool *ok, int base) const
 {
-    return toIntegral_helper<uint>(constData(), size(), ok, base);
+    return toIntegral_helper<uint>(constData(), size(), ok, base, Q_NULLPTR);
 }
 
 /*!
@@ -6278,7 +6278,7 @@ uint QString::toUInt(bool *ok, int base) const
 
 short QString::toShort(bool *ok, int base) const
 {
-    return toIntegral_helper<short>(constData(), size(), ok, base);
+    return toIntegral_helper<short>(constData(), size(), ok, base, Q_NULLPTR);
 }
 
 /*!
@@ -6305,7 +6305,7 @@ short QString::toShort(bool *ok, int base) const
 
 ushort QString::toUShort(bool *ok, int base) const
 {
-    return toIntegral_helper<ushort>(constData(), size(), ok, base);
+    return toIntegral_helper<ushort>(constData(), size(), ok, base, Q_NULLPTR);
 }
 
 
@@ -6339,7 +6339,12 @@ ushort QString::toUShort(bool *ok, int base) const
 
 double QString::toDouble(bool *ok) const
 {
-    return QLocaleData::c()->stringToDouble(constData(), size(), ok, QLocaleData::FailOnGroupSeparators);
+    return toDouble(ok, 0);
+}
+
+double QString::toDouble(bool *ok, int *endpos) const
+{
+    return QLocaleData::c()->stringToDouble(constData(), size(), ok, endpos, QLocaleData::FailOnGroupSeparators);
 }
 
 /*!
@@ -6361,6 +6366,11 @@ double QString::toDouble(bool *ok) const
 float QString::toFloat(bool *ok) const
 {
     return QLocaleData::convertDoubleToFloat(toDouble(ok), ok);
+}
+
+float QString::toFloat(bool *ok, int *endpos) const
+{
+    return QLocaleData::convertDoubleToFloat(toDouble(ok, endpos), ok);
 }
 
 /*! \fn QString &QString::setNum(int n, int base)
@@ -9892,7 +9902,7 @@ QStringRef QStringRef::trimmed() const
 
 qint64 QStringRef::toLongLong(bool *ok, int base) const
 {
-    return QString::toIntegral_helper<qint64>(constData(), size(), ok, base);
+    return QString::toIntegral_helper<qint64>(constData(), size(), ok, base, Q_NULLPTR);
 }
 
 /*!
@@ -9917,7 +9927,7 @@ qint64 QStringRef::toLongLong(bool *ok, int base) const
 
 quint64 QStringRef::toULongLong(bool *ok, int base) const
 {
-    return QString::toIntegral_helper<quint64>(constData(), size(), ok, base);
+    return QString::toIntegral_helper<quint64>(constData(), size(), ok, base, Q_NULLPTR);
 }
 
 /*!
@@ -9944,7 +9954,7 @@ quint64 QStringRef::toULongLong(bool *ok, int base) const
 
 long QStringRef::toLong(bool *ok, int base) const
 {
-    return QString::toIntegral_helper<long>(constData(), size(), ok, base);
+    return QString::toIntegral_helper<long>(constData(), size(), ok, base, Q_NULLPTR);
 }
 
 /*!
@@ -9971,7 +9981,7 @@ long QStringRef::toLong(bool *ok, int base) const
 
 ulong QStringRef::toULong(bool *ok, int base) const
 {
-    return QString::toIntegral_helper<ulong>(constData(), size(), ok, base);
+    return QString::toIntegral_helper<ulong>(constData(), size(), ok, base, Q_NULLPTR);
 }
 
 
@@ -9997,7 +10007,7 @@ ulong QStringRef::toULong(bool *ok, int base) const
 
 int QStringRef::toInt(bool *ok, int base) const
 {
-    return QString::toIntegral_helper<int>(constData(), size(), ok, base);
+    return QString::toIntegral_helper<int>(constData(), size(), ok, base, Q_NULLPTR);
 }
 
 /*!
@@ -10022,7 +10032,7 @@ int QStringRef::toInt(bool *ok, int base) const
 
 uint QStringRef::toUInt(bool *ok, int base) const
 {
-    return QString::toIntegral_helper<uint>(constData(), size(), ok, base);
+    return QString::toIntegral_helper<uint>(constData(), size(), ok, base, Q_NULLPTR);
 }
 
 /*!
@@ -10047,7 +10057,7 @@ uint QStringRef::toUInt(bool *ok, int base) const
 
 short QStringRef::toShort(bool *ok, int base) const
 {
-    return QString::toIntegral_helper<short>(constData(), size(), ok, base);
+    return QString::toIntegral_helper<short>(constData(), size(), ok, base, Q_NULLPTR);
 }
 
 /*!
@@ -10072,7 +10082,7 @@ short QStringRef::toShort(bool *ok, int base) const
 
 ushort QStringRef::toUShort(bool *ok, int base) const
 {
-    return QString::toIntegral_helper<ushort>(constData(), size(), ok, base);
+    return QString::toIntegral_helper<ushort>(constData(), size(), ok, base, Q_NULLPTR);
 }
 
 
@@ -10098,7 +10108,12 @@ ushort QStringRef::toUShort(bool *ok, int base) const
 
 double QStringRef::toDouble(bool *ok) const
 {
-    return QLocaleData::c()->stringToDouble(constData(), size(), ok, QLocaleData::FailOnGroupSeparators);
+    return toDouble(ok, 0);
+}
+
+double QStringRef::toDouble(bool *ok, int *endpos) const
+{
+    return QLocaleData::c()->stringToDouble(constData(), size(), ok, endpos, QLocaleData::FailOnGroupSeparators);
 }
 
 /*!
@@ -10118,6 +10133,11 @@ double QStringRef::toDouble(bool *ok) const
 float QStringRef::toFloat(bool *ok) const
 {
     return QLocaleData::convertDoubleToFloat(toDouble(ok), ok);
+}
+
+float QStringRef::toFloat(bool *ok, int *endpos) const
+{
+    return QLocaleData::convertDoubleToFloat(toDouble(ok, endpos), ok);
 }
 
 /*!

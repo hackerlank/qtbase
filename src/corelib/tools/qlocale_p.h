@@ -184,10 +184,12 @@ public:
         ForcePoint          = Alternate
     };
 
-    enum GroupSeparatorMode {
-        FailOnGroupSeparators,
-        ParseGroupSeparators
+    enum StringParsingOption {
+        FailOnGroupSeparators = 0,
+        ParseGroupSeparators = 1,
+        StopAtNonDigit = 22
     };
+    Q_DECLARE_FLAGS(StringParsingOptions, StringParsingOption)
 
     enum NumberMode { IntegerMode, DoubleStandardMode, DoubleScientificMode };
 
@@ -236,18 +238,20 @@ public:
         return float(d);
     }
 
-    double stringToDouble(const QChar *begin, int len, bool *ok, GroupSeparatorMode group_sep_mode) const;
-    qint64 stringToLongLong(const QChar *begin, int len, int base, bool *ok, GroupSeparatorMode group_sep_mode) const;
-    quint64 stringToUnsLongLong(const QChar *begin, int len, int base, bool *ok, GroupSeparatorMode group_sep_mode) const;
+    double stringToDouble(const QChar *begin, int len, bool *ok, int *endpos, StringParsingOptions options) const;
+    qint64 stringToLongLong(const QChar *begin, int len, int base, bool *ok, int *endpos,
+                            StringParsingOptions options) const;
+    quint64 stringToUnsLongLong(const QChar *begin, int len, int base, bool *ok, int *endpos,
+                                StringParsingOptions options) const;
 
     // these functions are used in QIntValidator (QtGui)
-    Q_CORE_EXPORT static double bytearrayToDouble(const char *num, bool *ok, bool *overflow = 0);
-    Q_CORE_EXPORT static qint64 bytearrayToLongLong(const char *num, int base, bool *ok, bool *overflow = 0);
-    Q_CORE_EXPORT static quint64 bytearrayToUnsLongLong(const char *num, int base, bool *ok);
+    Q_CORE_EXPORT static double bytearrayToDouble(const char *num, bool *ok = 0, int *endpos = 0);
+    Q_CORE_EXPORT static qint64 bytearrayToLongLong(const char *num, int base, bool *ok = 0, int *endpos = 0);
+    Q_CORE_EXPORT static quint64 bytearrayToUnsLongLong(const char *num, int base, bool *ok = 0, int *endpos = 0);
 
     bool numberToCLocale(const QChar *str, int len,
-                          GroupSeparatorMode group_sep_mode,
-                          CharBuff *result) const;
+                         QLocaleData::StringParsingOptions group_sep_mode,
+                         CharBuff *result, int *whitespaceSkipped) const;
     inline char digitToCLocale(QChar c) const;
 
     // this function is used in QIntValidator (QtGui)
@@ -297,6 +301,7 @@ public:
     quint16 m_weekend_start : 3;
     quint16 m_weekend_end : 3;
 };
+Q_DECLARE_OPERATORS_FOR_FLAGS(QLocaleData::StringParsingOptions)
 
 class Q_CORE_EXPORT QLocalePrivate
 {

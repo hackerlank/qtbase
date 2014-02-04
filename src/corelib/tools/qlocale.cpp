@@ -1054,15 +1054,15 @@ QString QLocale::name() const
 }
 
 static qlonglong toIntegral_helper(const QLocaleData *d, const QChar *data, int len, bool *ok,
-                                   QLocaleData::GroupSeparatorMode mode, qlonglong)
+                                   QLocaleData::StringParsingOptions mode, qlonglong)
 {
-    return d->stringToLongLong(data, len, 10, ok, mode);
+    return d->stringToLongLong(data, len, 10, ok, Q_NULLPTR, mode);
 }
 
 static qulonglong toIntegral_helper(const QLocaleData *d, const QChar *data, int len, bool *ok,
-                                    QLocaleData::GroupSeparatorMode mode, qulonglong)
+                                    QLocaleData::StringParsingOptions mode, qulonglong)
 {
-    return d->stringToUnsLongLong(data, len, 10, ok, mode);
+    return d->stringToUnsLongLong(data, len, 10, ok, Q_NULLPTR, mode);
 }
 
 template <typename T> static inline
@@ -1072,7 +1072,7 @@ T toIntegral_helper(const QLocalePrivate *d, const QChar *data, int len, bool *o
     const bool isUnsigned = T(0) < T(-1);
     typedef typename QtPrivate::QConditional<isUnsigned, qulonglong, qlonglong>::Type Int64;
 
-    QLocaleData::GroupSeparatorMode mode
+    QLocaleData::StringParsingOptions mode
             = d->m_numberOptions & QLocale::RejectGroupSeparator
               ? QLocaleData::FailOnGroupSeparators
               : QLocaleData::ParseGroupSeparators;
@@ -1297,12 +1297,12 @@ float QLocale::toFloat(const QString &s, bool *ok) const
 
 double QLocale::toDouble(const QString &s, bool *ok) const
 {
-    QLocaleData::GroupSeparatorMode mode
+    QLocaleData::StringParsingOptions mode
         = d->m_numberOptions & RejectGroupSeparator
             ? QLocaleData::FailOnGroupSeparators
             : QLocaleData::ParseGroupSeparators;
 
-    return d->m_data->stringToDouble(s.constData(), s.size(), ok, mode);
+    return d->m_data->stringToDouble(s.constData(), s.size(), ok, Q_NULLPTR, mode);
 }
 
 /*!
@@ -1471,14 +1471,13 @@ float QLocale::toFloat(const QStringRef &s, bool *ok) const
 
 double QLocale::toDouble(const QStringRef &s, bool *ok) const
 {
-    QLocaleData::GroupSeparatorMode mode
+    QLocaleData::StringParsingOptions mode
         = d->m_numberOptions & RejectGroupSeparator
             ? QLocaleData::FailOnGroupSeparators
             : QLocaleData::ParseGroupSeparators;
 
-    return d->m_data->stringToDouble(s.constData(), s.size(), ok, mode);
+    return d->m_data->stringToDouble(s.constData(), s.size(), ok, Q_NULLPTR, mode);
 }
-
 
 /*!
     Returns a localized string representation of \a i.
@@ -3018,10 +3017,15 @@ QString QLocaleData::unsLongLongToString(const QChar zero, const QChar group,
     out and the error will be detected during the actual conversion to a
     number. We can't detect junk here, since we don't even know the base
     of the number.
+
+    Returns true if all the characters were parsed. Also returns true if
+    group_sep_mode contains StopAtNonDigit and we didn't find too much junk
+    (letters aren't junk, so we can parse bases higher than 10 and "nan" and
+    "inf").
 */
 bool QLocaleData::numberToCLocale(const QChar *str, int len,
-                                            GroupSeparatorMode group_sep_mode,
-                                            CharBuff *result) const
+                                  StringParsingOptions group_sep_mode,
+                                  CharBuff *result, int *whitespaceSkipped) const
 {
     const QChar *uc = str;
     int l = len;
@@ -3032,6 +3036,8 @@ bool QLocaleData::numberToCLocale(const QChar *str, int len,
         ++idx;
     if (idx == l)
         return false;
+
+    *whitespaceSkipped = idx;
 
     // Check trailing whitespace
     for (; idx < l; --l) {
@@ -3061,7 +3067,7 @@ bool QLocaleData::numberToCLocale(const QChar *str, int len,
             else
                 break;
         }
-        if (group_sep_mode == ParseGroupSeparators) {
+        if (group_sep_mode & ParseGroupSeparators) {
             if (start_of_digits_idx == -1 && out >= '0' && out <= '9') {
                 start_of_digits_idx = idx;
             } else if (out == ',') {
@@ -3115,7 +3121,7 @@ bool QLocaleData::numberToCLocale(const QChar *str, int len,
     }
 
     result->append('\0');
-    return idx == l;
+    return idx == l || (group_sep_mode & QLocaleData::StopAtNonDigit && result->length());
 }
 
 bool QLocaleData::validateChars(const QString &str, NumberMode numMode, QByteArray *buff,
@@ -3211,152 +3217,209 @@ bool QLocaleData::validateChars(const QString &str, NumberMode numMode, QByteArr
     return true;
 }
 
-double QLocaleData::stringToDouble(const QChar *begin, int len, bool *ok,
-                                        GroupSeparatorMode group_sep_mode) const
+double QLocaleData::stringToDouble(const QChar *begin, int len, bool *ok, int *endpos,
+                                   StringParsingOptions mode) const
 {
+    Q_ASSERT((mode & ParseGroupSeparators) == 0 || endpos == 0); // if parsing group separators, we can't get the endpos
     CharBuff buff;
-    if (!numberToCLocale(begin, len, group_sep_mode, &buff)) {
-        if (ok != 0)
-            *ok = false;
-        return 0.0;
+    int leadingWhitespace;
+    if (endpos)
+        mode |= StopAtNonDigit;
+
+    if (numberToCLocale(begin, len, mode, &buff, &leadingWhitespace)) {
+        double value = bytearrayToDouble(buff.constData(), ok, endpos);
+        if (endpos && *endpos)
+            *endpos += leadingWhitespace;
+        return value;
     }
-    return bytearrayToDouble(buff.constData(), ok);
+
+    if (endpos)
+        *endpos = 0;
+    if (ok)
+        *ok = false;
+    return 0.0;
 }
 
-qlonglong QLocaleData::stringToLongLong(const QChar *begin, int len, int base,
-                                           bool *ok, GroupSeparatorMode group_sep_mode) const
+qlonglong QLocaleData::stringToLongLong(const QChar *begin, int len, int base, bool *ok, int *endpos,
+                                        StringParsingOptions mode) const
 {
+    Q_ASSERT((mode & ParseGroupSeparators) == 0 || endpos == 0); // if parsing group separators, we can't get the endpos
     CharBuff buff;
-    if (!numberToCLocale(begin, len, group_sep_mode, &buff)) {
-        if (ok != 0)
-            *ok = false;
-        return 0;
+    int leadingWhitespace;
+    if (endpos)
+        mode |= StopAtNonDigit;
+
+    if (numberToCLocale(begin, len, mode, &buff, &leadingWhitespace)) {
+        qlonglong value = bytearrayToLongLong(buff.constData(), base, ok, endpos);
+        if (endpos && *endpos)
+            *endpos += leadingWhitespace;
+        return value;
     }
 
-    return bytearrayToLongLong(buff.constData(), base, ok);
+    if (endpos)
+        *endpos = 0;
+    if (ok)
+        *ok = false;
+    return 0;
 }
 
-qulonglong QLocaleData::stringToUnsLongLong(const QChar *begin, int len, int base,
-                                               bool *ok, GroupSeparatorMode group_sep_mode) const
+qulonglong QLocaleData::stringToUnsLongLong(const QChar *begin, int len, int base, bool *ok, int *endpos,
+                                            StringParsingOptions mode) const
 {
+    Q_ASSERT((mode & ParseGroupSeparators) == 0 || endpos == 0); // if parsing group separators, we can't get the endpos
     CharBuff buff;
-    if (!numberToCLocale(begin, len, group_sep_mode, &buff)) {
-        if (ok != 0)
-            *ok = false;
-        return 0;
+    int leadingWhitespace;
+    if (endpos)
+        mode |= StopAtNonDigit;
+
+    if (numberToCLocale(begin, len, mode, &buff, &leadingWhitespace)) {
+        qulonglong value = bytearrayToUnsLongLong(buff.constData(), base, ok, endpos);
+        if (endpos && *endpos)
+            *endpos += leadingWhitespace;
+        return value;
     }
 
-    return bytearrayToUnsLongLong(buff.constData(), base, ok);
+    if (endpos)
+        *endpos = 0;
+    if (ok)
+        *ok = false;
+    return 0;
 }
 
-double QLocaleData::bytearrayToDouble(const char *num, bool *ok, bool *overflow)
-{
-    if (ok != 0)
-        *ok = true;
-    if (overflow != 0)
-        *overflow = false;
+/*!
+    \internal
 
-    if (*num == '\0') {
-        if (ok != 0)
-            *ok = false;
-        return 0.0;
+    Converts the null-terminated string at \a num to a double, stopping at the
+    first non-digit character.
+
+    If \a endpos is non-null, it will contain the number of bytes consumed on
+    exit. To verify that the entire string was consumed, check if \c
+    {num[*endpos]} is null.
+
+    If \a endpos is null and the conversion did not consume all bytes from the
+    input, \a *ok will be set to \c false and this function will return 0.
+
+    Error conditions are signaled by setting \a *endpos to 0 and \a *ok to
+    false.
+ */
+double QLocaleData::bytearrayToDouble(const char *num, bool *ok, int *endpos)
+{
+    size_t len = strlen(num);
+    if (endpos)
+        *endpos = int(len);
+
+    if (len == 3 || len == 4) {
+        if (ok)
+            *ok = true;
+        if (endpos)
+            *endpos = int(len);
+
+        if (qstrcmp(num, "nan") == 0)
+            return qt_snan();
+
+        if (qstrcmp(num, "+inf") == 0 || qstrcmp(num, "inf") == 0)
+            return qt_inf();
+
+        if (qstrcmp(num, "-inf") == 0)
+            return -qt_inf();
     }
 
-    if (qstrcmp(num, "nan") == 0)
-        return qt_snan();
-
-    if (qstrcmp(num, "+inf") == 0 || qstrcmp(num, "inf") == 0)
-        return qt_inf();
-
-    if (qstrcmp(num, "-inf") == 0)
-        return -qt_inf();
-
-    bool _ok;
+    bool _ok = true;
     const char *endptr;
     double d = qstrtod(num, &endptr, &_ok);
 
     if (!_ok) {
         // the only way strtod can fail with *endptr != '\0' on a non-empty
         // input string is overflow
-        if (ok != 0)
+        if (endpos)
+            *endpos = 0;
+        if (ok)
             *ok = false;
-        if (overflow != 0)
-            *overflow = *endptr != '\0';
         return 0.0;
     }
 
-    if (*endptr != '\0') {
-        // we stopped at a non-digit character after converting some digits
-        if (ok != 0)
-            *ok = false;
-        if (overflow != 0)
-            *overflow = false;
-        return 0.0;
+    _ok = endptr - num; // false if we didn't consume anything at all
+    if (endpos) {
+        *endpos = endptr - num;
+    } else {
+        // if endpos is null, check if we consumed everything
+        _ok = _ok && *endptr == '\0';
+        d *= int(_ok);
     }
-
-    if (ok != 0)
-        *ok = true;
-    if (overflow != 0)
-        *overflow = false;
+    if (ok)
+        *ok = _ok;
     return d;
 }
 
-qlonglong QLocaleData::bytearrayToLongLong(const char *num, int base, bool *ok, bool *overflow)
+/*!
+    \internal
+
+    Converts the null-terminated string at \a num to integer using base \a base
+    (auto detects the base if \a base is 0), stopping at the first non-digit
+    character.
+
+    If \a endpos is non-null, it will contain the number of bytes consumed on
+    exit. To verify that the entire string was consumed, check if \c
+    {num[*endpos]} is null.
+
+    If \a endpos is null and the conversion did not consume all bytes from the
+    input, \a *ok will be set to \c false and this function will return 0.
+
+    Error conditions are signaled by setting \a *endpos to 0. Therefore, it's
+    not possible to tell an error apart from a zero value if a null pointer is
+    passed.
+ */
+qlonglong QLocaleData::bytearrayToLongLong(const char *num, int base, bool *ok, int *endpos)
 {
-    bool _ok;
+    bool _ok = true;
     const char *endptr;
-
-    if (*num == '\0') {
-        if (ok != 0)
-            *ok = false;
-        if (overflow != 0)
-            *overflow = false;
-        return 0;
-    }
-
     qlonglong l = qstrtoll(num, &endptr, base, &_ok);
 
     if (!_ok) {
-        if (ok != 0)
+        if (endpos)
+            *endpos = 0;
+        if (ok)
             *ok = false;
-        if (overflow != 0) {
-            // the only way qstrtoll can fail with *endptr != '\0' on a non-empty
-            // input string is overflow
-            *overflow = *endptr != '\0';
-        }
         return 0;
     }
 
-    if (*endptr != '\0') {
-        // we stopped at a non-digit character after converting some digits
-        if (ok != 0)
-            *ok = false;
-        if (overflow != 0)
-            *overflow = false;
-        return 0;
+    _ok = endptr - num; // false if we didn't consume anything at all
+    if (endpos) {
+        *endpos = endptr - num;
+    } else {
+        // if endpos is null, check if we consumed everything
+        _ok = _ok && *endptr == '\0';
+        l *= int(_ok);
     }
-
-    if (ok != 0)
-        *ok = true;
-    if (overflow != 0)
-        *overflow = false;
+    if (ok)
+        *ok = _ok;
     return l;
 }
 
-qulonglong QLocaleData::bytearrayToUnsLongLong(const char *num, int base, bool *ok)
+qulonglong QLocaleData::bytearrayToUnsLongLong(const char *num, int base, bool *ok, int *endpos)
 {
-    bool _ok;
+    bool _ok = true;
     const char *endptr;
     qulonglong l = qstrtoull(num, &endptr, base, &_ok);
 
-    if (!_ok || *endptr != '\0') {
-        if (ok != 0)
+    if (!_ok) {
+        if (endpos)
+            *endpos = 0;
+        if (ok)
             *ok = false;
         return 0;
     }
 
-    if (ok != 0)
-        *ok = true;
+    _ok = endptr - num; // false if we didn't consume anything at all
+    if (endpos) {
+        *endpos = endptr - num;
+    } else {
+        // if endpos is null, check if we consumed everything
+        _ok = _ok && *endptr == '\0';
+        l *= int(_ok);
+    }
+    if (ok)
+        *ok = _ok;
     return l;
 }
 

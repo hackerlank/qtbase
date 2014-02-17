@@ -531,6 +531,19 @@ bool QAbstractFileEngine::link(const QString &newName)
 }
 
 /*!
+    Creates a hard link from the file currently specified by fileName() to \a
+    newName. Hard links are usually supported only on Unix systems but they on
+    the type of the filesystem being used. Returns true if successful;
+    otherwise returns \c false.
+*/
+bool QAbstractFileEngine::hardlink(const QString &newName, QAbstractFileEngine::RelativeFlag relativeTo)
+{
+    Q_UNUSED(newName);
+    Q_UNUSED(relativeTo);
+    return false;
+}
+
+/*!
     Requests that the directory \a dirName be created. If
     \a createParentDirectories is true, then any sub-directories in \a dirName
     that don't exist must be created. If \a createParentDirectories is false then

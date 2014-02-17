@@ -65,6 +65,9 @@ public:
     QString fileName() const Q_DECL_OVERRIDE;
     void setFileName(const QString &name);
 
+    QString backupFileName() const;
+    void setBackupFileName(const QString &name);
+
     bool open(OpenMode flags) Q_DECL_OVERRIDE;
     bool commit();
 

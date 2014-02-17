@@ -631,6 +631,15 @@ bool QFileSystemEngine::createLink(const QFileSystemEntry &source, const QFileSy
 }
 
 //static
+bool QFileSystemEngine::createHardLink(const QFileSystemEntry &source, const QFileSystemEntry &target, QSystemError &error)
+{
+    if (::link(source.nativeFilePath().constData(), target.nativeFilePath().constData()) == 0)
+        return true;
+    error = QSystemError(errno, QSystemError::StandardLibraryError);
+    return false;
+}
+
+//static
 bool QFileSystemEngine::copyFile(const QFileSystemEntry &source, const QFileSystemEntry &target, QSystemError &error)
 {
     Q_UNUSED(source);

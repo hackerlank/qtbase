@@ -73,6 +73,14 @@ QT_BEGIN_NAMESPACE
 #  endif
 #endif
 
+static QFileSystemEntry resolvePath(const QFileSystemEntry &base, const QString &fileName)
+{
+    QFileSystemEntry entry(fileName);
+    if (entry.isAbsolute())
+        return entry;
+    return QFileSystemEntry(base.path() + QLatin1Char('/') + fileName);
+}
+
 #ifdef Q_OS_WIN
 // on Windows, read() and write() use int and unsigned int
 typedef int SignedIOType;
@@ -559,6 +567,21 @@ int QFSFileEngine::handle() const
 {
     Q_D(const QFSFileEngine);
     return d->nativeHandle();
+}
+
+/*!
+   \reimp
+*/
+bool QFSFileEngine::hardlink(const QString &newName, RelativeFlag relativeTo)
+{
+    Q_D(QFSFileEngine);
+    QSystemError error;
+    QFileSystemEntry newEntry(relativeTo == RelativeToFile ? resolvePath(d->fileEntry, newName)
+                                                           : QFileSystemEntry(newName));
+    bool ret = QFileSystemEngine::createHardLink(d->fileEntry, newEntry, error);
+    if (!ret)
+        setError(QFile::RemoveError, error.toString());
+    return ret;
 }
 
 /*!

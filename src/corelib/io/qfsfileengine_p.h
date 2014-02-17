@@ -83,6 +83,7 @@ public:
     bool rename(const QString &newName) Q_DECL_OVERRIDE;
     bool renameOverwrite(const QString &newName) Q_DECL_OVERRIDE;
     bool link(const QString &newName) Q_DECL_OVERRIDE;
+    bool hardlink(const QString &newName, RelativeFlag relativeTo);
     bool mkdir(const QString &dirName, bool createParentDirectories) const Q_DECL_OVERRIDE;
     bool rmdir(const QString &dirName, bool recurseParentDirectories) const Q_DECL_OVERRIDE;
     bool setSize(qint64 size) Q_DECL_OVERRIDE;

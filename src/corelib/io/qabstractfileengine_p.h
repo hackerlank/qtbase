@@ -110,6 +110,10 @@ public:
         ModificationTime,
         AccessTime
     };
+    enum RelativeFlag {
+        RelativeToCurrentPath,
+        RelativeToFile
+    };
 
     virtual ~QAbstractFileEngine();
 
@@ -126,6 +130,7 @@ public:
     virtual bool rename(const QString &newName);
     virtual bool renameOverwrite(const QString &newName);
     virtual bool link(const QString &newName);
+    virtual bool hardlink(const QString &newName, RelativeFlag relativeTo);
     virtual bool mkdir(const QString &dirName, bool createParentDirectories) const;
     virtual bool rmdir(const QString &dirName, bool recurseParentDirectories) const;
     virtual bool setSize(qint64 size);

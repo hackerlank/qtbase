@@ -161,6 +161,19 @@ void QSaveFile::setFileName(const QString &name)
     d_func()->fileName = name;
 }
 
+QString QSaveFile::backupFileName() const
+{
+    return d_func()->backupFileName;
+}
+
+void QSaveFile::setBackupFileName(const QString &name)
+{
+    Q_D(QSaveFile);
+    if (!d->directWriteFallback)
+        d
+                ->backupFileName = name;
+}
+
 /*!
     Opens the file using OpenMode \a mode, returning true if successful;
     otherwise false.
@@ -286,26 +299,36 @@ bool QSaveFile::commit()
 
     if (d->useTemporaryFile) {
         if (d->writeError != QFileDevice::NoError) {
-            d->fileEngine->remove();
             d->writeError = QFileDevice::NoError;
-            delete d->fileEngine;
-            d->fileEngine = 0;
-            return false;
+            goto error;
         }
+
+        Q_ASSERT(d->fileEngine);
+
+        // attempt to create a backup
+        if (!d->backupFileName.isEmpty()) {
+            if (!d->fileEngine->hardlink(d->backupFileName, QAbstractFileEngine::RelativeToFile)) {
+                d->setError(d->fileEngine->error(), d->fileEngine->errorString());
+                goto error;
+            }
+        }
+
         // atomically replace old file with new file
         // Can't use QFile::rename for that, must use the file engine directly
-        Q_ASSERT(d->fileEngine);
         if (!d->fileEngine->renameOverwrite(d->finalFileName)) {
             d->setError(d->fileEngine->error(), d->fileEngine->errorString());
-            d->fileEngine->remove();
-            delete d->fileEngine;
-            d->fileEngine = 0;
-            return false;
+            goto error;
         }
     }
     delete d->fileEngine;
     d->fileEngine = 0;
     return true;
+
+error:
+    d->fileEngine->remove();
+    delete d->fileEngine;
+    d->fileEngine = 0;
+    return false;
 }
 
 /*!
@@ -373,12 +396,18 @@ qint64 QSaveFile::writeData(const char *data, qint64 len)
   and to save application internal files (configuration files, data files, ...), keep
   the default setting which ensures atomicity.
 
+  \note QSaveFile cannot make backup files if the directory is not writable.
+  For that reason, the backupFileName() setting is cleared if the \a enabled
+  parameter is true.
+
   \sa directWriteFallback()
 */
 void QSaveFile::setDirectWriteFallback(bool enabled)
 {
     Q_D(QSaveFile);
     d->directWriteFallback = enabled;
+    if (enabled)
+        d->backupFileName.clear();
 }
 
 /*!

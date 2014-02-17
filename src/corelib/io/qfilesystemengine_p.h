@@ -108,6 +108,7 @@ public:
     static bool removeDirectory(const QFileSystemEntry &entry, bool removeEmptyParents);
 
     static bool createLink(const QFileSystemEntry &source, const QFileSystemEntry &target, QSystemError &error);
+    static bool createHardLink(const QFileSystemEntry &source, const QFileSystemEntry &target, QSystemError &error);
 
     static bool copyFile(const QFileSystemEntry &source, const QFileSystemEntry &target, QSystemError &error);
     static bool renameFile(const QFileSystemEntry &source, const QFileSystemEntry &target, QSystemError &error);

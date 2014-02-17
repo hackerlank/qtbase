@@ -1389,6 +1389,16 @@ bool QFileSystemEngine::createLink(const QFileSystemEntry &source, const QFileSy
 }
 
 //static
+bool QFileSystemEngine::createHardLink(const QFileSystemEntry &source, const QFileSystemEntry &target, QSystemError &error)
+{
+    bool ret = ::CreateHardLink((wchar_t*)target.nativeFilePath().utf16(),
+                                (wchar_t*)source.nativeFilePath().utf16(), NULL);
+    if (!ret)
+        error = QSystemError(::GetLastError(), QSystemError::NativeError);
+    return ret;
+}
+
+//static
 bool QFileSystemEngine::copyFile(const QFileSystemEntry &source, const QFileSystemEntry &target, QSystemError &error)
 {
 #ifndef Q_OS_WINRT

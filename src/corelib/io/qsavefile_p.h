@@ -62,6 +62,7 @@ protected:
     ~QSaveFilePrivate();
 
     QString fileName;
+    QString backupFileName;
     QString finalFileName; // fileName with symbolic links resolved
 
     QFileDevice::FileError writeError;

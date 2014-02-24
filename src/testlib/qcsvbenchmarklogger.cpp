@@ -62,12 +62,13 @@ void QCsvBenchmarkLogger::stopLogging()
 
 void QCsvBenchmarkLogger::enterTestFunction(const char *)
 {
-    // don't print anything
+    firstResult = true;
 }
 
 void QCsvBenchmarkLogger::leaveTestFunction()
 {
-    // don't print anything
+    if (!firstResult)
+        outputString("\n");
 }
 
 void QCsvBenchmarkLogger::addIncident(QAbstractTestLogger::IncidentTypes, const char *, const char *, int)
@@ -86,12 +87,18 @@ void QCsvBenchmarkLogger::addBenchmarkResult(const QBenchmarkResult &result)
     const char *filler = (tag[0] && gtag[0]) ? ":" : "";
 
     const char *metric = QTest::benchmarkMetricName(result.metric);
-
     char buf[1024];
-    // "function","[globaltag:]tag","metric",value_per_iteration,total,iterations
-    qsnprintf(buf, sizeof(buf), "\"%s\",\"%s%s%s\",\"%s\",%.13g,%.13g,%u\n",
-              fn, gtag, filler, tag, metric,
-              result.value / result.iterations, result.value, result.iterations);
+
+    if (firstResult) {
+        qsnprintf(buf, sizeof(buf), "\"%s\",\"%s\",", fn, metric);
+        outputString(buf);
+        firstResult = false;
+    }
+
+    // "[globaltag:]tag",value_per_iteration,
+    qsnprintf(buf, sizeof(buf), "\"%s%s%s\",%.13g,",
+              gtag, filler, tag,
+              result.value / result.iterations);
     outputString(buf);
 }
 

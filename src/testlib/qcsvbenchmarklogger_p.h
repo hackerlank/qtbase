@@ -73,6 +73,8 @@ public:
 
     void addMessage(MessageTypes type, const QString &message,
                             const char *file = 0, int line = 0) Q_DECL_OVERRIDE;
+
+    bool firstResult;
 };
 
 QT_END_NAMESPACE

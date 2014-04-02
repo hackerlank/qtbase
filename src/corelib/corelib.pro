@@ -4,7 +4,7 @@ CONFIG    += exceptions
 
 MODULE = core     # not corelib, as per project file
 MODULE_CONFIG = moc resources
-!isEmpty(QT_NAMESPACE): MODULE_DEFINES = QT_NAMESPACE=$$QT_NAMESPACE
+#!isEmpty(QT_NAMESPACE): MODULE_DEFINES = QT_NAMESPACE=$$QT_NAMESPACE
 
 CONFIG += $$MODULE_CONFIG
 DEFINES += $$MODULE_DEFINES

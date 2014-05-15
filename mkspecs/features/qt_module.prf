@@ -25,12 +25,14 @@ isEmpty(VERSION): error("Module does not define version.")
 
 # Compile as shared/DLL or static according to the option given to configure
 # unless overridden. Host builds are always static
-host_build|staticlib: CONFIG += static
+host_build|staticlib {
+    CONFIG += static
+    QMAKE_CFLAGS += $$QMAKE_CFLAGS_SPLIT_SECTIONS
+    QMAKE_CXXFLAGS += $$QMAKE_CXXFLAGS_SPLIT_SECTIONS
+}
 
 host_build {
     QT -= gui   # no host module will ever use gui
-    QMAKE_CFLAGS += $$QMAKE_CFLAGS_SPLIT_SECTIONS
-    QMAKE_CXXFLAGS += $$QMAKE_CXXFLAGS_SPLIT_SECTIONS
     force_bootstrap {
         !build_pass: CONFIG += release
         contains(QT, core(-private)?|xml) {

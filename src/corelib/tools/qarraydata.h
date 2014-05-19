@@ -63,10 +63,7 @@ struct Q_CORE_EXPORT QArrayData
         GrowsForward         = 0x0040,  //!< allocate with eyes towards growing through append()
         GrowsBackwards       = 0x0040,  //!< allocate with eyes towards growing through prepend()
         MutableData          = 0x0100,  //!< the data can be changed; doesn't say anything about the header
-        ImmutableHeader      = 0x0200,  //!< the header is static, it can't be changed
 
-        /// this option is used by the Q_ARRAY_LITERAL and similar macros
-        StaticDataFlags = ImmutableHeader,
         /// this option is used by the allocate() function
         DefaultAllocationFlags = MutableData,
         /// this option is used by the prepareRawData() function
@@ -116,7 +113,7 @@ struct Q_CORE_EXPORT QArrayData
 
     bool isStatic() const
     {
-        return flags & ImmutableHeader;
+        return !this;
     }
 
     bool isShared() const
@@ -149,7 +146,7 @@ struct Q_CORE_EXPORT QArrayData
     bool needsDetach()
     {
         // requires two conditionals
-        return !isMutable() || isShared();
+        return isShared() || !isMutable();
     }
 
     inline size_t detachCapacity(size_t newSize) const;
@@ -157,7 +154,7 @@ struct Q_CORE_EXPORT QArrayData
     ArrayOptions detachFlags() const
     {
         ArrayOptions result = DefaultAllocationFlags;
-        if (flags & CapacityReserved)
+        if (this && this->flags & CapacityReserved)
             result |= CapacityReserved;
         return result;
     }
@@ -165,7 +162,7 @@ struct Q_CORE_EXPORT QArrayData
     ArrayOptions cloneFlags() const
     {
         ArrayOptions result = DefaultAllocationFlags;
-        if (flags & CapacityReserved)
+        if (this && this->flags & CapacityReserved)
             result |= CapacityReserved;
         return result;
     }
@@ -192,16 +189,16 @@ struct Q_CORE_EXPORT QArrayData
     static inline QArrayData *sharedNull();
     static inline void *sharedNullData();
 
-#ifdef Q_DECL_ALIGN
-    Q_DECL_ALIGN(16)
-#endif
-    static const QArrayData shared_static_data;
+//#ifdef Q_DECL_ALIGN
+//    Q_DECL_ALIGN(16)
+//#endif
+//    static const QArrayData shared_static_data;
     static inline QArrayData *sharedStatic();
 };
 
 struct QArrayData::SharedNull
 {
-    QArrayData d;
+//    QArrayData d;
 #ifdef Q_DECL_ALIGN
     Q_DECL_ALIGN(16)
 #endif
@@ -210,7 +207,7 @@ struct QArrayData::SharedNull
 
 inline QArrayData *QArrayData::sharedNull()
 {
-    return const_cast<QArrayData*>(&shared_null.d);
+    return 0;
 }
 
 inline void *QArrayData::sharedNullData()
@@ -220,7 +217,7 @@ inline void *QArrayData::sharedNullData()
 
 inline QArrayData *QArrayData::sharedStatic()
 {
-    return const_cast<QArrayData *>(&shared_static_data);
+    return 0;
 }
 
 struct QArrayRawData : public QArrayData
@@ -260,7 +257,7 @@ Q_DECLARE_OPERATORS_FOR_FLAGS(QArrayData::ArrayOptions)
 
 inline size_t QArrayData::detachCapacity(size_t newSize) const
 {
-    if ((flags & AllocatedDataType) && (flags & CapacityReserved) && newSize < asAllocatedData()->alloc)
+    if (this && (flags & AllocatedDataType) && (flags & CapacityReserved) && newSize < asAllocatedData()->alloc)
         return asAllocatedData()->alloc;
     return newSize;
 }
@@ -292,7 +289,7 @@ inline const QArrayForeignData *QArrayData::asForeignData() const
 
 inline size_t QArrayData::constAllocatedCapacity() const
 {
-    return flags & AllocatedDataType ? asAllocatedData()->alloc : 0;
+    return this && this->flags & AllocatedDataType ? asAllocatedData()->alloc : 0;
 }
 
 inline size_t QArrayData::allocatedCapacity()
@@ -450,13 +447,10 @@ struct QTypedArrayData
         QArrayData::deallocate(data, sizeof(T), Q_ALIGNOF(AlignmentDummy));
     }
 
-    static QArrayDataPointerRef<T> fromRawData(const T *data, size_t n,
-            ArrayOptions options = DefaultRawFlags)
+    static QArrayDataPointerRef<T> fromRawData(const T *data, size_t n)
     {
         Q_STATIC_ASSERT(sizeof(QTypedArrayData) == sizeof(QArrayData));
-        QArrayDataPointerRef<T> result = {
-            static_cast<QTypedArrayData *>(prepareRawData(options)), const_cast<T *>(data), uint(n)
-        };
+        QArrayDataPointerRef<T> result = { Q_NULLPTR, const_cast<T *>(data), uint(n) };
         if (result.ptr) {
             Q_ASSERT(!result.ptr->isShared()); // No shared empty, please!
         }
@@ -519,11 +513,8 @@ struct QTypedArrayData
     static Type const data[] = { __VA_ARGS__ };                                 \
     enum { Size = sizeof(data) / sizeof(data[0]) };                             \
                                                                                 \
-    static const QArrayData literal = { QArrayData::StaticDataFlags };          \
-                                                                                \
     QArrayDataPointerRef<Type> ref =                                            \
-        { static_cast<QTypedArrayData<Type> *>(                                 \
-            const_cast<QArrayData *>(&literal)),                                \
+        { Q_NULLPTR,                                                            \
           const_cast<Type *>(data),                                             \
           Size };                                                               \
     /**/

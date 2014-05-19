@@ -1541,7 +1541,7 @@ void fromRawData_impl()
     {
         // Default: Immutable, sharable
         SimpleVector<T> raw = SimpleVector<T>::fromRawData(array,
-                sizeof(array)/sizeof(array[0]), QArrayData::DefaultRawFlags);
+                sizeof(array)/sizeof(array[0]));
 
         QCOMPARE(raw.size(), size_t(11));
         QCOMPARE((const T *)raw.constBegin(), array);

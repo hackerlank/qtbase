@@ -70,6 +70,32 @@ static inline bool simdEncodeAscii(uchar *&dst, const ushort *&nextAscii, const 
 {
     // do sixteen characters at a time
     for ( ; end - src >= 16; src += 16, dst += 16) {
+#ifdef __AVX512F__
+        // load UTF-16 and zero extend
+        const __m512i nonAscii = _mm512_set1_epi32(0x80);
+        __m512i data = _mm512_cvtepu16_epi32(_mm256_loadu_si256((__m256i*)src));
+
+        // compare what's non-ASCII (larger than 0x80)
+        __mmask16 n = _mm512_cmpge_epu32_mask(data, nonAscii);
+        if (!_mm512_kortestz(n, n)) {
+            // store what is ASCII, with truncation
+            // blsmsk returns the low bits set to 1, up to and including the lowest bit set in the parameter;
+            // that means we'll store one extra byte we don't have to...
+            __mmask16 k = _blsmsk_u32(n);
+            _mm512_mask_cvtepi32_storeu_epi8(dst, k, data);
+
+            // find the next probable ASCII character
+            // we don't want to load 32 bytes again in this loop if we know there are non-ASCII
+            // characters still coming
+            nextAscii = src + _bit_scan_reverse(n) + 1;
+            dst += _bit_scan_forward(n);
+            src += _bit_scan_forward(n);
+            return false;
+        }
+
+        // store with truncation from 32- to 8-bit
+        _mm_storeu_si128((__m128i*)(dst), _mm512_cvtepi32_epi8(data));
+#else
         __m128i data1 = _mm_loadu_si128((const __m128i*)src);
         __m128i data2 = _mm_loadu_si128(1+(const __m128i*)src);
 
@@ -101,6 +127,7 @@ static inline bool simdEncodeAscii(uchar *&dst, const ushort *&nextAscii, const 
             src += n;
             return false;
         }
+#endif
     }
     return src == end;
 }

@@ -294,7 +294,7 @@ void qt_from_latin1(ushort *dst, const char *str, size_t size)
     qt_from_latin1_internal<false>(dst, str, size, 0);
 }
 
-#if defined(__SSE2__)
+#if defined(__SSE2__) && !defined(__AVX512F__)
 static inline __m128i mergeQuestionMarks(__m128i chunk)
 {
     const __m128i questionMark = _mm_set1_epi16('?');
@@ -357,6 +357,20 @@ static void qt_to_latin1(uchar *dst, const ushort *src, int length)
 
     // we're going to write to dst[offset..offset+15] (16 bytes)
     for ( ; dst + offset + 15 < e; offset += 16) {
+#  if defined(__AVX512F__)
+        // load and zero-extend from 16- to 32-bit
+        __m512i v = _mm512_cvtepu16_epi32(_mm256_loadu_si256((__m256i*)(src + offset)));
+
+        // unsigned compare for Greater-or-Equal to 0x100
+        // GCC 4.9 is missing _mm512_cmpge_epu32_mask macro
+        __mmask16 m = _mm512_cmp_epu32_mask(v, _mm512_set1_epi32(0x100), _MM_CMPINT_GE);
+
+        // replace items matched with '?'
+        v = _mm512_mask_blend_epi32(m, v, _mm512_set1_epi32(0x3f));
+
+        // store with truncation from 32- to 8-bit
+        _mm_storeu_si128((__m128i*)(dst + offset), _mm512_cvtepi32_epi8(v));
+#  else
         __m128i chunk1 = _mm_loadu_si128((const __m128i*)(src + offset)); // load
         chunk1 = mergeQuestionMarks(chunk1);
 
@@ -366,6 +380,7 @@ static void qt_to_latin1(uchar *dst, const ushort *src, int length)
         // pack the two vector to 16 x 8bits elements
         const __m128i result = _mm_packus_epi16(chunk1, chunk2);
         _mm_storeu_si128((__m128i*)(dst + offset), result); // store
+#  endif
     }
 
     length = length % 16;
@@ -593,6 +608,19 @@ static int ucstrncmp(const QChar *a, const uchar *c, int l)
         // load 16 bytes of Latin 1 data
         __m128i chunk = _mm_loadu_si128((const __m128i*)(c + offset));
 
+# ifdef __AVX512F__
+        // expand to 32-bit via zero extension
+        __m512i ldata = _mm512_cvtepu8_epi32(chunk);
+
+        // load UTF-16 via zero extension and compare
+        __m512i ucdata = _mm512_cvtepu16_epi32(_mm256_loadu_si256((__m256i*)(uc + offset)));
+        __mmask16 mask = _mm512_cmp_epu32_mask(ldata, ucdata, _MM_CMPINT_EQ);
+        if (!_mm512_kortestz(mask, mask)) {
+            // found a different character
+            uint idx = uint(_bit_scan_forward(mask));
+            return uc[offset + idx] - c[offset + idx];
+        }
+#else
 #  ifdef __AVX2__
         // expand Latin 1 data via zero extension
         __m256i ldata = _mm256_cvtepu8_epi16(chunk);
@@ -620,6 +648,7 @@ static int ucstrncmp(const QChar *a, const uchar *c, int l)
             uint idx = qCountTrailingZeroBits(mask);
             return uc[offset + idx / 2] - c[offset + idx / 2];
         }
+#endif
     }
 
 #  ifdef Q_PROCESSOR_X86_64

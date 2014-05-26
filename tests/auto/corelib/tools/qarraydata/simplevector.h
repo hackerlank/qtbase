@@ -342,9 +342,10 @@ public:
         d.detach();
     }
 
-    static SimpleVector fromRawData(const T *data, size_t size)
+    static SimpleVector fromRawData(const T *data, size_t size,
+            QArrayData::ArrayOptions options = Data::DefaultRawFlags)
     {
-        return SimpleVector(Data::fromRawData(data, size));
+        return SimpleVector(Data::fromRawData(data, size, options));
     }
 
 private:

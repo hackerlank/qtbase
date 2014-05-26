@@ -782,8 +782,8 @@ public:
     static const Null null;
     inline QString(const Null &) { d.d = Data::sharedNull(); d.b = Data::sharedNullData(); d.size = 0; }
     inline QString &operator=(const Null &) { *this = QString(); return *this; }
+    inline bool isNull() const { return d.d == Data::sharedNull(); }
 
-    inline bool isNull() const { return d.b == Data::sharedNullData(); }
 
     bool isSimpleText() const;
     bool isRightToLeft() const;

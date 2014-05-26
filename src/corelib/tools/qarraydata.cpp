@@ -47,18 +47,25 @@
 QT_BEGIN_NAMESPACE
 
 const QArrayData::SharedNull QArrayData::shared_null = {
-//    { QArrayData::StaticDataFlags }, // shared null
+    { QArrayData::StaticDataFlags }, // shared null
     { /* zero initialized terminator */ } };
 #ifdef Q_DECL_ALIGN
-Q_STATIC_ASSERT(sizeof(QArrayData::SharedNull) >= 16);
+Q_STATIC_ASSERT(sizeof(QArrayData::SharedNull) >= 32);
 Q_STATIC_ASSERT(Q_ALIGNOF(QArrayData::SharedNull) >= 16);
 #endif
 #ifdef Q_PROCESSOR_X86
 Q_STATIC_ASSERT(sizeof(QArrayAllocatedData) == 16);
 #endif
 
-//static const QArrayData qt_array_empty =
-//    { QArrayData::StaticDataFlags };
+#ifdef Q_DECL_ALIGN
+Q_DECL_ALIGN(16)
+#endif
+const QArrayData QArrayData::shared_static_data = {
+    QArrayData::StaticDataFlags
+};
+
+static const QArrayData qt_array_empty =
+    { QArrayData::StaticDataFlags };
 
 #ifndef QT_NO_UNSHARABLE_CONTAINERS
 static const QArrayData qt_array_unsharable_empty =
@@ -108,7 +115,7 @@ static QArrayData *allocateData(size_t allocSize, uint options)
 
 static QArrayData *reallocateData(QArrayData *header, size_t allocSize, uint options)
 {
-//    Q_ASSERT(!(options & QArrayData::ImmutableHeader));
+    Q_ASSERT(!(options & QArrayData::ImmutableHeader));
     header = static_cast<QArrayData *>(::realloc(header, allocSize));
     if (header)
         header->flags = options;
@@ -124,7 +131,7 @@ void *QArrayData::allocate(QArrayData **dptr, size_t objectSize, size_t alignmen
 
     if (capacity == 0) {
         // optimization for empty headers
-        *dptr = 0; //= const_cast<QArrayData *>(&qt_array_empty);
+        *dptr = const_cast<QArrayData *>(&qt_array_empty);
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
         if (options & Unsharable)
             *data = const_cast<QArrayData *>(&qt_array_unsharable_empty);

@@ -72,27 +72,31 @@ public:
 
     DataOps &operator*() Q_DECL_NOTHROW
     {
+        Q_ASSERT(d);
         return *static_cast<DataOps *>(this);
     }
 
     DataOps *operator->() Q_DECL_NOTHROW
     {
+        Q_ASSERT(d);
         return static_cast<DataOps *>(this);
     }
 
     const DataOps &operator*() const Q_DECL_NOTHROW
     {
+        Q_ASSERT(d);
         return *static_cast<const DataOps *>(this);
     }
 
     const DataOps *operator->() const Q_DECL_NOTHROW
     {
+        Q_ASSERT(d);
         return static_cast<const DataOps *>(this);
     }
 
     bool isNull() const Q_DECL_NOTHROW
     {
-        return data() == Data::sharedNullData();
+        return d == Data::sharedNull();
     }
 
     T *data() Q_DECL_NOTHROW { return ptr; }

@@ -1704,7 +1704,7 @@ void QString::resize(int size)
         return;
     }
 
-    if ((d.d && d.d->needsDetach()) || size > capacity())
+    if (d.d->needsDetach() || size > capacity())
         reallocData(uint(size) + 1u, true);
     d.size = size;
     if (d.d->isMutable()) {
@@ -7388,6 +7388,7 @@ QString QString::fromRawData(const QChar *unicode, int size)
     } else {
         x.b = const_cast<ushort *>(reinterpret_cast<const ushort *>(unicode));
         x.d = Data::fromRawData(x.b, size).ptr;
+        Q_CHECK_PTR(x.d);
     }
     return QString(x);
 }

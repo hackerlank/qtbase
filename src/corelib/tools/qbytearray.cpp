@@ -1655,7 +1655,7 @@ void QByteArray::resize(int size)
         return;
     }
 
-    if (size == 0 && d.d && !(d.d->flags && Data::CapacityReserved)) {
+    if (size == 0 && !(d.d->flags && Data::CapacityReserved)) {
         QPair<Data *, char *> pair = Data::allocate(0);
         if (!d.d->deref())
             Data::deallocate(d.d);
@@ -3515,7 +3515,7 @@ QByteArray QByteArray::rightJustified(int width, char fill, bool truncate) const
 
 bool QByteArray::isNull() const
 {
-    return data() == QArrayData::sharedNullData();
+    return d.d == QArrayData::sharedNull();
 }
 
 static qlonglong toIntegral_helper(const char *data, bool *ok, int base, qlonglong)
@@ -4195,6 +4195,7 @@ QByteArray QByteArray::fromRawData(const char *data, int size)
         x.size = 0;
     } else {
         x.d = Data::fromRawData(data, size).ptr;
+        Q_CHECK_PTR(x.d);
         x.b = const_cast<char *>(data);
         x.size = size;
     }

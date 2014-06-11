@@ -3,6 +3,7 @@ testcase.timeout = 600 # this test is slow
 CONFIG -= app_bundle debug_and_release_target
 SOURCES  += ../tst_qnetworkreply.cpp
 TARGET = ../tst_qnetworkreply
+HEADERS += ../../../../minihttpserver.h
 
 QT = core-private network-private testlib
 RESOURCES += ../qnetworkreply.qrc

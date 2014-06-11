@@ -42,15 +42,16 @@
 #include <qdebug.h>
 
 #include "../../network-settings.h"
-
+#include "../../minihttpserver.h"
 
 class tst_QNetworkAccessManager_And_QProgressDialog : public QObject
 {
     Q_OBJECT
 public:
     tst_QNetworkAccessManager_And_QProgressDialog();
+
+    QByteArray testData;
 private slots:
-    void initTestCase();
     void downloadCheck();
     void downloadCheck_data();
 };
@@ -59,26 +60,25 @@ class DownloadCheckWidget : public QWidget
 {
     Q_OBJECT
 public:
-    DownloadCheckWidget(QWidget *parent = 0) :
+    DownloadCheckWidget(int port, QWidget *parent = 0) :
         QWidget(parent), lateReadyRead(true), zeroCopy(false),
         progressDlg(this), netmanager(this)
     {
         progressDlg.setRange(1, 100);
-        QMetaObject::invokeMethod(this, "go", Qt::QueuedConnection);
+        QUrl url("http://localhost");
+        url.setPort(port);
+        QMetaObject::invokeMethod(this, "go", Qt::QueuedConnection, Q_ARG(QUrl, url));
     }
     bool lateReadyRead;
     bool zeroCopy;
 public slots:
-    void go()
+    void go(const QUrl &url)
     {
-        QNetworkRequest request(QUrl("http://" + QtNetworkSettings::serverName() + "/qtest/bigfile"));
+        QNetworkRequest request(url);
         if (zeroCopy)
             request.setAttribute(QNetworkRequest::MaximumDownloadBufferSizeAttribute, 10*1024*1024);
 
-        QNetworkReply *reply = netmanager.get(
-                QNetworkRequest(
-                QUrl("http://" + QtNetworkSettings::serverName() + "/qtest/bigfile")
-                ));
+        QNetworkReply *reply = netmanager.get(request);
         connect(reply, SIGNAL(downloadProgress(qint64,qint64)),
                 this, SLOT(dataReadProgress(qint64,qint64)));
         connect(reply, SIGNAL(readyRead()),
@@ -113,15 +113,17 @@ private:
     QNetworkAccessManager netmanager;
 };
 
-
+#define TESTDATASIZE    33554176        /* 32 MB - 256 */
 tst_QNetworkAccessManager_And_QProgressDialog::tst_QNetworkAccessManager_And_QProgressDialog()
 {
-}
-
-void tst_QNetworkAccessManager_And_QProgressDialog::initTestCase()
-{
-    if (!QtNetworkSettings::verifyTestNetworkSettings())
-        QSKIP("No network test server available");
+    static const char httpHeader[] =
+            "HTTP/1.1 200 OK\r\n"
+            "Connection: keep-alive\r\n"    // we'll actually close, but it's fine
+            "Content-Type: text/plain\r\n"
+            "Content-Length: " QT_STRINGIFY(TESTDATASIZE) "\r\n"
+            "\r\n";
+    testData.fill('a', TESTDATASIZE + sizeof httpHeader - 1);
+    memcpy(testData.data(), httpHeader, sizeof httpHeader - 1);
 }
 
 void tst_QNetworkAccessManager_And_QProgressDialog::downloadCheck_data()
@@ -135,7 +137,9 @@ void tst_QNetworkAccessManager_And_QProgressDialog::downloadCheck()
 {
     QFETCH(bool, useZeroCopy);
 
-    DownloadCheckWidget widget;
+    MiniHttpServer server(testData);
+
+    DownloadCheckWidget widget(server.serverPort());
     widget.zeroCopy = useZeroCopy;
     widget.show();
     // run and exit on finished()

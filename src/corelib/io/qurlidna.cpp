@@ -48,6 +48,8 @@
 #  include <unicode/usprep.h>
 #endif
 
+//#define QURL_USE_IDNA2003
+
 QT_BEGIN_NAMESPACE
 
 const int MaximumLabelLength = 63;
@@ -2347,6 +2349,7 @@ Q_AUTOTEST_EXPORT void qt_nameprep(QString *source, int from)
     usprep_close(sprep);
 }
 
+#ifdef QURL_USE_IDNA2003
 Q_AUTOTEST_EXPORT void qt_punycodeEncoder(const QChar *s, int ucLength, QString *output)
 {
     UParseError parseError;
@@ -2374,6 +2377,55 @@ Q_AUTOTEST_EXPORT QString qt_punycodeDecoder(const QString &pc)
     result.resize(len);
     return result;
 }
+#else
+class QUrlUIDNA
+{
+    UIDNA *idna;
+public:
+    QUrlUIDNA()
+    {
+        UErrorCode status = U_ZERO_ERROR;
+        idna = uidna_openUTS46(UIDNA_CHECK_BIDI | UIDNA_CHECK_CONTEXTJ, &status);
+        if (U_FAILURE(status))
+            idna = 0;
+    }
+    ~QUrlUIDNA()
+    {
+        if (idna)
+            uidna_close(idna);
+        idna = 0;
+    }
+    operator const UIDNA *() const { return idna; }
+};
+Q_GLOBAL_STATIC(QUrlUIDNA, uidna)
+
+Q_AUTOTEST_EXPORT void qt_punycodeEncoder(const QChar *s, int ucLength, QString *output)
+{
+    UIDNAInfo info = UIDNA_INFO_INITIALIZER;
+    UErrorCode status = U_ZERO_ERROR;
+    output->resize(MaximumLabelLength);
+    int32_t len = uidna_labelToASCII(*uidna, reinterpret_cast<const UChar *>(s), ucLength,
+                                     reinterpret_cast<UChar *>(output->data()), MaximumLabelLength, &info, &status);
+    if (U_FAILURE(status))
+        output->resize(0);
+    else
+        output->resize(len);
+}
+
+Q_AUTOTEST_EXPORT QString qt_punycodeDecoder(const QString &pc)
+{
+    UIDNAInfo info = UIDNA_INFO_INITIALIZER;
+    UErrorCode status = U_ZERO_ERROR;
+    QString result(MaximumLabelLength, Qt::Uninitialized);
+    int32_t len = uidna_labelToUnicode(*uidna, reinterpret_cast<const UChar *>(pc.constData()), pc.length(),
+                                       reinterpret_cast<UChar *>(result.data()), MaximumLabelLength,
+                                       &info, &status);
+    if (U_FAILURE(status))
+        return QString();
+    result.resize(len);
+    return result;
+}
+#endif
 #endif
 
 Q_AUTOTEST_EXPORT bool qt_check_std3rules(const QChar *uc, int len)

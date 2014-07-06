@@ -43,7 +43,16 @@
 #include <QtCore/qstringlist.h>
 #include <algorithm>
 
+#ifdef QT_USE_ICU
+#  include <unicode/uidna.h>
+#  include <unicode/usprep.h>
+#endif
+
 QT_BEGIN_NAMESPACE
+
+const int MaximumLabelLength = 63;
+
+#ifndef QT_USE_ICU
 
 // needed by the punycode encoder/decoder
 #define Q_MAXINT ((uint)((uint)(-1)>>1))
@@ -2120,32 +2129,6 @@ Q_AUTOTEST_EXPORT void qt_nameprep(QString *source, int from)
     }
 }
 
-Q_AUTOTEST_EXPORT bool qt_check_std3rules(const QChar *uc, int len)
-{
-    if (len > 63)
-        return false;
-
-    for (int i = 0; i < len; ++i) {
-        ushort c = uc[i].unicode();
-        if (c == '-' && (i == 0 || i == len - 1))
-            return false;
-
-        // verifying the absence of non-LDH is the same as verifying that
-        // only LDH is present
-        if (c == '-' || (c >= '0' && c <= '9')
-            || (c >= 'A' && c <= 'Z')
-            || (c >= 'a' && c <= 'z')
-            //underscore is not supposed to be allowed, but other browser accept it (QTBUG-7434)
-            || c == '_')
-            continue;
-
-        return false;
-    }
-
-    return true;
-}
-
-
 static inline uint encodeDigit(uint digit)
 {
   return digit + 22 + 75 * (digit < 26);
@@ -2343,8 +2326,82 @@ Q_AUTOTEST_EXPORT QString qt_punycodeDecoder(const QString &pc)
 
     return output;
 }
+#else
+Q_AUTOTEST_EXPORT void qt_nameprep(QString *source, int from)
+{
+    UChar buffer[MaximumLabelLength + 1];
+    UErrorCode status = U_ZERO_ERROR;
+    UParseError parseError;
 
-static const char * const idn_whitelist[] = {
+    UStringPrepProfile *sprep = usprep_openByType(USPREP_RFC3491_NAMEPREP, &status);
+    if (U_FAILURE(status))
+        source->truncate(from);
+    int32_t len = usprep_prepare(sprep, reinterpret_cast<const UChar *>(source->constData()) + from, source->length() - from,
+                                 buffer, MaximumLabelLength, USPREP_DEFAULT, &parseError, &status);
+    if (U_FAILURE(status)) {
+        source->resize(from);
+    } else {
+        source->resize(from + len);
+        memcpy(source->data() + from, buffer, len * sizeof(UChar));
+    }
+    usprep_close(sprep);
+}
+
+Q_AUTOTEST_EXPORT void qt_punycodeEncoder(const QChar *s, int ucLength, QString *output)
+{
+    UParseError parseError;
+    UErrorCode status = U_ZERO_ERROR;
+    output->resize(MaximumLabelLength);
+    int32_t tldLen = uidna_toASCII(reinterpret_cast<const UChar *>(s), ucLength,
+                                   reinterpret_cast<UChar *>(output->data()), MaximumLabelLength,
+                                   UIDNA_DEFAULT, &parseError, &status);
+    if (U_FAILURE(status))
+        output->resize(0);
+    else
+        output->resize(tldLen);
+}
+
+Q_AUTOTEST_EXPORT QString qt_punycodeDecoder(const QString &pc)
+{
+    UParseError parseError;
+    UErrorCode status = U_ZERO_ERROR;
+    QString result(MaximumLabelLength, Qt::Uninitialized);
+    int32_t len = uidna_toUnicode(reinterpret_cast<const UChar *>(pc.constData()), pc.length(),
+                                  reinterpret_cast<UChar *>(result.data()), MaximumLabelLength,
+                                  UIDNA_DEFAULT, &parseError, &status);
+    if (U_FAILURE(status))
+        return QString();
+    result.resize(len);
+    return result;
+}
+#endif
+
+Q_AUTOTEST_EXPORT bool qt_check_std3rules(const QChar *uc, int len)
+{
+    if (len > MaximumLabelLength)
+        return false;
+
+    for (int i = 0; i < len; ++i) {
+        ushort c = uc[i].unicode();
+        if (c == '-' && (i == 0 || i == len - 1))
+            return false;
+
+        // verifying the absence of non-LDH is the same as verifying that
+        // only LDH is present
+        if (c == '-' || (c >= '0' && c <= '9')
+            || (c >= 'A' && c <= 'Z')
+            || (c >= 'a' && c <= 'z')
+            //underscore is not supposed to be allowed, but other browser accept it (QTBUG-7434)
+            || c == '_')
+            continue;
+
+        return false;
+    }
+
+    return true;
+}
+
+static const char idn_whitelist[][18] = {
     "ac", "ar", "asia", "at",
     "biz", "br",
     "cat", "ch", "cl", "cn", "com",
@@ -2382,7 +2439,7 @@ static const char * const idn_whitelist[] = {
     "xn--wgbl6a",               // Qatar
     "xn--xkc2al3hye2a"          // Sri Lanka
 };
-static const size_t idn_whitelist_size = sizeof idn_whitelist / sizeof *idn_whitelist;
+static const size_t idn_whitelist_size = sizeof idn_whitelist / sizeof idn_whitelist[0];
 
 static QStringList *user_idn_whitelist = 0;
 
@@ -2477,6 +2534,7 @@ QString qt_ACE_do(const QString &domain, AceOperation op, AceLeadingDot dot)
     const bool isIdnEnabled = op == NormalizeAce ? qt_is_idn_enabled(domain) : false;
     int lastIdx = 0;
     QString aceForm; // this variable is here for caching
+    aceForm.reserve(MaximumLabelLength);
 
     while (1) {
         int idx = nextDotDelimiter(domain, lastIdx);
@@ -2537,12 +2595,11 @@ QString qt_ACE_do(const QString &domain, AceOperation op, AceLeadingDot dot)
         } else {
             // Punycode encoding and decoding cannot be done in-place
             // That means we need one or two temporaries
+#ifndef QT_USE_ICU
             qt_nameprep(&result, prevLen);
             labelLength = result.length() - prevLen;
-            int toReserve = labelLength + 4 + 6; // "xn--" plus some extra bytes
+#endif
             aceForm.resize(0);
-            if (toReserve > aceForm.capacity())
-                aceForm.reserve(toReserve);
             qt_punycodeEncoder(result.constData() + prevLen, result.size() - prevLen, &aceForm);
 
             // We use resize()+memcpy() here because we're overwriting the data we've copied

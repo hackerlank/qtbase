@@ -2575,19 +2575,6 @@ static int nextDotDelimiter(const QString &domain, int from = 0)
     return ch - b;
 }
 
-static int lastDotDelimiter(const QString &domain)
-{
-    const QChar *b = domain.unicode();
-    const QChar *e = b + domain.length();
-    const QChar *ch = e;
-    while (ch > b) {
-        --ch;
-        if (isDotDelimiter(ch->unicode()))
-            break;
-    }
-    return ch - b;
-}
-
 QString qt_ACE_do(const QString &domain, AceOperation op, AceLeadingDot dot)
 {
     if (domain.isEmpty())
@@ -2741,8 +2728,6 @@ void QUrl::setIdnWhitelist(const QStringList &list)
     if (!user_idn_whitelist)
         user_idn_whitelist = new QStringList;
     *user_idn_whitelist = list;
-    for (QStringList::iterator it = user_idn_whitelist->begin(); it != user_idn_whitelist->end(); ++it)
-        *it = qt_ACE_do(*it, ToAceOnly);
 }
 
 QT_END_NAMESPACE

@@ -65,6 +65,12 @@ struct Q_CORE_EXPORT QArrayData
         MutableData          = 0x0100,  //!< the data can be changed; doesn't say anything about the header
         ImmutableHeader      = 0x0200,  //!< the header is static, it can't be changed
 
+        // flags available for derived classes -- these four are cleared on detach
+        ClearedUserFlag1     = 0x80000000,
+        ClearedUserFlag2     = 0x40000000,
+        ClearedUserFlag3     = 0x20000000,
+        ClearedUserFlag4     = 0x10000000,
+
         /// this option is used by the Q_ARRAY_LITERAL and similar macros
         StaticDataFlags = ImmutableHeader,
         /// this option is used by the allocate() function

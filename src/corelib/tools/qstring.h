@@ -524,7 +524,7 @@ public:
     QByteArray toUtf8() const & Q_REQUIRED_RESULT
     { return toUtf8_helper(*this); }
     QByteArray toUtf8() && Q_REQUIRED_RESULT
-    { return toUtf8_helper(*this); }
+    { return toUtf8_helper_inplace(*this); }
     QByteArray toLocal8Bit() const & Q_REQUIRED_RESULT
     { return toLocal8Bit_helper(constData(), size()); }
     QByteArray toLocal8Bit() && Q_REQUIRED_RESULT
@@ -801,6 +801,10 @@ private:
     QString &operator=(const QByteArray &a);
 #endif
 
+    enum Flags {
+        IsAsciiOnly = QArrayData::ClearedUserFlag1
+    };
+
     QStringPrivate d;
 
     friend inline bool operator==(QChar, const QString &) Q_DECL_NOTHROW;
@@ -847,6 +851,7 @@ private:
     static QByteArray toLatin1_helper(const QChar *data, int size);
     static QByteArray toLatin1_helper_inplace(QString &);
     static QByteArray toUtf8_helper(const QString &);
+    static QByteArray toUtf8_helper_inplace(QString &);
     static QByteArray toLocal8Bit_helper(const QChar *data, int size);
     static int toUcs4_helper(const ushort *uc, int length, uint *out);
     static qlonglong toIntegral_helper(const QChar *data, int len, bool *ok, int base);
@@ -857,6 +862,7 @@ private:
     friend class QStringRef;
     friend class QByteArray;
     friend class QCollator;
+    friend struct QUtf8; // internal
     friend struct QAbstractConcatenable;
 
     template <typename T> static
@@ -903,7 +909,7 @@ inline QChar *QString::data()
 inline const QChar *QString::constData() const
 { return reinterpret_cast<const QChar*>(d.b); }
 inline void QString::detach()
-{ if (d.d->needsDetach()) reallocData(d.size + 1u); }
+{ if (d.d->needsDetach()) reallocData(d.size + 1u); else d.d->flags &= ~IsAsciiOnly; }
 inline bool QString::isDetached() const
 { return !d.d->isShared(); }
 inline void QString::clear()

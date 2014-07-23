@@ -232,13 +232,14 @@ static inline bool simdDecodeAscii(ushort *, const uchar *, const uchar *, const
 }
 #endif
 
-QByteArray QUtf8::convertFromUnicode(const QChar *uc, int len)
+QPair<QByteArray, bool> QUtf8::convertFromUnicode(const QChar *uc, int len)
 {
     // create a QByteArray with the worst case scenario size
     QByteArray result(len * 3, Qt::Uninitialized);
     uchar *dst = reinterpret_cast<uchar *>(const_cast<char *>(result.constData()));
     const ushort *src = reinterpret_cast<const ushort *>(uc);
     const ushort *const end = src + len;
+    bool isAsciiOnly = true;
 
     while (src != end) {
         const ushort *nextAscii = end;
@@ -247,6 +248,8 @@ QByteArray QUtf8::convertFromUnicode(const QChar *uc, int len)
 
         do {
             ushort uc = *src++;
+            if (uc >= 0x80)
+                isAsciiOnly = false;
             int res = QUtf8Functions::toUtf8<QUtf8BaseTraits>(uc, dst, src, end);
             if (res < 0) {
                 // encoding error - append '?'
@@ -256,7 +259,7 @@ QByteArray QUtf8::convertFromUnicode(const QChar *uc, int len)
     }
 
     result.truncate(dst - reinterpret_cast<uchar *>(const_cast<char *>(result.constData())));
-    return result;
+    return qMakePair(result, isAsciiOnly);
 }
 
 QByteArray QUtf8::convertFromUnicode(const QChar *uc, int len, QTextCodec::ConverterState *state)
@@ -344,8 +347,10 @@ QString QUtf8::convertToUnicode(const char *chars, int len)
     // per invalid byte.
     QString result(len, Qt::Uninitialized);
     QChar *data = const_cast<QChar*>(result.constData()); // we know we're not shared
-    const QChar *end = convertToUnicode(data, chars, len);
-    result.truncate(end - data);
+    auto r = convertToUnicode(data, chars, len);
+    result.truncate(r.first - data);
+    if (r.second)
+        result.d.d->flags |= QString::IsAsciiOnly;
     return result;
 }
 
@@ -366,17 +371,19 @@ QString QUtf8::convertToUnicode(const char *chars, int len)
     This function never throws.
 */
 
-QChar *QUtf8::convertToUnicode(QChar *buffer, const char *chars, int len) Q_DECL_NOTHROW
+QPair<QChar *, bool> QUtf8::convertToUnicode(QChar *buffer, const char *chars, int len) Q_DECL_NOTHROW
 {
     ushort *dst = reinterpret_cast<ushort *>(buffer);
     const uchar *src = reinterpret_cast<const uchar *>(chars);
     const uchar *end = src + len;
+    bool isAsciiOnly = true;
 
     // attempt to do a full decoding in SIMD
     const uchar *nextAscii = end;
     if (!simdDecodeAscii(dst, nextAscii, src, end)) {
         // at least one non-ASCII entry
         // check if we failed to decode the UTF-8 BOM; if so, skip it
+        isAsciiOnly = false;
         if (Q_UNLIKELY(src == reinterpret_cast<const uchar *>(chars))
                 && end - src >= 3
                 && Q_UNLIKELY(src[0] == utf8bom[0] && src[1] == utf8bom[1] && src[2] == utf8bom[2])) {
@@ -390,6 +397,8 @@ QChar *QUtf8::convertToUnicode(QChar *buffer, const char *chars, int len) Q_DECL
 
             do {
                 uchar b = *src++;
+                if (b >= 0x80)
+                    isAsciiOnly = false;
                 int res = QUtf8Functions::fromUtf8<QUtf8BaseTraits>(b, dst, src, end);
                 if (res < 0) {
                     // decoding error
@@ -399,7 +408,7 @@ QChar *QUtf8::convertToUnicode(QChar *buffer, const char *chars, int len) Q_DECL
         }
     }
 
-    return reinterpret_cast<QChar *>(dst);
+    return qMakePair(reinterpret_cast<QChar *>(dst), isAsciiOnly);
 }
 
 QString QUtf8::convertToUnicode(const char *chars, int len, QTextCodec::ConverterState *state)

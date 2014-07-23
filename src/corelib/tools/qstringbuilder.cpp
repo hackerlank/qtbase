@@ -115,7 +115,7 @@ void QAbstractConcatenable::convertFromAscii(const char *a, int len, QChar *&out
             return;
         len = int(strlen(a));
     }
-    out = QUtf8::convertToUnicode(out, a, len);
+    out = QUtf8::convertToUnicode(out, a, len).first;
 }
 
 QT_END_NAMESPACE

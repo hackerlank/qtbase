@@ -207,8 +207,11 @@ inline RetType UnrollTailLoop<0>::exec(int, RetType returnIfExited, Functor1, Fu
 #endif
 
 // conversion between Latin 1 and UTF-16
-void qt_from_latin1(ushort *dst, const char *str, size_t size) Q_DECL_NOTHROW
+template <bool CheckAsciiOnly>
+static void qt_from_latin1_internal(ushort *dst, const char *str, size_t size, bool *isAsciiOnly) Q_DECL_NOTHROW
 {
+    uint hasNonAscii = 0;
+
     /* SIMD:
      * Unpacking with SSE has been shown to improve performance on recent CPUs
      * The same method gives no improvement with NEON.
@@ -223,10 +226,19 @@ void qt_from_latin1(ushort *dst, const char *str, size_t size) Q_DECL_NOTHROW
 #ifdef __AVX2__
         // zero extend to an YMM register
         const __m256i extended = _mm256_cvtepu8_epi16(chunk);
+        if (CheckAsciiOnly) {
+            uint highbits = _mm256_movemask_epi8(extended);
+            hasNonAscii |= highbits;
+        }
 
         // store
         _mm256_storeu_si256((__m256i*)(dst + offset), extended);
 #else
+        if (CheckAsciiOnly) {
+            uint highbits = _mm_movemask_epi8(chunk);
+            hasNonAscii |= highbits;
+        }
+
         const __m128i nullMask = _mm_set1_epi32(0);
 
         // unpack the first 8 bytes, padding with zeros
@@ -242,19 +254,44 @@ void qt_from_latin1(ushort *dst, const char *str, size_t size) Q_DECL_NOTHROW
     size = size % 16;
     dst += offset;
     str += offset;
+    if (hasNonAscii)
+        hasNonAscii = 0x100;
 #  if defined(Q_COMPILER_LAMBDA) && !defined(__OPTIMIZE_SIZE__)
-    return UnrollTailLoop<15>::exec(int(size), [=](int i) { dst[i] = (uchar)str[i]; });
+    UnrollTailLoop<15>::exec(int(size), [=, &hasNonAscii](int i) {
+        uchar c = (uchar)str[i];
+        dst[i] = c;
+        hasNonAscii |= c;
+    });
+    size = 0;
 #  endif
 #endif
 #if defined(__mips_dsp)
+    hasNonAscii = 0x100;
     if (size > 20)
         qt_fromlatin1_mips_asm_unroll8(dst, str, size);
     else
         qt_fromlatin1_mips_asm_unroll4(dst, str, size);
 #else
-    while (size--)
-        *dst++ = (uchar)*str++;
+    while (size--) {
+        uchar c = (uchar)*str++;
+        *dst++ = c;
+        hasNonAscii |= c;
+    }
 #endif
+    if (CheckAsciiOnly) {
+        hasNonAscii &= 0x180;
+        *isAsciiOnly = hasNonAscii == 0;
+    }
+}
+
+static void qt_from_latin1(ushort *dst, const char *str, size_t size, bool *isAsciiOnly)
+{
+    qt_from_latin1_internal<true>(dst, str, size, isAsciiOnly);
+}
+
+void qt_from_latin1(ushort *dst, const char *str, size_t size)
+{
+    qt_from_latin1_internal<false>(dst, str, size, 0);
 }
 
 #if defined(__SSE2__)
@@ -1803,6 +1840,7 @@ void QString::reallocData(uint alloc, bool grow)
         Q_CHECK_PTR(pair.first);
         d.d = pair.first;
         d.b = pair.second;
+        d.d->flags &= ~IsAsciiOnly;
     }
 }
 
@@ -2126,8 +2164,11 @@ QString &QString::append(QLatin1String str)
         if (d.d->needsDetach() || size() + len > capacity())
             reallocData(uint(size() + len) + 1u, true);
         ushort *i = d.b + d.size;
-        qt_from_latin1(i, s, uint(len));
+        bool isAsciiOnly;
+        qt_from_latin1(i, s, uint(len), &isAsciiOnly);
         i[len] = '\0';
+        if (size() == 0 && isAsciiOnly)
+            d.d->flags |= IsAsciiOnly;
         d.size += len;
     }
     return *this;
@@ -2687,9 +2728,13 @@ QString &QString::replace(QLatin1String before, QLatin1String after, Qt::CaseSen
     int blen = before.size();
     QVarLengthArray<ushort> a(alen);
     QVarLengthArray<ushort> b(blen);
-    qt_from_latin1(a.data(), after.latin1(), alen);
+    bool isAsciiOnly, wasAsciiOnly = d.d->flags & IsAsciiOnly;
+    qt_from_latin1(a.data(), after.latin1(), alen, &isAsciiOnly);
     qt_from_latin1(b.data(), before.latin1(), blen);
-    return replace((const QChar *)b.data(), blen, (const QChar *)a.data(), alen, cs);
+    replace((const QChar *)b.data(), blen, (const QChar *)a.data(), alen, cs);
+    if (wasAsciiOnly && isAsciiOnly)
+        d.d->flags |= IsAsciiOnly;
+    return *this;
 }
 
 /*!
@@ -2728,8 +2773,12 @@ QString &QString::replace(const QString &before, QLatin1String after, Qt::CaseSe
 {
     int alen = after.size();
     QVarLengthArray<ushort> a(alen);
-    qt_from_latin1(a.data(), after.latin1(), alen);
-    return replace(before.constData(), before.d.size, (const QChar *)a.data(), alen, cs);
+    bool isAsciiOnly, wasAsciiOnly = d.d->flags & IsAsciiOnly;
+    qt_from_latin1(a.data(), after.latin1(), alen, &isAsciiOnly);
+    replace(before.constData(), before.d.size, (const QChar *)a.data(), alen, cs);
+    if (isAsciiOnly && wasAsciiOnly)
+        d.d->flags |= IsAsciiOnly;
+    return *this;
 }
 
 /*!
@@ -2748,8 +2797,12 @@ QString &QString::replace(QChar c, QLatin1String after, Qt::CaseSensitivity cs)
 {
     int alen = after.size();
     QVarLengthArray<ushort> a(alen);
-    qt_from_latin1(a.data(), after.latin1(), alen);
-    return replace(&c, 1, (const QChar *)a.data(), alen, cs);
+    bool isAsciiOnly, wasAsciiOnly = d.d->flags & IsAsciiOnly;
+    qt_from_latin1(a.data(), after.latin1(), alen, &isAsciiOnly);
+    replace(&c, 1, (const QChar *)a.data(), alen, cs);
+    if (isAsciiOnly && wasAsciiOnly)
+        d.d->flags |= IsAsciiOnly;
+    return *this;
 }
 
 
@@ -4620,12 +4673,42 @@ QByteArray QString::toLocal8Bit_helper(const QChar *data, int size)
     \sa fromUtf8(), toLatin1(), toLocal8Bit(), QTextCodec
 */
 
+static void atomicSetBit(uint *where, int bit)
+{
+    QAtomicOps<uint>::fetchAndOrRelaxed(*reinterpret_cast<QAtomicOps<uint>::Type *>(where), bit);
+}
+
 QByteArray QString::toUtf8_helper(const QString &str)
 {
     if (str.isNull())
         return QByteArray();
 
-    return QUtf8::convertFromUnicode(str.constData(), str.length());
+    if (str.d.d->flags & IsAsciiOnly) {
+        QByteArray latin1 = str.toLatin1();
+        Q_ASSERT(latin1 == QUtf8::convertFromUnicode(str.constData(), str.length()).first);
+        return latin1;
+    } else {
+        QPair<QByteArray, bool> ret = QUtf8::convertFromUnicode(str.constData(), str.length());
+        if (str.d.d->isMutable() && ret.second)
+            atomicSetBit(&str.d.d->flags, IsAsciiOnly);
+        return ret.first;
+    }
+}
+
+QByteArray QString::toUtf8_helper_inplace(QString &str)
+{
+    if (str.isNull())
+        return QByteArray();
+
+    if (str.d.d->flags & IsAsciiOnly) {
+        QByteArray latin1 = qMove(str).toLatin1();
+        return latin1;
+    } else {
+        QPair<QByteArray, bool> ret = QUtf8::convertFromUnicode(str.constData(), str.length());
+        if (str.d.d->isMutable() && ret.second)
+            atomicSetBit(&str.d.d->flags, IsAsciiOnly);
+        return ret.first;
+    }
 }
 
 /*!
@@ -4674,7 +4757,10 @@ QStringPrivate QString::fromLatin1_helper(const char *str, int size)
         d.b[size] = '\0';
         ushort *dst = d.b;
 
-        qt_from_latin1(dst, str, uint(size));
+        bool isAsciiOnly;
+        qt_from_latin1(dst, str, uint(size), &isAsciiOnly);
+        if (isAsciiOnly)
+            d.d->flags |= IsAsciiOnly;
     }
     return d;
 }
@@ -5475,7 +5561,7 @@ int QString::compare_helper(const QChar *data1, int length1, const char *data2, 
     // ### make me nothrow in all cases
     QVarLengthArray<ushort> s2(length2);
     const auto beg = reinterpret_cast<QChar *>(s2.data());
-    const auto end = QUtf8::convertToUnicode(beg, data2, length2);
+    const auto end = QUtf8::convertToUnicode(beg, data2, length2).first;
     return compare_helper(data1, length1, beg, end - beg, cs);
 }
 
@@ -5974,8 +6060,8 @@ static void append_utf8(QString &qs, const char *cs, int len)
 {
     const int oldSize = qs.size();
     qs.resize(oldSize + len);
-    const QChar *newEnd = QUtf8::convertToUnicode(qs.data() + oldSize, cs, len);
-    qs.resize(newEnd - qs.constData());
+    auto r = QUtf8::convertToUnicode(qs.data() + oldSize, cs, len);
+    qs.resize(r.first - qs.constData());
 }
 
 static uint parse_flag_characters(const char * &c) Q_DECL_NOTHROW
@@ -9600,7 +9686,9 @@ QByteArray QStringRef::toUtf8() const
     if (isNull())
         return QByteArray();
 
-    return QUtf8::convertFromUnicode(constData(), length());
+    if (m_string->d.d->flags & QString::IsAsciiOnly)
+        return toLatin1();
+    return QUtf8::convertFromUnicode(constData(), length()).first;
 }
 
 /*!

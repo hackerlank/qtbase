@@ -587,6 +587,7 @@ private slots:
     void isRightToLeft_data();
     void isRightToLeft();
     void unicodeStrings();
+    void latin1Cache();
 };
 
 template <class T> const T &verifyZeroTermination(const T &t) { return t; }
@@ -6872,6 +6873,25 @@ void tst_QString::isRightToLeft()
     QFETCH(bool, rtl);
 
     QCOMPARE(unicode.isRightToLeft(), rtl);
+}
+
+void tst_QString::latin1Cache()
+{
+#define TEXT "Hello World, how is it going? Everything should be ok."
+    const QLatin1String latin1(TEXT);
+    const QString expected = QStringLiteral(TEXT);
+#undef TEXT
+    QString modified = expected;
+    modified[16] = QChar(0xa0);
+
+    {
+        QString s = latin1; // may cache here
+        QCOMPARE(s.toUtf8().constData(), latin1.latin1()); // or here
+        QCOMPARE(s.toUtf8().constData(), latin1.latin1());
+        s[16] = QChar(0xa0);
+        QCOMPARE(s, modified);
+        QCOMPARE(s.toUtf8(), modified.toUtf8());
+    }
 }
 
 QTEST_APPLESS_MAIN(tst_QString)

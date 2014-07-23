@@ -285,10 +285,10 @@ enum DataEndianness
 
 struct QUtf8
 {
-    static QChar *convertToUnicode(QChar *, const char *, int) Q_DECL_NOTHROW;
+    static QPair<QChar *, bool> convertToUnicode(QChar *, const char *, int) Q_DECL_NOTHROW;
     static QString convertToUnicode(const char *, int);
     static QString convertToUnicode(const char *, int, QTextCodec::ConverterState *);
-    static QByteArray convertFromUnicode(const QChar *, int);
+    static QPair<QByteArray, bool> convertFromUnicode(const QChar *, int);
     static QByteArray convertFromUnicode(const QChar *, int, QTextCodec::ConverterState *);
 };
 

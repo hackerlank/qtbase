@@ -1503,12 +1503,29 @@ static void systemd_default_message_handler(QtMsgType type,
         break;
     }
 
+    // check if the pattern had the backtrace
+    const char *backtraceHeader = 0;
+    int backtraceDepth = 0;
+#ifdef QLOGGING_HAVE_BACKTRACE
+    {
+        QMutexLocker lock(&QMessagePattern::mutex);
+        QMessagePattern *pattern = qMessagePattern();
+
+        if (!pattern->backtraceArgs.isEmpty()) {
+            backtraceHeader = "BACKTRACE=%s";
+            backtraceDepth = pattern->backtraceArgs.at(0).backtraceDepth;
+        }
+    }
+#endif
+
     sd_journal_send("MESSAGE=%s",     message.toUtf8().constData(),
                     "PRIORITY=%i",    priority,
                     "CODE_FUNC=%s",   context.function ? context.function : "unknown",
                     "CODE_LINE=%d",   context.line,
                     "CODE_FILE=%s",   context.file ? context.file : "unknown",
                     "QT_CATEGORY=%s", context.category ? context.category : "unknown",
+                    backtraceHeader,
+                    backtraceHeader ? backtraceFramesForLogMessage(backtraceDepth).join(QLatin1Char('\n')).toUtf8().constData() : NULL,
                     NULL);
 }
 #endif

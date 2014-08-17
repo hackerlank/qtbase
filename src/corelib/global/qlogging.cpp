@@ -1565,14 +1565,15 @@ static void android_default_message_handler(QtMsgType type,
 static void qDefaultMessageHandler(QtMsgType type, const QMessageLogContext &context,
                                    const QString &buf)
 {
-    QString logMessage = qFormatLogMessage(type, context, buf);
+    bool consoleLogging = qt_logging_to_console();
+    QString logMessage = consoleLogging ? qFormatLogMessage(type, context, buf) : buf;
 
     // print nothing if message pattern didn't apply / was empty.
     // (still print empty lines, e.g. because message itself was empty)
     if (logMessage.isNull())
         return;
 
-    if (!qt_logging_to_console()) {
+    if (!consoleLogging) {
 #if defined(Q_OS_WIN)
         logMessage.append(QLatin1Char('\n'));
         OutputDebugString(reinterpret_cast<const wchar_t *>(logMessage.utf16()));

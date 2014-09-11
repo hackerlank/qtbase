@@ -779,7 +779,7 @@ typename QMap<Key, T>::iterator QMap<Key, T>::insert(const_iterator pos, const K
                 Node *z = d->createNode(akey, avalue, next, true);
                 return iterator(z);
             }
-            Q_ASSERT(false); // We should have prev->right == Q_NULLPTR or next->left == Q_NULLPTR.
+            Q_UNREACHABLE(); // We should have prev->right == Q_NULLPTR or next->left == Q_NULLPTR.
             return this->insert(akey, avalue);
         }
     }
@@ -848,7 +848,7 @@ typename QMap<Key, T>::iterator QMap<Key, T>::insertMulti(const_iterator pos, co
                 Node *z = d->createNode(akey, avalue, next, true);
                 return iterator(z);
             }
-            Q_ASSERT(false); // We should have prev->right == Q_NULLPTR or next->left == Q_NULLPTR.
+            Q_UNREACHABLE(); // We should have prev->right == Q_NULLPTR or next->left == Q_NULLPTR.
             return this->insertMulti(akey, avalue);
         }
     }

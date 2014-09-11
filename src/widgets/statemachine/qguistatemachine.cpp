@@ -65,17 +65,17 @@ static QEvent *cloneEvent(QEvent *e)
     case QEvent::Leave:
         return new QEvent(*e);
     case QEvent::Paint:
-        Q_ASSERT_X(false, "cloneEvent()", "not implemented");
+        Q_UNREACHABLE_X("not implemented");
         break;
     case QEvent::Move:
         return new QMoveEvent(*static_cast<QMoveEvent*>(e));
     case QEvent::Resize:
         return new QResizeEvent(*static_cast<QResizeEvent*>(e));
     case QEvent::Create:
-        Q_ASSERT_X(false, "cloneEvent()", "not implemented");
+        Q_UNREACHABLE_X("not implemented");
         break;
     case QEvent::Destroy:
-        Q_ASSERT_X(false, "cloneEvent()", "not implemented");
+        Q_UNREACHABLE_X("not implemented");
         break;
     case QEvent::Show:
         return new QShowEvent(*static_cast<QShowEvent*>(e));
@@ -119,13 +119,13 @@ static QEvent *cloneEvent(QEvent *e)
     case QEvent::PaletteChange:
         return new QEvent(*e);
     case QEvent::Clipboard:
-        Q_ASSERT_X(false, "cloneEvent()", "not implemented");
+        Q_UNREACHABLE_X("not implemented");
         break;
     case QEvent::Speech:
-        Q_ASSERT_X(false, "cloneEvent()", "not implemented");
+        Q_UNREACHABLE_X("not implemented");
         break;
     case QEvent::MetaCall:
-        Q_ASSERT_X(false, "cloneEvent()", "not implemented");
+        Q_UNREACHABLE_X("not implemented");
         break;
     case QEvent::SockAct:
         return new QEvent(*e);
@@ -283,7 +283,7 @@ static QEvent *cloneEvent(QEvent *e)
         return new QEvent(*e);
 
     case QEvent::ZeroTimerEvent:
-        Q_ASSERT_X(false, "cloneEvent()", "not implemented");
+        Q_UNREACHABLE_X("not implemented");
         break;
 #ifndef QT_NO_GRAPHICSVIEW
     case QEvent::GraphicsSceneMouseMove:
@@ -394,7 +394,7 @@ static QEvent *cloneEvent(QEvent *e)
         return new QEvent(*e);
 
     case QEvent::FutureCallOut:
-        Q_ASSERT_X(false, "cloneEvent()", "not implemented");
+        Q_UNREACHABLE_X("not implemented");
         break;
 #ifndef QT_NO_GRAPHICSVIEW
     case QEvent::GraphicsSceneResize: {
@@ -419,7 +419,7 @@ static QEvent *cloneEvent(QEvent *e)
         return new QEvent(*e);
 
     case QEvent::NetworkReplyUpdated:
-        Q_ASSERT_X(false, "cloneEvent()", "not implemented");
+        Q_UNREACHABLE_X("not implemented");
         break;
 
     case QEvent::GrabMouse:

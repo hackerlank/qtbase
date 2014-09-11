@@ -429,7 +429,7 @@ static QEvent *cloneEvent(QEvent *e)
     case QEvent::Timer:
         return new QTimerEvent(*static_cast<QTimerEvent*>(e));
     default:
-        Q_ASSERT_X(false, "cloneEvent()", "not implemented");
+        Q_UNREACHABLE_X("not implemented");
         break;
     }
     return 0;

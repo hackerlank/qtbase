@@ -279,7 +279,7 @@ static uint numerusHelper(int n, const uchar *rules, uint rulesSize)
         i++; // Q_NEWRULE
     }
 
-    Q_ASSERT(false);
+    Q_UNREACHABLE();
     return 0;
 }
 

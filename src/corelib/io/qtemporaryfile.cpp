@@ -230,7 +230,7 @@ static bool createFileFromTemplate(NativeFileHandle &file,
         }
     }
 
-    Q_ASSERT(false);
+    Q_UNREACHABLE();
     return false;
 }
 

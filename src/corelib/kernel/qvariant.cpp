@@ -164,7 +164,7 @@ static qlonglong qMetaTypeNumber(const QVariant::Private *d)
         return v_cast<QJsonValue>(d)->toDouble();
 #endif
     }
-    Q_ASSERT(false);
+    Q_UNREACHABLE();
     return 0;
 }
 
@@ -182,7 +182,7 @@ static qulonglong qMetaTypeUNumber(const QVariant::Private *d)
     case QMetaType::ULong:
         return d->data.ul;
     }
-    Q_ASSERT(false);
+    Q_UNREACHABLE();
     return 0;
 }
 

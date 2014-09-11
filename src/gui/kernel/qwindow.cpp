@@ -306,7 +306,7 @@ void QWindow::setVisibility(Visibility v)
         showFullScreen();
         break;
     default:
-        Q_ASSERT(false);
+        Q_UNREACHABLE();
         break;
     }
 }

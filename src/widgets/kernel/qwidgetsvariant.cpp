@@ -69,7 +69,7 @@ static void clear(QVariant::Private *d)
         v_clear<QSizePolicy>(d);
         break;
     default:
-        Q_ASSERT(false);
+        Q_UNREACHABLE();
         return;
     }
 
@@ -91,7 +91,7 @@ static bool compare(const QVariant::Private *a, const QVariant::Private *b)
     case QVariant::SizePolicy:
         return *v_cast<QSizePolicy>(a) == *v_cast<QSizePolicy>(b);
     default:
-        Q_ASSERT(false);
+        Q_UNREACHABLE();
     }
     return false;
 }

@@ -191,7 +191,7 @@ class QVariantComparator {
         static bool compare(const QVariant::Private *, const QVariant::Private *)
         {
             // It is not possible to construct a QVariant containing not fully defined type
-            Q_ASSERT(false);
+            Q_UNREACHABLE();
             return false;
         }
     };
@@ -208,7 +208,7 @@ public:
         return FilteredComparator<T>::compare(m_a, m_b);
     }
 
-    bool delegate(const void*) { Q_ASSERT(false); return true; }
+    bool delegate(const void*) { Q_UNREACHABLE(); return true; }
     bool delegate(const QMetaTypeSwitcher::UnknownType*)
     {
         return true; // for historical reason invalid variant == invalid variant
@@ -299,12 +299,12 @@ public:
         return CallIsNull<T>::isNull(m_d);
     }
     // we need that as sizof(void) is undefined and it is needed in HasIsNullMethod
-    bool delegate(const void *) { Q_ASSERT(false); return m_d->is_null; }
+    bool delegate(const void *) { Q_UNREACHABLE(); return m_d->is_null; }
     bool delegate(const QMetaTypeSwitcher::UnknownType *) { return m_d->is_null; }
     bool delegate(const QMetaTypeSwitcher::NotBuiltinType *)
     {
         // QVariantIsNull is used only for built-in types
-        Q_ASSERT(false);
+        Q_UNREACHABLE();
         return m_d->is_null;
     }
 protected:
@@ -345,7 +345,7 @@ public:
     void delegate(const QMetaTypeSwitcher::NotBuiltinType*)
     {
         // QVariantConstructor is used only for built-in types.
-        Q_ASSERT(false);
+        Q_UNREACHABLE();
     }
 
     void delegate(const void*)
@@ -385,7 +385,7 @@ class QVariantDestructor
         FilteredDestructor(QVariant::Private *)
         {
             // It is not possible to create not accepted type
-            Q_ASSERT(false);
+            Q_UNREACHABLE();
         }
     };
 
@@ -409,11 +409,11 @@ public:
     void delegate(const QMetaTypeSwitcher::NotBuiltinType*)
     {
         // QVariantDestructor class is used only for a built-in type
-        Q_ASSERT(false);
+        Q_UNREACHABLE();
     }
     // Ignore nonconstructible type
     void delegate(const QMetaTypeSwitcher::UnknownType*) {}
-    void delegate(const void*) { Q_ASSERT(false); }
+    void delegate(const void*) { Q_UNREACHABLE(); }
 private:
     QVariant::Private *m_d;
 };
@@ -438,7 +438,7 @@ class QVariantDebugStream
         Filtered(QDebug /* dbg */, QVariant::Private *)
         {
             // It is not possible to construct not acccepted type, QVariantConstructor creates an invalid variant for them
-            Q_ASSERT(false);
+            Q_UNREACHABLE();
         }
     };
 
@@ -458,13 +458,13 @@ public:
     void delegate(const QMetaTypeSwitcher::NotBuiltinType*)
     {
         // QVariantDebugStream class is used only for a built-in type
-        Q_ASSERT(false);
+        Q_UNREACHABLE();
     }
     void delegate(const QMetaTypeSwitcher::UnknownType*)
     {
         m_debugStream.nospace() << "QVariant::Invalid";
     }
-    void delegate(const void*) { Q_ASSERT(false); }
+    void delegate(const void*) { Q_UNREACHABLE(); }
 private:
     QDebug m_debugStream;
     QVariant::Private *m_d;

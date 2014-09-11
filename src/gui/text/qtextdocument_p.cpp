@@ -991,7 +991,7 @@ int QTextDocumentPrivate::undoRedo(bool undo)
             editPos = -1;
             break;
         default:
-            Q_ASSERT(false);
+            Q_UNREACHABLE();
         }
 
         if (resetBlockRevision >= 0) {

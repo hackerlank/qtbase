@@ -392,7 +392,7 @@ QMimeType QMimeDatabase::mimeTypeForFile(const QFileInfo &fileInfo, MatchMode mo
             return d->mimeTypeForName(d->defaultMimeType());
         }
     default:
-        Q_ASSERT(false);
+        Q_UNREACHABLE();
     }
     return d->mimeTypeForName(d->defaultMimeType());
 }

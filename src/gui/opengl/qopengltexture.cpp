@@ -1616,7 +1616,7 @@ QOpenGLTexture::WrapMode QOpenGLTexturePrivate::wrapMode(QOpenGLTexture::Coordin
         break;
     }
     // Should never get here
-    Q_ASSERT(false);
+    Q_UNREACHABLE();
     return QOpenGLTexture::Repeat;
 }
 

@@ -1329,11 +1329,13 @@
 #define qMove(x) (x)
 #endif
 
-#define Q_UNREACHABLE() \
+#define Q_UNREACHABLE_X(message) \
     do {\
-        Q_ASSERT_X(false, "Q_UNREACHABLE()", "Q_UNREACHABLE was reached");\
+        Q_ASSERT_X(false, "Q_UNREACHABLE()", message);\
         Q_UNREACHABLE_IMPL();\
     } while (0)
+
+#define Q_UNREACHABLE() Q_UNREACHABLE_X("Q_UNREACHABLE was reached")
 
 #define Q_ASSUME(Expr) \
     do {\

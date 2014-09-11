@@ -3988,8 +3988,7 @@ static QString errorMessage(QUrlPrivate::ErrorCode errorCode, const QString &err
         return QStringLiteral("Relative URL's path component contains ':' before any '/'");
     }
 
-    Q_ASSERT_X(false, "QUrl::errorString", "Cannot happen, unknown error");
-    Q_UNREACHABLE();
+    Q_UNREACHABLE_X("Cannot happen, unknown error");
     return QString();
 }
 

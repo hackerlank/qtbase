@@ -1025,7 +1025,7 @@ void QToolBar::actionEvent(QActionEvent *event)
         }
 
         default:
-            Q_ASSERT_X(false, "QToolBar::actionEvent", "internal error");
+            Q_UNREACHABLE_X("internal error");
     }
 }
 

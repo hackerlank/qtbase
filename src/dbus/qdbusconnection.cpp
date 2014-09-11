@@ -955,7 +955,7 @@ bool QDBusConnection::registerObject(const QString &path, const QString &interfa
         ++i;
     }
 
-    Q_ASSERT_X(false, "QDBusConnection::registerObject", "The impossible happened");
+    Q_UNREACHABLE_X("The impossible happened");
     return false;
 }
 

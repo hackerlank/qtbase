@@ -244,8 +244,7 @@ void QCryptographicHash::reset()
         break;
 #ifdef QT_CRYPTOGRAPHICHASH_ONLY_SHA1
     default:
-        Q_ASSERT_X(false, "QCryptographicHash", "Method not compiled in");
-        Q_UNREACHABLE();
+        Q_UNREACHABLE_X("Method not compiled in");
         break;
 #else
     case Md4:
@@ -295,8 +294,7 @@ void QCryptographicHash::addData(const char *data, int length)
         break;
 #ifdef QT_CRYPTOGRAPHICHASH_ONLY_SHA1
     default:
-        Q_ASSERT_X(false, "QCryptographicHash", "Method not compiled in");
-        Q_UNREACHABLE();
+        Q_UNREACHABLE_X("Method not compiled in");
         break;
 #else
     case Md4:
@@ -385,8 +383,7 @@ QByteArray QCryptographicHash::result() const
     }
 #ifdef QT_CRYPTOGRAPHICHASH_ONLY_SHA1
     default:
-        Q_ASSERT_X(false, "QCryptographicHash", "Method not compiled in");
-        Q_UNREACHABLE();
+        Q_UNREACHABLE_X("Method not compiled in");
         break;
 #else
     case Md4: {

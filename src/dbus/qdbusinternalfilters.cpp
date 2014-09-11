@@ -320,7 +320,7 @@ static QDBusMessage propertyWriteReply(const QDBusMessage &msg, const QString &i
     case PropertyWriteSuccess:
         return msg.createReply();
     }
-    Q_ASSERT_X(false, "", "Should not be reached");
+    Q_UNREACHABLE_X("Should not be reached");
     return QDBusMessage();
 }
 

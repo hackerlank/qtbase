@@ -91,6 +91,23 @@ public:
     };
 };
 
+#ifdef Q_COMPILER_NULLPTR
+template <>
+class QTypeInfo<std::nullptr_t>
+{
+public:
+    enum {
+        isPointer = true,
+        isIntegral = false,
+        isComplex = false,
+        isStatic = false,
+        isLarge = false,
+        isDummy = false,
+        sizeOf = sizeof(nullptr)
+    };
+};
+#endif
+
 /*!
     \class QTypeInfoMerger
     \inmodule QtCore

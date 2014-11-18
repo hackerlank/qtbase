@@ -1658,6 +1658,17 @@ void tst_QVariant::operator_eq_eq_rhs()
 void tst_QVariant::compareNumbers_data() const
 {
     typedef signed char schar;
+    quint32 zero = 0;
+    quint16 one16 = 1;
+    quint32 one32 = 1;
+    quint32 max = UINT_MAX;
+    QVariant char16_zero(QMetaType::Char16_t, &zero);
+    QVariant char16_one(QMetaType::Char16_t, &one16);
+    QVariant char16_max(QMetaType::Char16_t, &max);
+    QVariant char32_zero(QMetaType::Char32_t, &zero);
+    QVariant char32_one(QMetaType::Char16_t, &one32);
+    QVariant char32_max(QMetaType::Char32_t, &max);
+
     QTest::addColumn<QVariant>("v1");
     QTest::addColumn<QVariant>("v2");
     QTest::addColumn<int>("expected");
@@ -1696,6 +1707,17 @@ void tst_QVariant::compareNumbers_data() const
     QTest::newRow("ushort3") << qVariantFromValue(ushort(0)) << qVariantFromValue(USHRT_MAX) << -1;
     QTest::newRow("ushort4") << qVariantFromValue(USHRT_MAX) << qVariantFromValue(ushort(0)) << +1;
 
+#ifdef Q_COMPILER_UNICODE_STRINGS
+    QTest::newRow("char16_t1") << qVariantFromValue(char16_t(0)) << qVariantFromValue(char16_t(0)) << 0;
+    QTest::newRow("char16_t2") << qVariantFromValue(std::numeric_limits<char16_t>::max()) << qVariantFromValue(std::numeric_limits<char16_t>::max()) << 0;
+    QTest::newRow("char16_t3") << qVariantFromValue(char16_t(0)) << qVariantFromValue(std::numeric_limits<char16_t>::max()) << -1;
+    QTest::newRow("char16_t4") << qVariantFromValue(std::numeric_limits<char16_t>::max()) << qVariantFromValue(char16_t(0)) << +1;
+#endif
+    QTest::newRow("char16_tm1") << char16_zero << char16_zero << 0;
+    QTest::newRow("char16_tm2") << char16_max << char16_max << 0;
+    QTest::newRow("char16_tm3") << char16_zero << char16_max << -1;
+    QTest::newRow("char16_tm4") << char16_max << char16_zero << +1;
+
     QTest::newRow("int1") << qVariantFromValue(int(0)) << qVariantFromValue(int(0)) << 0;
     QTest::newRow("int2") << qVariantFromValue(INT_MAX) << qVariantFromValue(INT_MAX) << 0;
     QTest::newRow("int3") << qVariantFromValue(INT_MIN) << qVariantFromValue(INT_MIN) << 0;
@@ -1706,6 +1728,17 @@ void tst_QVariant::compareNumbers_data() const
     QTest::newRow("uint2") << qVariantFromValue(UINT_MAX) << qVariantFromValue(UINT_MAX) << 0;
     QTest::newRow("uint3") << qVariantFromValue(uint(0)) << qVariantFromValue(UINT_MAX) << -1;
     QTest::newRow("uint4") << qVariantFromValue(UINT_MAX) << qVariantFromValue(uint(0)) << +1;
+
+#ifdef Q_COMPILER_UNICODE_STRINGS
+    QTest::newRow("char32_t1") << qVariantFromValue(char32_t(0)) << qVariantFromValue(char32_t(0)) << 0;
+    QTest::newRow("char32_t2") << qVariantFromValue(std::numeric_limits<char32_t>::max()) << qVariantFromValue(std::numeric_limits<char32_t>::max()) << 0;
+    QTest::newRow("char32_t3") << qVariantFromValue(char32_t(0)) << qVariantFromValue(std::numeric_limits<char32_t>::max()) << -1;
+    QTest::newRow("char32_t4") << qVariantFromValue(std::numeric_limits<char32_t>::max()) << qVariantFromValue(char32_t(0)) << +1;
+#endif
+    QTest::newRow("char32_tm1") << char32_zero << char32_zero << 0;
+    QTest::newRow("char32_tm2") << char32_max << char32_max << 0;
+    QTest::newRow("char32_tm3") << char32_zero << char32_max << -1;
+    QTest::newRow("char32_tm4") << char32_max << char32_zero << +1;
 
     QTest::newRow("long1") << qVariantFromValue(long(0)) << qVariantFromValue(long(0)) << 0;
     QTest::newRow("long2") << qVariantFromValue(LONG_MAX) << qVariantFromValue(LONG_MAX) << 0;
@@ -1816,6 +1849,17 @@ void tst_QVariant::compareNumbers_data() const
     QTest::newRow("ushort+int3") << qVariantFromValue(ushort(1)) << qVariantFromValue(0) << +1;
     QTest::newRow("ushort+int4") << qVariantFromValue(ushort(1)) << qVariantFromValue(1) << 0;
 
+#ifdef Q_COMPILER_UNICODE_STRINGS
+    QTest::newRow("char16_t+int1") << qVariantFromValue(char16_t(0)) << qVariantFromValue(0) << 0;
+    QTest::newRow("char16_t+int2") << qVariantFromValue(char16_t(0)) << qVariantFromValue(1) << -1;
+    QTest::newRow("char16_t+int3") << qVariantFromValue(char16_t(1)) << qVariantFromValue(0) << +1;
+    QTest::newRow("char16_t+int4") << qVariantFromValue(char16_t(1)) << qVariantFromValue(1) << 0;
+#endif
+    QTest::newRow("char16_tm+int1") << qVariantFromValue(char16_zero) << qVariantFromValue(0) << 0;
+    QTest::newRow("char16_tm+int2") << qVariantFromValue(char16_zero) << qVariantFromValue(1) << -1;
+    QTest::newRow("char16_tm+int3") << qVariantFromValue(char16_one) << qVariantFromValue(0) << +1;
+    QTest::newRow("char16_tm+int4") << qVariantFromValue(char16_one) << qVariantFromValue(1) << 0;
+
     // lower ranked + uint (without sign change)
     QTest::newRow("bool+uint1") << qVariantFromValue(false) << qVariantFromValue(0U) << 0;
     QTest::newRow("bool+uint2") << qVariantFromValue(false) << qVariantFromValue(1U) << -1;
@@ -1847,6 +1891,27 @@ void tst_QVariant::compareNumbers_data() const
     QTest::newRow("ushort+uint2") << qVariantFromValue(ushort(0)) << qVariantFromValue(1U) << -1;
     QTest::newRow("ushort+uint3") << qVariantFromValue(ushort(1)) << qVariantFromValue(0U) << +1;
     QTest::newRow("ushort+uint4") << qVariantFromValue(ushort(1)) << qVariantFromValue(1U) << 0;
+
+#ifdef Q_COMPILER_UNICODE_STRINGS
+    QTest::newRow("char16_t+uint1") << qVariantFromValue(char16_t(0)) << qVariantFromValue(0U) << 0;
+    QTest::newRow("char16_t+uint2") << qVariantFromValue(char16_t(0)) << qVariantFromValue(1U) << -1;
+    QTest::newRow("char16_t+uint3") << qVariantFromValue(char16_t(1)) << qVariantFromValue(0U) << +1;
+    QTest::newRow("char16_t+uint4") << qVariantFromValue(char16_t(1)) << qVariantFromValue(1U) << 0;
+
+    QTest::newRow("char16_t+char32_t1") << qVariantFromValue(char16_t(0)) << qVariantFromValue(char32_t(0)) << 0;
+    QTest::newRow("char16_t+char32_t2") << qVariantFromValue(char16_t(0)) << qVariantFromValue(char32_t(1)) << -1;
+    QTest::newRow("char16_t+char32_t3") << qVariantFromValue(char16_t(1)) << qVariantFromValue(char32_t(0)) << +1;
+    QTest::newRow("char16_t+char32_t4") << qVariantFromValue(char16_t(1)) << qVariantFromValue(char32_t(1)) << 0;
+#endif
+    QTest::newRow("char16_tm+uint1") << char16_zero << qVariantFromValue(0U) << 0;
+    QTest::newRow("char16_tm+uint2") << char16_zero << qVariantFromValue(1U) << -1;
+    QTest::newRow("char16_tm+uint3") << char16_one << qVariantFromValue(0U) << +1;
+    QTest::newRow("char16_tm+uint4") << char16_one << qVariantFromValue(1U) << 0;
+    QTest::newRow("char16_tm+char32_tm1") << char16_zero << char32_zero << 0;
+    QTest::newRow("char16_tm+char32_tm2") << char16_zero << char32_one << -1;
+    QTest::newRow("char16_tm+char32_tm3") << char16_one << char32_zero << +1;
+    QTest::newRow("char16_tm+char32_tm4") << char16_one << char32_one << 0;
+
 
     // int + qlonglong
     QTest::newRow("int+qlonglong1") << qVariantFromValue(0) << qVariantFromValue(Q_INT64_C(0)) << 0;
@@ -1900,6 +1965,15 @@ void tst_QVariant::compareNumbers_data() const
     QTest::newRow("ushortmax+intzero") << qVariantFromValue(USHRT_MAX) << qVariantFromValue(0) << +1;
     QTest::newRow("ushortmax+qlonglongzero") << qVariantFromValue(USHRT_MAX) << qVariantFromValue(Q_INT64_C(0)) << +1;
     QTest::newRow("uintmax+qlonglongzero") << qVariantFromValue(UINT_MAX) << qVariantFromValue(Q_INT64_C(0)) << +1;
+
+#ifdef Q_COMPILER_UNICODE_STRINGS
+    QTest::newRow("char16_tmax+intzero") << qVariantFromValue(std::numeric_limits<char16_t>::max()) << qVariantFromValue(0) << +1;
+    QTest::newRow("char16_tmax+qlonglongzero") << qVariantFromValue(std::numeric_limits<char16_t>::max()) << qVariantFromValue(Q_INT64_C(0)) << +1;
+    QTest::newRow("char32_tmax+qlonglongzero") << qVariantFromValue(std::numeric_limits<char32_t>::max()) << qVariantFromValue(Q_INT64_C(0)) << +1;
+#endif
+    QTest::newRow("char16_tmmax+intzero") << char16_max << qVariantFromValue(0) << +1;
+    QTest::newRow("char16_tmmax+qlonglongzero") << char16_max << qVariantFromValue(Q_INT64_C(0)) << +1;
+    QTest::newRow("char32_tmmax+qlonglongzero") << char32_max << qVariantFromValue(Q_INT64_C(0)) << +1;
 
     // sign changes
     // the tests below check that a signed negative number sign-changes to a non-zero unsigned number and that
@@ -2037,6 +2111,8 @@ void tst_QVariant::typeName_data()
     QTest::newRow("49") << int(QVariant::Vector4D) << QByteArray("QVector4D");
     QTest::newRow("50") << int(QVariant::Quaternion) << QByteArray("QQuaternion");
     QTest::newRow("51") << int(QVariant::RegularExpression) << QByteArray("QRegularExpression");
+    QTest::newRow("52") << int(QMetaType::Char16_t) << QByteArray("char16_t");
+    QTest::newRow("53") << int(QMetaType::Char32_t) << QByteArray("char32_t");
 }
 
 void tst_QVariant::typeName()

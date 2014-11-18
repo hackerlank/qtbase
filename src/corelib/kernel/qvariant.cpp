@@ -163,12 +163,14 @@ static qulonglong qMetaTypeUNumber(const QVariant::Private *d)
 {
     switch (d->type) {
     case QVariant::UInt:
+    case QMetaType::Char32_t:
         return d->data.u;
     case QVariant::ULongLong:
         return d->data.ull;
     case QMetaType::UChar:
         return d->data.uc;
     case QMetaType::UShort:
+    case QMetaType::Char16_t:
         return d->data.us;
     case QMetaType::ULong:
         return d->data.ul;
@@ -210,7 +212,8 @@ static qlonglong qConvertToNumber(const QVariant::Private *d, bool *ok)
     case QMetaType::UChar:
     case QMetaType::UShort:
     case QMetaType::ULong:
-
+    case QMetaType::Char16_t:
+    case QMetaType::Char32_t:
         return qlonglong(qMetaTypeUNumber(d));
     }
 
@@ -245,6 +248,8 @@ static qreal qConvertToRealNumber(const QVariant::Private *d, bool *ok)
     case QMetaType::UChar:
     case QMetaType::UShort:
     case QMetaType::ULong:
+    case QMetaType::Char16_t:
+    case QMetaType::Char32_t:
         return qreal(qMetaTypeUNumber(d));
     default:
         // includes enum conversion as well as invalid types
@@ -285,6 +290,8 @@ static qulonglong qConvertToUnsignedNumber(const QVariant::Private *d, bool *ok)
     case QMetaType::UChar:
     case QMetaType::UShort:
     case QMetaType::ULong:
+    case QMetaType::Char16_t:
+    case QMetaType::Char32_t:
         return qMetaTypeUNumber(d);
     }
 
@@ -400,7 +407,11 @@ static bool convert(const QVariant::Private *d, int t, void *result, bool *ok)
         QString *str = static_cast<QString *>(result);
         switch (d->type) {
         case QVariant::Char:
+        case QMetaType::Char16_t:
             *str = *v_cast<QChar>(d);
+            break;
+        case QMetaType::Char32_t:
+            *str = QString::fromUcs4(v_cast<quint32>(d), 1);
             break;
         case QMetaType::Char:
         case QMetaType::SChar:
@@ -491,6 +502,8 @@ static bool convert(const QVariant::Private *d, int t, void *result, bool *ok)
         case QMetaType::UChar:
         case QMetaType::UShort:
         case QMetaType::ULong:
+        case QMetaType::Char16_t:
+        case QMetaType::Char32_t:
             *c = QChar(ushort(qMetaTypeUNumber(d)));
             break;
         default:
@@ -634,6 +647,8 @@ static bool convert(const QVariant::Private *d, int t, void *result, bool *ok)
         case QVariant::ULongLong:
         case QMetaType::UShort:
         case QMetaType::ULong:
+        case QMetaType::Char16_t:
+        case QMetaType::Char32_t:
             *ba = QByteArray::number(qMetaTypeUNumber(d));
             break;
         case QVariant::Bool:
@@ -660,6 +675,7 @@ static bool convert(const QVariant::Private *d, int t, void *result, bool *ok)
         *static_cast<long *>(result) = long(qConvertToNumber(d, ok));
         return *ok;
     case QMetaType::UShort:
+    case QMetaType::Char16_t:
         *static_cast<ushort *>(result) = ushort(qConvertToUnsignedNumber(d, ok));
         return *ok;
     case QMetaType::ULong:
@@ -669,6 +685,7 @@ static bool convert(const QVariant::Private *d, int t, void *result, bool *ok)
         *static_cast<int *>(result) = int(qConvertToNumber(d, ok));
         return *ok;
     case QVariant::UInt:
+    case QMetaType::Char32_t:
         *static_cast<uint *>(result) = uint(qConvertToUnsignedNumber(d, ok));
         return *ok;
     case QVariant::LongLong:
@@ -714,6 +731,8 @@ static bool convert(const QVariant::Private *d, int t, void *result, bool *ok)
         case QMetaType::UChar:
         case QMetaType::UShort:
         case QMetaType::ULong:
+        case QMetaType::Char16_t:
+        case QMetaType::Char32_t:
             *b = qMetaTypeUNumber(d) != Q_UINT64_C(0);
             break;
 #ifndef QT_BOOTSTRAPPED
@@ -757,6 +776,8 @@ static bool convert(const QVariant::Private *d, int t, void *result, bool *ok)
         case QMetaType::UChar:
         case QMetaType::UShort:
         case QMetaType::ULong:
+        case QMetaType::Char16_t:
+        case QMetaType::Char32_t:
             *f = double(qMetaTypeUNumber(d));
             break;
 #ifndef QT_BOOTSTRAPPED
@@ -800,6 +821,8 @@ static bool convert(const QVariant::Private *d, int t, void *result, bool *ok)
         case QMetaType::UChar:
         case QMetaType::UShort:
         case QMetaType::ULong:
+        case QMetaType::Char16_t:
+        case QMetaType::Char32_t:
             *f = float(qMetaTypeUNumber(d));
             break;
 #ifndef QT_BOOTSTRAPPED
@@ -3095,6 +3118,8 @@ bool QVariant::canConvert(int targetTypeId) const
         case QMetaType::QVariantList:
         case QMetaType::QVariantMap:
         case QMetaType::QVariantHash:
+        case QMetaType::Char16_t:
+        case QMetaType::Char32_t:
             return true;
         default:
             return false;
@@ -3122,6 +3147,8 @@ bool QVariant::canConvert(int targetTypeId) const
                    || currentType == QMetaType::Char
                    || currentType == QMetaType::SChar
                    || currentType == QMetaType::Short
+                   || currentType == QMetaType::Char16_t
+                   || currentType == QMetaType::Char32_t
                    || QMetaType::typeFlags(currentType) & QMetaType::IsEnumeration;
         case QVariant::Image:
             return currentType == QVariant::Pixmap || currentType == QVariant::Bitmap;
@@ -3153,6 +3180,8 @@ bool QVariant::canConvert(int targetTypeId) const
         case QMetaType::ULong:
         case QMetaType::Short:
         case QMetaType::UShort:
+        case QMetaType::Char16_t:
+        case QMetaType::Char32_t:
             return currentType == QVariant::Int
                 || (currentType < qCanConvertMatrixMaximumTargetType
                     && qCanConvertMatrix[QVariant::Int] & (1U << currentType))
@@ -3348,8 +3377,10 @@ static bool qIsNumericType(uint tp)
             Q_UINT64_C(1) << QMetaType::UChar |
             Q_UINT64_C(1) << QMetaType::Short |
             Q_UINT64_C(1) << QMetaType::UShort |
+            Q_UINT64_C(1) << QMetaType::Char16_t |
             Q_UINT64_C(1) << QMetaType::Int |
             Q_UINT64_C(1) << QMetaType::UInt |
+            Q_UINT64_C(1) << QMetaType::Char32_t |
             Q_UINT64_C(1) << QMetaType::Long |
             Q_UINT64_C(1) << QMetaType::ULong |
             Q_UINT64_C(1) << QMetaType::LongLong |
@@ -3370,8 +3401,14 @@ static int normalizeLowerRanks(uint tp)
             Q_UINT64_C(1) << QMetaType::SChar |
             Q_UINT64_C(1) << QMetaType::UChar |
             Q_UINT64_C(1) << QMetaType::Short |
-            Q_UINT64_C(1) << QMetaType::UShort;
+            Q_UINT64_C(1) << QMetaType::UShort |
+            Q_UINT64_C(1) << QMetaType::Char16_t;
     return numericTypeBits & (Q_UINT64_C(1) << tp) ? QVariant::Int : tp;
+}
+
+static int demoteChar32_t(uint tp)
+{
+    return tp == QMetaType::Char32_t ? QVariant::UInt : tp;
 }
 
 static int normalizeLong(uint tp)
@@ -3413,6 +3450,10 @@ static int numericTypePromotion(uint t1, uint t2)
     // normalize long / ulong: in all platforms we run, they're either the same as int or as long long
     t1 = normalizeLong(t1);
     t2 = normalizeLong(t2);
+
+    // demote char32_t to quint32
+    t1 = demoteChar32_t(t1);
+    t2 = demoteChar32_t(t2);
 
     // implement the other rules
     // the four possibilities are Int, UInt, LongLong and ULongLong

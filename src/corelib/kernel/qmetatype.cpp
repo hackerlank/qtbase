@@ -276,6 +276,8 @@ QT_BEGIN_NAMESPACE
     \value QPersistentModelIndex QPersistentModelIndex (since 5.5)
     \value QUuid QUuid
     \value QByteArrayList QByteArrayList
+    \value Char16_t C++11 \c{char16_t}
+    \value Char32_t C++11 \c{char32_t}
 
     \value User  Base value for user types
     \value UnknownType This is an invalid type id. It is returned from QMetaType for types that are not registered
@@ -1284,6 +1286,7 @@ bool QMetaType::save(QDataStream &stream, int type, const void *data)
         stream << qulonglong(*static_cast<const ulong *>(data));
         break;
     case QMetaType::UInt:
+    case QMetaType::Char32_t:
         stream << *static_cast<const uint *>(data);
         break;
     case QMetaType::LongLong:
@@ -1293,6 +1296,7 @@ bool QMetaType::save(QDataStream &stream, int type, const void *data)
         stream << *static_cast<const qulonglong *>(data);
         break;
     case QMetaType::UShort:
+    case QMetaType::Char16_t:
         stream << *static_cast<const ushort *>(data);
         break;
     case QMetaType::SChar:
@@ -1510,6 +1514,7 @@ bool QMetaType::load(QDataStream &stream, int type, void *data)
         *static_cast<ulong *>(data) = ulong(ul);
         break; }
     case QMetaType::UInt:
+    case QMetaType::Char32_t:
         stream >> *static_cast<uint *>(data);
         break;
     case QMetaType::LongLong:
@@ -1519,6 +1524,7 @@ bool QMetaType::load(QDataStream &stream, int type, void *data)
         stream >> *static_cast<qulonglong *>(data);
         break;
     case QMetaType::UShort:
+    case QMetaType::Char16_t:
         stream >> *static_cast<ushort *>(data);
         break;
     case QMetaType::SChar:

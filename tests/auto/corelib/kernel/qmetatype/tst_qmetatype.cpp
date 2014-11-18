@@ -1580,7 +1580,10 @@ void tst_QMetaType::saveAndLoadBuiltin_data()
 
 #define ADD_METATYPE_TEST_ROW(MetaTypeName, MetaTypeId, RealType) \
     QTest::newRow(#RealType) << MetaTypeId << bool(StreamingTraits<RealType>::isStreamable);
-    QT_FOR_EACH_STATIC_TYPE(ADD_METATYPE_TEST_ROW)
+    QT_FOR_EACH_STATIC_TYPE_CXX98(ADD_METATYPE_TEST_ROW)
+#ifdef Q_COMPILER_UNICODE_STRINGS
+    QT_FOR_EACH_STATIC_CXX11_UNICODE_TYPE(ADD_METATYPE_TEST_ROW)
+#endif
 #undef ADD_METATYPE_TEST_ROW
 }
 
@@ -1607,6 +1610,8 @@ void tst_QMetaType::saveAndLoadBuiltin()
     QCOMPARE(stream.status(), QDataStream::Ok);
 
     if (isStreamable) {
+        // try to read at the end of the file
+        // this should fail
         QVERIFY(QMetaType::load(stream, type, value)); // Hmmm, shouldn't it return false?
         QCOMPARE(stream.status(), QDataStream::ReadPastEnd);
     }

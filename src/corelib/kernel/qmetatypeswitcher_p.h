@@ -41,6 +41,7 @@
 #define QMETATYPESWITCHER_P_H
 
 #include "qmetatype.h"
+#include "qmetatype_p.h"
 
 //
 //  W A R N I N G

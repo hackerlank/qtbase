@@ -68,6 +68,15 @@ struct QVariantIntegrator
             && ((QTypeInfoQuery<T>::isRelocatable) || std::is_enum<T>::value);
     typedef std::integral_constant<bool, CanUseInternalSpace> CanUseInternalSpace_t;
 };
+
+#if defined(Q_CC_MSVC) && !defined(Q_CC_INTEL) && Q_CC_MSVC >= 1900
+// ### Qt 6: remove the two specializations (see qtypeinfo.h)
+template<> struct QVariantIntegrator<char16_t> : public QVariantIntegrator<quint16>
+{ };
+template<> struct QVariantIntegrator<char32_t> : public QVariantIntegrator<quint32>
+{ };
+#endif
+
 Q_STATIC_ASSERT(QVariantIntegrator<double>::CanUseInternalSpace);
 Q_STATIC_ASSERT(QVariantIntegrator<long int>::CanUseInternalSpace);
 Q_STATIC_ASSERT(QVariantIntegrator<qulonglong>::CanUseInternalSpace);

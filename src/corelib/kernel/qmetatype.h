@@ -66,6 +66,11 @@ struct QMetaTypeId2;
 template <typename T>
 inline Q_DECL_CONSTEXPR int qMetaTypeId();
 
+// Next free type is:
+//  Core    52
+//  Gui     87
+//  Widgets 122
+
 // F is a tuple: (QMetaType::TypeName, QMetaType::TypeNameID, RealType)
 // ### Qt6: reorder the types to match the C++ integral type ranking
 #define QT_FOR_EACH_STATIC_PRIMITIVE_TYPE(F)\
@@ -88,6 +93,10 @@ inline Q_DECL_CONSTEXPR int qMetaTypeId();
 
 #define QT_FOR_EACH_STATIC_PRIMITIVE_POINTER(F)\
     F(VoidStar, 31, void*) \
+
+#define QT_FOR_EACH_STATIC_CXX11_UNICODE_TYPE(F)\
+    F(Char16_t, 52, char16_t) \
+    F(Char32_t, 53, char32_t) \
 
 #define QT_FOR_EACH_STATIC_CORE_CLASS(F)\
     F(QChar, 7, QChar) \
@@ -183,7 +192,7 @@ inline Q_DECL_CONSTEXPR int qMetaTypeId();
     F(QVariantHash, -1, QVariantHash, "QHash<QString,QVariant>") \
     F(QByteArrayList, -1, QByteArrayList, "QList<QByteArray>") \
 
-#define QT_FOR_EACH_STATIC_TYPE(F)\
+#define QT_FOR_EACH_STATIC_TYPE_CXX98(F)\
     QT_FOR_EACH_STATIC_PRIMITIVE_TYPE(F)\
     QT_FOR_EACH_STATIC_PRIMITIVE_POINTER(F)\
     QT_FOR_EACH_STATIC_CORE_CLASS(F)\
@@ -191,6 +200,10 @@ inline Q_DECL_CONSTEXPR int qMetaTypeId();
     QT_FOR_EACH_STATIC_CORE_TEMPLATE(F)\
     QT_FOR_EACH_STATIC_GUI_CLASS(F)\
     QT_FOR_EACH_STATIC_WIDGETS_CLASS(F)\
+
+#define QT_FOR_EACH_STATIC_TYPE(F)\
+    QT_FOR_EACH_STATIC_TYPE_CXX98(F)\
+    QT_FOR_EACH_STATIC_CXX11_UNICODE_TYPE(F)\
 
 #define QT_DEFINE_METATYPE_ID(TypeName, Id, Name) \
     TypeName = Id,
@@ -413,7 +426,7 @@ public:
         QT_FOR_EACH_STATIC_TYPE(QT_DEFINE_METATYPE_ID)
 
         FirstCoreType = Bool,
-        LastCoreType = Nullptr,
+        LastCoreType = Char32_t,
         FirstGuiType = QFont,
         LastGuiType = QPolygonF,
         FirstWidgetsType = QSizePolicy,
@@ -442,6 +455,8 @@ public:
         QByteArrayList = 49, QObjectStar = 39, SChar = 40,
         Void = 43,
         QVariantMap = 8, QVariantList = 9, QVariantHash = 28,
+        QPersistentModelIndex = 50,
+        Char16_t = 52, Char32_t = 53,
         QFont = 64, QPixmap = 65, QBrush = 66, QColor = 67, QPalette = 68,
         QIcon = 69, QImage = 70, QPolygon = 71, QRegion = 72, QBitmap = 73,
         QCursor = 74, QKeySequence = 75, QPen = 76, QTextLength = 77, QTextFormat = 78,
@@ -2189,7 +2204,10 @@ inline const QMetaObject *QMetaType::metaObject() const
 QT_END_NAMESPACE
 
 
-QT_FOR_EACH_STATIC_TYPE(Q_DECLARE_BUILTIN_METATYPE)
+QT_FOR_EACH_STATIC_TYPE_CXX98(Q_DECLARE_BUILTIN_METATYPE)
+#ifdef Q_COMPILER_UNICODE_STRINGS
+  QT_FOR_EACH_STATIC_CXX11_UNICODE_TYPE(Q_DECLARE_BUILTIN_METATYPE)
+#endif
 
 Q_DECLARE_METATYPE(QtMetaTypePrivate::QSequentialIterableImpl)
 Q_DECLARE_METATYPE(QtMetaTypePrivate::QAssociativeIterableImpl)

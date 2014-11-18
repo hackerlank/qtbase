@@ -53,8 +53,17 @@
 
 #include <QtCore/private/qglobal_p.h>
 #include "qmetatype.h"
+#include <cstddef>
 
 QT_BEGIN_NAMESPACE
+
+#if !defined(Q_COMPILER_UNICODE_STRINGS) && !defined(_CHAR16T) && !defined(_CHAR16_T_AND_CHAR32_T) && \
+    (!defined(_LIBCPP_VERSION) || defined(_LIBCPP_HAS_NO_UNICODE_CHARS))
+// HACK: make the code work as if char16_t and char32_t existed
+// Note: some versions of MSVC already do this, as does libc++
+typedef quint16 char16_t;
+typedef quint32 char32_t;
+#endif
 
 namespace QModulesPrivate {
 enum Names { Core, Gui, Widgets, Unknown, ModulesCount /* ModulesCount has to be at the end */ };
@@ -113,6 +122,9 @@ QT_FOR_EACH_STATIC_PRIMITIVE_POINTER(QT_DECLARE_CORE_MODULE_TYPES_ITER)
 QT_FOR_EACH_STATIC_CORE_CLASS(QT_DECLARE_CORE_MODULE_TYPES_ITER)
 QT_FOR_EACH_STATIC_CORE_POINTER(QT_DECLARE_CORE_MODULE_TYPES_ITER)
 QT_FOR_EACH_STATIC_CORE_TEMPLATE(QT_DECLARE_CORE_MODULE_TYPES_ITER)
+#ifdef Q_COMPILER_UNICODE_STRINGS
+QT_FOR_EACH_STATIC_CXX11_UNICODE_TYPE(QT_DECLARE_CORE_MODULE_TYPES_ITER)
+#endif
 QT_FOR_EACH_STATIC_GUI_CLASS(QT_DECLARE_GUI_MODULE_TYPES_ITER)
 QT_FOR_EACH_STATIC_WIDGETS_CLASS(QT_DECLARE_WIDGETS_MODULE_TYPES_ITER)
 } // namespace QModulesPrivate
@@ -250,6 +262,12 @@ template<> struct TypeDefinition<QIcon> { static const bool IsAvailable = false;
 template<typename T>
 struct QtCoreTypesAcceptor {
     static const bool IsAccepted = QtMetaTypePrivate::TypeDefinition<T>::IsAvailable && QModulesPrivate::QTypeModuleInfo<T>::IsCore;
+};
+template <> struct QtCoreTypesAcceptor<char16_t> {
+    static const bool IsAccepted = true;
+};
+template <> struct QtCoreTypesAcceptor<char32_t> {
+    static const bool IsAccepted = true;
 };
 } //namespace QtMetaTypePrivate
 

@@ -102,11 +102,29 @@ public:
     Direction direction;
 };
 
+#define NULLORLATIN1(str)   ((str).isEmpty() ? Q_NULLPTR : (str).toLatin1().constData())
+
 class QDBusMarshaller: public QDBusArgumentPrivate
 {
 public:
-    QDBusMarshaller(int flags);
+    QDBusMarshaller(QDBusMessage::MessageType type, int flags);
+    QDBusMarshaller(QByteArray *ba);
     ~QDBusMarshaller();
+
+    void setDestinationService(const QString &service)
+    { q_dbus_message_set_destination(message, NULLORLATIN1(service)); }
+    void setPath(const QString &path)
+    { q_dbus_message_set_path(message, NULLORLATIN1(path)); }
+    void setInterface(const QString &interface)
+    { q_dbus_message_set_interface(message, NULLORLATIN1(interface)); }
+    void setErrorName(const QString &errorName)
+    { q_dbus_message_set_error_name(message, NULLORLATIN1(errorName)); }
+    void setMethodName(const QString &methodName)
+    { q_dbus_message_set_member(message, NULLORLATIN1(methodName)); }
+    void setAutoStart(bool enable)
+    { q_dbus_message_set_auto_start(message, enable); }
+    void setReplySerial(int serial)
+    { q_dbus_message_set_reply_serial(message, serial); }
 
     QString currentSignature();
 
@@ -145,6 +163,8 @@ public:
     bool appendRegisteredType(const QVariant &arg);
     bool appendCrossMarshalling(QDBusDemarshaller *arg);
 
+    DBusMessage *stealMessage();
+
 public:
     DBusMessageIter iterator;
     QDBusMarshaller *parent;
@@ -155,8 +175,12 @@ public:
     bool skipSignature;
 
 private:
+    QDBusMarshaller(QDBusMarshaller &parent, int subCode, const char *subSignature);
+
     Q_DISABLE_COPY(QDBusMarshaller)
 };
+
+#undef NULLORLATIN1
 
 class QDBusDemarshaller: public QDBusArgumentPrivate
 {

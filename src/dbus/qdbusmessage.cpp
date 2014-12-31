@@ -62,11 +62,6 @@ Q_STATIC_ASSERT(QDBusMessage::ReplyMessage == DBUS_MESSAGE_TYPE_METHOD_RETURN);
 Q_STATIC_ASSERT(QDBusMessage::ErrorMessage == DBUS_MESSAGE_TYPE_ERROR);
 Q_STATIC_ASSERT(QDBusMessage::SignalMessage == DBUS_MESSAGE_TYPE_SIGNAL);
 
-static inline const char *data(const QByteArray &arr)
-{
-    return arr.isEmpty() ? 0 : arr.constData();
-}
-
 QDBusMessagePrivate::QDBusMessagePrivate()
     : msg(0), reply(0), localReply(0), ref(1), type(QDBusMessage::InvalidMessage),
       delayedReply(false), localMessage(false),
@@ -115,12 +110,19 @@ DBusMessage *QDBusMessagePrivate::toDBusMessage(const QDBusMessage &message, QDB
         return 0;
     }
 
-    DBusMessage *msg = 0;
     const QDBusMessagePrivate *d_ptr = message.d_ptr;
+    if (d_ptr->type == QDBusMessage::InvalidMessage) {
+        *error = QDBusError(QDBusError::InvalidArgs,
+                            QLatin1String("The QDBusMessage is invalid - use one of the "
+                                          "QDBusMessage::createXxx methods to create the message"));
+        return 0;
+    }
+
+    QDBusMarshaller marshaller(d_ptr->type, capabilities);
 
     switch (d_ptr->type) {
     case QDBusMessage::InvalidMessage:
-        //qDebug() << "QDBusMessagePrivate::toDBusMessage" <<  "message is invalid";
+        Q_UNREACHABLE();
         break;
     case QDBusMessage::MethodCallMessage:
         // only service and interface can be empty -> path and name must not be empty
@@ -135,15 +137,17 @@ DBusMessage *QDBusMessagePrivate::toDBusMessage(const QDBusMessage &message, QDB
                 return 0;
         }
 
-        msg = q_dbus_message_new_method_call(data(d_ptr->service.toUtf8()), d_ptr->path.toUtf8(),
-                                             data(d_ptr->interface.toUtf8()), d_ptr->name.toUtf8());
-        q_dbus_message_set_auto_start( msg, d_ptr->autoStartService );
+        marshaller.setDestinationService(d_ptr->service);
+        marshaller.setPath(d_ptr->path);
+        marshaller.setInterface(d_ptr->interface);
+        marshaller.setMethodName(d_ptr->name);
+        marshaller.setAutoStart(d_ptr->autoStartService);
         break;
     case QDBusMessage::ReplyMessage:
-        msg = q_dbus_message_new(DBUS_MESSAGE_TYPE_METHOD_RETURN);
         if (!d_ptr->localMessage) {
-            q_dbus_message_set_destination(msg, q_dbus_message_get_sender(d_ptr->reply));
-            q_dbus_message_set_reply_serial(msg, q_dbus_message_get_serial(d_ptr->reply));
+            // ### suboptimal
+            marshaller.setDestinationService(q_dbus_message_get_sender(d_ptr->reply));
+            marshaller.setReplySerial(q_dbus_message_get_serial(d_ptr->reply));
         }
         break;
     case QDBusMessage::ErrorMessage:
@@ -152,11 +156,11 @@ DBusMessage *QDBusMessagePrivate::toDBusMessage(const QDBusMessage &message, QDB
             && !QDBusUtil::checkErrorName(d_ptr->name, QDBusUtil::EmptyNotAllowed, error))
             return 0;
 
-        msg = q_dbus_message_new(DBUS_MESSAGE_TYPE_ERROR);
-        q_dbus_message_set_error_name(msg, d_ptr->name.toUtf8());
+        marshaller.setErrorName(d_ptr->name);
         if (!d_ptr->localMessage) {
-            q_dbus_message_set_destination(msg, q_dbus_message_get_sender(d_ptr->reply));
-            q_dbus_message_set_reply_serial(msg, q_dbus_message_get_serial(d_ptr->reply));
+            // ### suboptimal
+            marshaller.setDestinationService(q_dbus_message_get_sender(d_ptr->reply));
+            marshaller.setReplySerial(q_dbus_message_get_serial(d_ptr->reply));
         }
         break;
     case QDBusMessage::SignalMessage:
@@ -171,10 +175,10 @@ DBusMessage *QDBusMessagePrivate::toDBusMessage(const QDBusMessage &message, QDB
             if (!QDBusUtil::checkMemberName(d_ptr->name, QDBusUtil::EmptyNotAllowed, error, "method"))
                 return 0;
         }
-
-        msg = q_dbus_message_new_signal(d_ptr->path.toUtf8(), d_ptr->interface.toUtf8(),
-                                        d_ptr->name.toUtf8());
-        q_dbus_message_set_destination(msg, data(d_ptr->service.toUtf8()));
+        marshaller.setDestinationService(d_ptr->service);
+        marshaller.setPath(d_ptr->path);
+        marshaller.setInterface(d_ptr->interface);
+        marshaller.setMethodName(d_ptr->name);
         break;
     }
 
@@ -183,22 +187,20 @@ DBusMessage *QDBusMessagePrivate::toDBusMessage(const QDBusMessage &message, QDB
     // we can record this fact
     d_ptr->parametersValidated = true;
 
-    QDBusMarshaller marshaller(capabilities);
-    QVariantList::ConstIterator it =  d_ptr->arguments.constBegin();
-    QVariantList::ConstIterator cend = d_ptr->arguments.constEnd();
-    q_dbus_message_iter_init_append(msg, &marshaller.iterator);
     if (!d_ptr->message.isEmpty())
         // prepend the error message
         marshaller.append(d_ptr->message);
+
+    QVariantList::ConstIterator it =  d_ptr->arguments.constBegin();
+    QVariantList::ConstIterator cend = d_ptr->arguments.constEnd();
     for ( ; it != cend; ++it)
         marshaller.appendVariantInternal(*it);
 
     // check if everything is ok
     if (marshaller.ok)
-        return msg;
+        return marshaller.stealMessage();
 
     // not ok;
-    q_dbus_message_unref(msg);
     *error = QDBusError(QDBusError::Failed, QLatin1String("Marshalling failed: ") + marshaller.errorString);
     return 0;
 }

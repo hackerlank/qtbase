@@ -1,6 +1,7 @@
 /****************************************************************************
 **
 ** Copyright (C) 2016 The Qt Company Ltd.
+** Copyright (C) 2016 Intel Corporation.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the QtDBus module of the Qt Toolkit.
@@ -54,10 +55,23 @@ static void qIterAppend(DBusMessageIter *it, QByteArray *ba, int type, const voi
         q_dbus_message_iter_append_basic(it, type, arg);
 }
 
-QDBusMarshaller::QDBusMarshaller(int flags)
-    : QDBusArgumentPrivate(0, Marshalling, flags), parent(0), ba(0), closeCode(0), ok(true),
+QDBusMarshaller::QDBusMarshaller(QByteArray *ba)
+    : QDBusArgumentPrivate(Q_NULLPTR, Marshalling), parent(0), ba(ba), closeCode(0), ok(true),
       skipSignature(false)
-{ }
+{
+}
+
+QDBusMarshaller::QDBusMarshaller(QDBusMessage::MessageType type, int flags)
+    : QDBusArgumentPrivate(q_dbus_message_new(type), Marshalling, flags), parent(0), ba(0), closeCode(0), ok(true)
+{
+    q_dbus_message_iter_init_append(message, &iterator);
+}
+
+QDBusMarshaller::QDBusMarshaller(QDBusMarshaller &parent, int subCode, const char *subSignature)
+    : QDBusArgumentPrivate(Q_NULLPTR, Marshalling, parent.capabilities), parent(0), ba(0), closeCode(0), ok(true)
+{
+    parent.open(*this, subCode, subSignature);
+}
 
 QDBusMarshaller::~QDBusMarshaller()
 {
@@ -221,8 +235,7 @@ inline bool QDBusMarshaller::append(const QDBusVariant &arg)
         return false;
     }
 
-    QDBusMarshaller sub(capabilities);
-    open(sub, DBUS_TYPE_VARIANT, signature);
+    QDBusMarshaller sub(*this, DBUS_TYPE_VARIANT, signature);
     bool isOk = sub.appendVariantInternal(value);
     // don't call sub.close(): it auto-closes
 
@@ -237,8 +250,7 @@ inline void QDBusMarshaller::append(const QStringList &arg)
         return;
     }
 
-    QDBusMarshaller sub(capabilities);
-    open(sub, DBUS_TYPE_ARRAY, DBUS_TYPE_STRING_AS_STRING);
+    QDBusMarshaller sub(*this, DBUS_TYPE_ARRAY, DBUS_TYPE_STRING_AS_STRING);
     QStringList::ConstIterator it = arg.constBegin();
     QStringList::ConstIterator end = arg.constEnd();
     for ( ; it != end; ++it)
@@ -343,8 +355,7 @@ void QDBusMarshaller::open(QDBusMarshaller &sub, int code, const char *signature
 
 QDBusMarshaller *QDBusMarshaller::beginCommon(int code, const char *signature)
 {
-    QDBusMarshaller *d = new QDBusMarshaller(capabilities);
-    open(*d, code, signature);
+    QDBusMarshaller *d = new QDBusMarshaller(*this, code, signature);
     return d;
 }
 
@@ -575,7 +586,6 @@ bool QDBusMarshaller::appendCrossMarshalling(QDBusDemarshaller *demarshaller)
     // We have to recurse
     QDBusDemarshaller *drecursed = demarshaller->beginCommon();
 
-    QDBusMarshaller mrecursed(capabilities);  // create on the stack makes it autoclose
     QByteArray subSignature;
     const char *sig = 0;
     if (code == DBUS_TYPE_VARIANT || code == DBUS_TYPE_ARRAY) {
@@ -583,7 +593,7 @@ bool QDBusMarshaller::appendCrossMarshalling(QDBusDemarshaller *demarshaller)
         if (!subSignature.isEmpty())
             sig = subSignature.constData();
     }
-    open(mrecursed, code, sig);
+    QDBusMarshaller mrecursed(*this, code, sig);  // create on the stack makes it autoclose
 
     while (!drecursed->atEnd()) {
         if (!mrecursed.appendCrossMarshalling(drecursed)) {
@@ -594,6 +604,13 @@ bool QDBusMarshaller::appendCrossMarshalling(QDBusDemarshaller *demarshaller)
 
     delete drecursed;
     return true;
+}
+
+DBusMessage *QDBusMarshaller::stealMessage()
+{
+    DBusMessage *retval = message;
+    message = 0;
+    return retval;
 }
 
 QT_END_NAMESPACE

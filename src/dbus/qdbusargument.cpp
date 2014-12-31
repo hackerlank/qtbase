@@ -75,8 +75,7 @@ QByteArray QDBusArgumentPrivate::createSignature(int id)
         return "";
 
     QByteArray signature;
-    QDBusMarshaller *marshaller = new QDBusMarshaller(0);
-    marshaller->ba = &signature;
+    QDBusMarshaller *marshaller = new QDBusMarshaller(&signature);
 
     // run it
     void *null = 0;
@@ -117,8 +116,9 @@ bool QDBusArgumentPrivate::checkWrite(QDBusArgumentPrivate *&d)
             return false;
 
         if (d->ref.load() > 1) {
-            QDBusMarshaller *dd = new QDBusMarshaller(d->capabilities);
+            QDBusMarshaller *dd = new QDBusMarshaller(Q_NULLPTR);
             dd->message = q_dbus_message_copy(d->message);
+            dd->capabilities = d->capabilities;
             q_dbus_message_iter_init_append(dd->message, &dd->iterator);
 
             if (!d->ref.deref())
@@ -299,13 +299,10 @@ QDBusArgument::QDBusArgument()
         return;
     }
 
-    QDBusMarshaller *dd = new QDBusMarshaller(0);
-    d = dd;
-
     // create a new message with any type, we won't sent it anyways
+    QDBusMarshaller *dd = new QDBusMarshaller(QDBusMessage::MethodCallMessage, 0);
+    d = dd;
     dd->ref.store(1);    // we own this reference
-    dd->message = q_dbus_message_new(DBUS_MESSAGE_TYPE_METHOD_CALL);
-    q_dbus_message_iter_init_append(dd->message, &dd->iterator);
 }
 
 /*!

@@ -353,6 +353,12 @@ DEFINEFUNC(DBusMessage*  , dbus_message_ref, (DBusMessage   *message),
 DEFINEFUNC(void          , dbus_message_set_auto_start, (DBusMessage   *message,
                                                          dbus_bool_t    auto_start),
            (message, auto_start), return)
+DEFINEFUNC(dbus_bool_t   , dbus_message_set_interface,   (DBusMessage   *message,
+                                                          const char    *iface),
+           (message, iface), return)
+DEFINEFUNC(dbus_bool_t   , dbus_message_set_member,      (DBusMessage   *message,
+                                                          const char    *member),
+           (message, member), return)
 DEFINEFUNC(dbus_bool_t   , dbus_message_set_destination, (DBusMessage   *message,
                                                           const char    *destination),
            (message, destination), return)

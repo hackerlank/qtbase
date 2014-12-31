@@ -1,6 +1,7 @@
 /****************************************************************************
 **
 ** Copyright (C) 2016 The Qt Company Ltd.
+** Copyright (C) 2016 Intel Corporation.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the QtDBus module of the Qt Toolkit.
@@ -53,6 +54,7 @@
 
 #include <QtDBus/private/qtdbusglobal_p.h>
 #include <qdbusargument.h>
+#include "qdbusmessage.h"
 #include "qdbusunixfiledescriptor.h"
 #include "qdbus_symbols_p.h"
 
@@ -70,9 +72,11 @@ class QDBusDemarshaller;
 class QDBusArgumentPrivate
 {
 public:
-    inline QDBusArgumentPrivate(int flags = 0)
-        : message(0), ref(1), capabilities(flags)
-    { }
+    enum Direction {
+        Marshalling,
+        Demarshalling
+    };
+    QDBusArgumentPrivate(DBusMessage *msg, Direction dir, int flags = 0);
     virtual ~QDBusArgumentPrivate();
 
     static bool checkRead(QDBusArgumentPrivate *d);
@@ -95,17 +99,13 @@ public:
     DBusMessage *message;
     QAtomicInt ref;
     int capabilities;
-    enum Direction {
-        Marshalling,
-        Demarshalling
-    } direction;
+    Direction direction;
 };
 
 class QDBusMarshaller: public QDBusArgumentPrivate
 {
 public:
-    QDBusMarshaller(int flags) : QDBusArgumentPrivate(flags), parent(0), ba(0), closeCode(0), ok(true), skipSignature(false)
-    { direction = Marshalling; }
+    QDBusMarshaller(int flags);
     ~QDBusMarshaller();
 
     QString currentSignature();
@@ -161,10 +161,23 @@ private:
 class QDBusDemarshaller: public QDBusArgumentPrivate
 {
 public:
-    inline QDBusDemarshaller(int flags) : QDBusArgumentPrivate(flags), parent(0)
-    { direction = Demarshalling; }
+    QDBusDemarshaller(DBusMessage *msg, int flags, QDBusDemarshaller *parent = 0);
     ~QDBusDemarshaller();
 
+    QDBusMessage::MessageType type()
+    { return QDBusMessage::MessageType(q_dbus_message_get_type(message)); }
+    QString senderService()
+    { return QString::fromUtf8(q_dbus_message_get_sender(message)); }
+    QString path()
+    { return QString::fromUtf8(q_dbus_message_get_path(message)); }
+    QString interface()
+    { return QString::fromUtf8(q_dbus_message_get_interface(message)); }
+    QString errorName()
+    { return QString::fromUtf8(q_dbus_message_get_error_name(message)); }
+    QString methodName()
+    { return QString::fromUtf8(q_dbus_message_get_member(message)); }
+    QString fullSignature()
+    { return QString::fromUtf8(q_dbus_message_get_signature(message)); }
     QString currentSignature();
 
     uchar toByte();
@@ -202,6 +215,8 @@ public:
     QVariant toVariantInternal();
     QDBusArgument::ElementType currentType();
     bool isCurrentTypeStringLike();
+
+    QVariantList demarshal();
 
 public:
     DBusMessageIter iterator;

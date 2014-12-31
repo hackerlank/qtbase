@@ -1,6 +1,7 @@
 /****************************************************************************
 **
 ** Copyright (C) 2016 The Qt Company Ltd.
+** Copyright (C) 2016 Intel Corporation.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the QtDBus module of the Qt Toolkit.
@@ -57,6 +58,10 @@
 #ifndef QT_NO_DBUS
 
 QT_BEGIN_NAMESPACE
+
+QDBusArgumentPrivate::QDBusArgumentPrivate(DBusMessage *msg, Direction dir, int flags)
+    : message(msg), ref(1), capabilities(flags), direction(dir)
+{ }
 
 QDBusArgumentPrivate::~QDBusArgumentPrivate()
 {
@@ -155,8 +160,7 @@ bool QDBusArgumentPrivate::checkReadAndDetach(QDBusArgumentPrivate *&d)
     if (d->ref.load() == 1)
         return true;            // no need to detach
 
-    QDBusDemarshaller *dd = new QDBusDemarshaller(d->capabilities);
-    dd->message = q_dbus_message_ref(d->message);
+    QDBusDemarshaller *dd = new QDBusDemarshaller(q_dbus_message_ref(d->message), d->capabilities);
     dd->iterator = static_cast<QDBusDemarshaller*>(d)->iterator;
 
     if (!d->ref.deref())

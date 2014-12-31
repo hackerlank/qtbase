@@ -54,6 +54,11 @@ static void qIterAppend(DBusMessageIter *it, QByteArray *ba, int type, const voi
         q_dbus_message_iter_append_basic(it, type, arg);
 }
 
+QDBusMarshaller::QDBusMarshaller(int flags)
+    : QDBusArgumentPrivate(0, Marshalling, flags), parent(0), ba(0), closeCode(0), ok(true),
+      skipSignature(false)
+{ }
+
 QDBusMarshaller::~QDBusMarshaller()
 {
     close();
@@ -397,8 +402,7 @@ bool QDBusMarshaller::appendVariantInternal(const QVariant &arg)
         if (!d->message)
             return false;       // can't append this one...
 
-        QDBusDemarshaller demarshaller(capabilities);
-        demarshaller.message = q_dbus_message_ref(d->message);
+        QDBusDemarshaller demarshaller(q_dbus_message_ref(d->message), capabilities);
 
         if (d->direction == Demarshalling) {
             // it's demarshalling; just copy

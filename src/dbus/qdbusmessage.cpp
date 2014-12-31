@@ -234,21 +234,17 @@ QDBusMessage QDBusMessagePrivate::fromDBusMessage(DBusMessage *dmsg, QDBusConnec
     if (!dmsg)
         return message;
 
-    message.d_ptr->type = QDBusMessage::MessageType(q_dbus_message_get_type(dmsg));
-    message.d_ptr->path = QString::fromUtf8(q_dbus_message_get_path(dmsg));
-    message.d_ptr->interface = QString::fromUtf8(q_dbus_message_get_interface(dmsg));
-    message.d_ptr->name = message.d_ptr->type == DBUS_MESSAGE_TYPE_ERROR ?
-                      QString::fromUtf8(q_dbus_message_get_error_name(dmsg)) :
-                      QString::fromUtf8(q_dbus_message_get_member(dmsg));
-    message.d_ptr->service = QString::fromUtf8(q_dbus_message_get_sender(dmsg));
-    message.d_ptr->signature = QString::fromUtf8(q_dbus_message_get_signature(dmsg));
+    QDBusDemarshaller demarshaller(q_dbus_message_ref(dmsg), capabilities);
+    message.d_ptr->type = demarshaller.type();
+    message.d_ptr->path = demarshaller.path();
+    message.d_ptr->interface = demarshaller.interface();
+    message.d_ptr->name = message.d_ptr->type == QDBusMessage::ErrorMessage ?
+                              demarshaller.errorName() :
+                              demarshaller.methodName();
+    message.d_ptr->service = demarshaller.senderService();
+    message.d_ptr->signature = demarshaller.fullSignature();
     message.d_ptr->msg = q_dbus_message_ref(dmsg);
-
-    QDBusDemarshaller demarshaller(capabilities);
-    demarshaller.message = q_dbus_message_ref(dmsg);
-    if (q_dbus_message_iter_init(demarshaller.message, &demarshaller.iterator))
-        while (!demarshaller.atEnd())
-            message << demarshaller.toVariantInternal();
+    message.d_ptr->arguments = demarshaller.demarshal();
     return message;
 }
 

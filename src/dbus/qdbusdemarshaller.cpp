@@ -1,6 +1,7 @@
 /****************************************************************************
 **
 ** Copyright (C) 2016 The Qt Company Ltd.
+** Copyright (C) 2016 Intel Corporation.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the QtDBus module of the Qt Toolkit.
@@ -73,8 +74,14 @@ static inline T qIterGet(DBusMessageIter *it)
     return value.t;
 }
 
+QDBusDemarshaller::QDBusDemarshaller(DBusMessage *msg, int flags, QDBusDemarshaller *parent)
+    : QDBusArgumentPrivate(msg, Demarshalling, flags), parent(parent)
+{
+}
+
 QDBusDemarshaller::~QDBusDemarshaller()
 {
+    // ~QDBusArgumentPrivate derefs for us
 }
 
 inline QString QDBusDemarshaller::currentSignature()
@@ -179,8 +186,7 @@ inline QDBusUnixFileDescriptor QDBusDemarshaller::toUnixFileDescriptor()
 
 inline QDBusVariant QDBusDemarshaller::toVariant()
 {
-    QDBusDemarshaller sub(capabilities);
-    sub.message = q_dbus_message_ref(message);
+    QDBusDemarshaller sub(q_dbus_message_ref(message), capabilities);
     q_dbus_message_iter_recurse(&iterator, &sub.iterator);
     q_dbus_message_iter_next(&iterator);
 
@@ -321,7 +327,7 @@ QStringList QDBusDemarshaller::toStringListUnchecked()
 {
     QStringList list;
 
-    QDBusDemarshaller sub(capabilities);
+    QDBusDemarshaller sub(Q_NULLPTR, capabilities);
     q_dbus_message_iter_recurse(&iterator, &sub.iterator);
     q_dbus_message_iter_next(&iterator);
     while (!sub.atEnd())
@@ -387,9 +393,7 @@ inline QDBusDemarshaller *QDBusDemarshaller::beginMapEntry()
 
 QDBusDemarshaller *QDBusDemarshaller::beginCommon()
 {
-    QDBusDemarshaller *d = new QDBusDemarshaller(capabilities);
-    d->parent = this;
-    d->message = q_dbus_message_ref(message);
+    QDBusDemarshaller *d = new QDBusDemarshaller(q_dbus_message_ref(message), capabilities, this);
 
     // recurse
     q_dbus_message_iter_recurse(&iterator, &d->iterator);
@@ -426,12 +430,20 @@ QDBusDemarshaller *QDBusDemarshaller::endCommon()
 
 QDBusArgument QDBusDemarshaller::duplicate()
 {
-    QScopedPointer<QDBusDemarshaller> d(new QDBusDemarshaller(capabilities));
+    QScopedPointer<QDBusDemarshaller> d(new QDBusDemarshaller(q_dbus_message_ref(message), capabilities));
     d->iterator = iterator;
-    d->message = q_dbus_message_ref(message);
 
     q_dbus_message_iter_next(&iterator);
     return QDBusArgumentPrivate::create(d.take());
+}
+
+QVariantList QDBusDemarshaller::demarshal()
+{
+    QVariantList result;
+    if (q_dbus_message_iter_init(message, &iterator))
+        while (!atEnd())
+            result << toVariantInternal();
+    return result;
 }
 
 QT_END_NAMESPACE

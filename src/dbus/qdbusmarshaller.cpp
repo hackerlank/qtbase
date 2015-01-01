@@ -62,20 +62,48 @@ QDBusMarshaller::QDBusMarshaller(QByteArray *ba)
 }
 
 QDBusMarshaller::QDBusMarshaller(QDBusMessage::MessageType type, int flags)
-    : QDBusArgumentPrivate(q_dbus_message_new(type), Marshalling, flags), parent(0), ba(0), closeCode(0), ok(true)
+    : QDBusArgumentPrivate(q_dbus_message_new(type), Marshalling, flags), parent(0), ba(0), closeCode(0),
+      ok(true), skipSignature(false)
 {
     q_dbus_message_iter_init_append(message, &iterator);
 }
 
 QDBusMarshaller::QDBusMarshaller(QDBusMarshaller &parent, int subCode, const char *subSignature)
-    : QDBusArgumentPrivate(Q_NULLPTR, Marshalling, parent.capabilities), parent(0), ba(0), closeCode(0), ok(true)
+    : QDBusArgumentPrivate(Q_NULLPTR, Marshalling, parent.capabilities), parent(&parent), ba(parent.ba),
+      closeCode(0), ok(true), skipSignature(false)
 {
-    parent.open(*this, subCode, subSignature);
+    if (ba) {
+        if (!skipSignature) {
+            switch (subCode) {
+            case DBUS_TYPE_ARRAY:
+                *ba += char(subCode);
+                *ba += subSignature;
+                break;
+
+            case DBUS_TYPE_STRUCT:
+                *ba += DBUS_STRUCT_BEGIN_CHAR;
+                closeCode = DBUS_STRUCT_END_CHAR;
+                break;
+
+            case DBUS_TYPE_DICT_ENTRY:
+                closeCode = 0;
+                skipSignature = true;
+                break;
+            }
+        }
+    } else {
+        q_dbus_message_iter_open_container(&parent.iterator, subCode, subSignature, &iterator);
+    }
 }
 
 QDBusMarshaller::~QDBusMarshaller()
 {
-    close();
+    if (ba) {
+        if (!skipSignature && closeCode)
+            *ba += closeCode;
+    } else if (parent) {
+        q_dbus_message_iter_close_container(&parent->iterator, &iterator);
+    }
 }
 
 QDBusMarshaller *QDBusMarshaller::detachedForWriting()
@@ -340,38 +368,6 @@ inline QDBusMarshaller *QDBusMarshaller::beginMapEntry()
     return beginCommon(DBUS_TYPE_DICT_ENTRY, 0);
 }
 
-void QDBusMarshaller::open(QDBusMarshaller &sub, int code, const char *signature)
-{
-    sub.parent = this;
-    sub.ba = ba;
-    sub.ok = true;
-    sub.capabilities = capabilities;
-    sub.skipSignature = skipSignature;
-
-    if (ba) {
-        if (!skipSignature) {
-            switch (code) {
-            case DBUS_TYPE_ARRAY:
-                *ba += char(code);
-                *ba += signature;
-                Q_FALLTHROUGH();
-
-            case DBUS_TYPE_DICT_ENTRY:
-                sub.closeCode = 0;
-                sub.skipSignature = true;
-                break;
-
-            case DBUS_TYPE_STRUCT:
-                *ba += DBUS_STRUCT_BEGIN_CHAR;
-                sub.closeCode = DBUS_STRUCT_END_CHAR;
-                break;
-            }
-        }
-    } else {
-        q_dbus_message_iter_open_container(&iterator, code, signature, &sub.iterator);
-    }
-}
-
 QDBusMarshaller *QDBusMarshaller::beginCommon(int code, const char *signature)
 {
     QDBusMarshaller *d = new QDBusMarshaller(*this, code, signature);
@@ -396,16 +392,6 @@ QDBusMarshaller *QDBusMarshaller::endCommon()
     Q_ASSERT(ref.load() == -1);
     delete this;
     return retval;
-}
-
-void QDBusMarshaller::close()
-{
-    if (ba) {
-        if (!skipSignature && closeCode)
-            *ba += closeCode;
-    } else if (parent) {
-        q_dbus_message_iter_close_container(&parent->iterator, &iterator);
-    }
 }
 
 void QDBusMarshaller::error(const QString &msg)

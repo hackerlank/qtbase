@@ -78,6 +78,25 @@ QDBusMarshaller::~QDBusMarshaller()
     close();
 }
 
+QDBusMarshaller *QDBusMarshaller::detachedForWriting()
+{
+    if (ref.load() == -1)
+        return this;
+
+    QDBusMarshaller *dd = new QDBusMarshaller(Q_NULLPTR);
+    dd->message = q_dbus_message_copy(message);
+    dd->capabilities = capabilities;
+    q_dbus_message_iter_init_append(dd->message, &dd->iterator);
+
+    if (ref.deref())
+        return dd;
+
+    // we are the last reference after all...
+    delete dd;
+    ref.ref();
+    return this;
+}
+
 inline QString QDBusMarshaller::currentSignature()
 {
     if (message)

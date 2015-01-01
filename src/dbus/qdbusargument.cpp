@@ -115,16 +115,7 @@ bool QDBusArgumentPrivate::checkWrite(QDBusArgumentPrivate *&d)
         if (!d->marshaller()->ok)
             return false;
 
-        if (d->ref.load() > 1) {
-            QDBusMarshaller *dd = new QDBusMarshaller(Q_NULLPTR);
-            dd->message = q_dbus_message_copy(d->message);
-            dd->capabilities = d->capabilities;
-            q_dbus_message_iter_init_append(dd->message, &dd->iterator);
-
-            if (!d->ref.deref())
-                delete d;
-            d = dd;
-        }
+        d = d->marshaller()->detachedForWriting();
         return true;
     }
 
@@ -156,17 +147,7 @@ bool QDBusArgumentPrivate::checkReadAndDetach(QDBusArgumentPrivate *&d)
 {
     if (!checkRead(d))
         return false;           //  don't bother
-
-    if (d->ref.load() == -1)
-        return true;            // no need to detach
-
-    QDBusDemarshaller *dd = new QDBusDemarshaller(q_dbus_message_ref(d->message), d->capabilities);
-    dd->ref.store(1);           // permit refcounting
-    dd->iterator = static_cast<QDBusDemarshaller*>(d)->iterator;
-
-    if (!d->ref.deref())
-        delete d;
-    d = dd;
+    d = d->demarshaller()->detachedForReading();
     return true;
 }
 

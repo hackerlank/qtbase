@@ -111,6 +111,8 @@ public:
     QDBusMarshaller(QByteArray *ba);
     ~QDBusMarshaller();
 
+    QDBusMarshaller *detachedForWriting();
+
     void setDestinationService(const QString &service)
     { q_dbus_message_set_destination(message, NULLORLATIN1(service)); }
     void setPath(const QString &path)
@@ -187,6 +189,8 @@ class QDBusDemarshaller: public QDBusArgumentPrivate
 public:
     QDBusDemarshaller(DBusMessage *msg, int flags, QDBusDemarshaller *parent = 0);
     ~QDBusDemarshaller();
+
+    QDBusDemarshaller *detachedForReading();
 
     QDBusMessage::MessageType type()
     { return QDBusMessage::MessageType(q_dbus_message_get_type(message)); }

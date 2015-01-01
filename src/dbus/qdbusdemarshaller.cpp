@@ -84,6 +84,24 @@ QDBusDemarshaller::~QDBusDemarshaller()
     // ~QDBusArgumentPrivate derefs for us
 }
 
+QDBusDemarshaller *QDBusDemarshaller::detachedForReading()
+{
+    if (ref.load() == -1)
+        return this;
+
+    QDBusDemarshaller *dd = new QDBusDemarshaller(q_dbus_message_ref(message), capabilities);
+    dd->ref.store(1);           // permit refcounting
+    dd->iterator = iterator;
+
+    if (ref.deref())
+        return dd;
+
+    // we are the last reference after all
+    delete dd;
+    ref.ref();
+    return this;
+}
+
 inline QString QDBusDemarshaller::currentSignature()
 {
     char *sig = q_dbus_message_iter_get_signature(&iterator);

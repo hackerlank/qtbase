@@ -60,7 +60,7 @@
 QT_BEGIN_NAMESPACE
 
 QDBusArgumentPrivate::QDBusArgumentPrivate(DBusMessage *msg, Direction dir, int flags)
-    : message(msg), ref(1), capabilities(flags), direction(dir)
+    : message(msg), ref(-1), capabilities(flags), direction(dir)
 { }
 
 QDBusArgumentPrivate::~QDBusArgumentPrivate()
@@ -116,7 +116,7 @@ bool QDBusArgumentPrivate::checkWrite(QDBusArgumentPrivate *&d)
         if (!d->marshaller()->ok)
             return false;
 
-        if (d->message && d->ref.load() != 1) {
+        if (d->ref.load() > 1) {
             QDBusMarshaller *dd = new QDBusMarshaller(d->capabilities);
             dd->message = q_dbus_message_copy(d->message);
             q_dbus_message_iter_init_append(dd->message, &dd->iterator);
@@ -157,10 +157,11 @@ bool QDBusArgumentPrivate::checkReadAndDetach(QDBusArgumentPrivate *&d)
     if (!checkRead(d))
         return false;           //  don't bother
 
-    if (d->ref.load() == 1)
+    if (d->ref.load() == -1)
         return true;            // no need to detach
 
     QDBusDemarshaller *dd = new QDBusDemarshaller(q_dbus_message_ref(d->message), d->capabilities);
+    dd->ref.store(1);           // permit refcounting
     dd->iterator = static_cast<QDBusDemarshaller*>(d)->iterator;
 
     if (!d->ref.deref())
@@ -302,6 +303,7 @@ QDBusArgument::QDBusArgument()
     d = dd;
 
     // create a new message with any type, we won't sent it anyways
+    dd->ref.store(1);    // we own this reference
     dd->message = q_dbus_message_new(DBUS_MESSAGE_TYPE_METHOD_CALL);
     q_dbus_message_iter_init_append(dd->message, &dd->iterator);
 }
@@ -316,7 +318,10 @@ QDBusArgument::QDBusArgument()
 QDBusArgument::QDBusArgument(const QDBusArgument &other)
     : d(other.d)
 {
-    if (d)
+    if (!d)
+        return;
+    // don't increase the refcount from -1
+    if (d->ref.load() > 0)
         d->ref.ref();
 }
 
@@ -347,7 +352,11 @@ QDBusArgument &QDBusArgument::operator=(const QDBusArgument &other)
 */
 QDBusArgument::~QDBusArgument()
 {
-    if (d && !d->ref.deref())
+    if (!d)
+        return;
+    if (d->ref.load() <= 0)
+        return;
+    if (!d->ref.deref())
         delete d;
 }
 

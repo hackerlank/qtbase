@@ -363,6 +363,7 @@ inline QDBusMarshaller *QDBusMarshaller::endMapEntry()
 QDBusMarshaller *QDBusMarshaller::endCommon()
 {
     QDBusMarshaller *retval = parent;
+    Q_ASSERT(ref.load() == -1);
     delete this;
     return retval;
 }
@@ -530,7 +531,7 @@ bool QDBusMarshaller::appendVariantInternal(const QVariant &arg)
 
 bool QDBusMarshaller::appendRegisteredType(const QVariant &arg)
 {
-    ref.ref();                  // reference up
+    Q_ASSERT(ref.load() == -1);
     QDBusArgument self(QDBusArgumentPrivate::create(this));
     return QDBusMetaType::marshall(self, arg.userType(), arg.constData());
 }

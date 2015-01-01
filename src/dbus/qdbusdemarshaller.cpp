@@ -424,6 +424,7 @@ inline QDBusDemarshaller *QDBusDemarshaller::endMapEntry()
 QDBusDemarshaller *QDBusDemarshaller::endCommon()
 {
     QDBusDemarshaller *retval = parent;
+    Q_ASSERT(ref.load() == -1);
     delete this;
     return retval;
 }
@@ -431,6 +432,7 @@ QDBusDemarshaller *QDBusDemarshaller::endCommon()
 QDBusArgument QDBusDemarshaller::duplicate()
 {
     QScopedPointer<QDBusDemarshaller> d(new QDBusDemarshaller(q_dbus_message_ref(message), capabilities));
+    d->ref.store(1);    // permit refcounting
     d->iterator = iterator;
 
     q_dbus_message_iter_next(&iterator);

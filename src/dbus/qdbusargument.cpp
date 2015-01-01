@@ -59,6 +59,53 @@
 
 QT_BEGIN_NAMESPACE
 
+#if defined(QT_DBUS_EXPERIMENTAL_MARSHALLER) && defined(QT_LINKED_DBUS) && defined(Q_CC_GCC) && defined(Q_OF_ELF)
+static dbus_bool_t q_dbus_message_marshal_with_unix_fds (DBusMessage *,
+                                                         char        **marshalled_data_p,
+                                                         int          *len_p,
+                                                         const int   **unix_fds_p,
+                                                         unsigned     *n_fds_p)
+    __attribute__((weakref("dbus_message_marshal_with_unix_fds")));
+static DBusMessage* q_dbus_message_demarshal_with_unix_fds (const char *str,
+                                                            int         len,
+                                                            const int  *unix_fds_p,
+                                                            unsigned    n_fds,
+                                                            DBusError  *error)
+    __attribute__((weakref("dbus_message_demarshal_with_unix_fds")));
+static void resolveDBusMarshallerFunctions()
+{
+    Q_ASSERT(!q_dbus_message_marshal_with_unix_fds == !q_dbus_message_demarshal_with_unix_fds);
+}
+#else
+typedef dbus_bool_t (q_dbus_message_marshal_with_unix_fds_t) (DBusMessage *,
+                                                              char        **marshalled_data_p,
+                                                              int          *len_p,
+                                                              const int   **unix_fds_p,
+                                                              unsigned     *n_fds_p);
+typedef DBusMessage* (q_dbus_message_demarshal_with_unix_fds_t) (const char *str,
+                                                                 int         len,
+                                                                 const int  *unix_fds_p,
+                                                                 unsigned    n_fds,
+                                                                 DBusError  *error);
+#  if defined(QT_DBUS_EXPERIMENTAL_MARSHALLER) && !defined(QT_LINKED_DBUS)
+static q_dbus_message_marshal_with_unix_fds_t *q_dbus_message_marshal_with_unix_fds;
+static q_dbus_message_demarshal_with_unix_fds_t *q_dbus_message_demarshal_with_unix_fds;
+static void resolveDBusMarshallerFunctions()
+{
+    q_dbus_message_marshal_with_unix_fds =
+            reinterpret_cast<q_dbus_message_marshal_with_unix_fds_t *>(qdbus_resolve_conditionally("dbus_message_marshal_with_unix_fds"));
+    q_dbus_message_demarshal_with_unix_fds =
+            reinterpret_cast<q_dbus_message_demarshal_with_unix_fds_t *>(qdbus_resolve_conditionally("dbus_message_demarshal_with_unix_fds"));
+    Q_ASSERT(!q_dbus_message_marshal_with_unix_fds == !q_dbus_message_demarshal_with_unix_fds);
+}
+#  else
+//static const q_dbus_message_marshal_with_unix_fds_t *q_dbus_message_marshal_with_unix_fds;
+//static const q_dbus_message_demarshal_with_unix_fds_t *q_dbus_message_demarshal_with_unix_fds;
+//static void resolveDBusMarshallerFunctions()
+//{ }
+#  endif
+#endif
+
 QDBusArgumentPrivate::QDBusArgumentPrivate(DBusMessage *msg, Direction dir, int flags)
     : message(msg), ref(-1), capabilities(flags), direction(dir)
 { }

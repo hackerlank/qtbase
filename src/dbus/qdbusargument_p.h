@@ -67,6 +67,8 @@
 
 QT_BEGIN_NAMESPACE
 
+enum { ExperimentalMarshallerDemarshaller = 0x80000000 };
+
 class QDBusMarshaller;
 class QDBusDemarshaller;
 class QDBusArgumentPrivate

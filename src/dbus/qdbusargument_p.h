@@ -194,6 +194,8 @@ public:
 
     QDBusMessage::MessageType type()
     { return QDBusMessage::MessageType(q_dbus_message_get_type(message)); }
+    int serial()
+    { return q_dbus_message_get_serial(message); }
     QString senderService()
     { return QString::fromUtf8(q_dbus_message_get_sender(message)); }
     QString path()
@@ -206,6 +208,8 @@ public:
     { return QString::fromUtf8(q_dbus_message_get_member(message)); }
     QString fullSignature()
     { return QString::fromUtf8(q_dbus_message_get_signature(message)); }
+    bool isReplyRequired()
+    { return !q_dbus_message_get_no_reply(message); }
     QString currentSignature();
 
     uchar toByte();

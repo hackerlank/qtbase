@@ -79,7 +79,7 @@ public:
     // (service is also used to store the destination of reply-type messages)
     QString service, path, interface, name, message, signature;
 
-    mutable QDBusMessage *localReply;
+    mutable QDBusMessagePrivate *localReply;
     QAtomicInt ref;
     QDBusMessage::MessageType type;
     int serial;         // if type == MethodCall; the incoming serial; if type == Reply or Error, the serial we're replying to

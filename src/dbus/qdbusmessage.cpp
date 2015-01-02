@@ -71,7 +71,8 @@ QDBusMessagePrivate::QDBusMessagePrivate()
 
 QDBusMessagePrivate::~QDBusMessagePrivate()
 {
-    delete localReply;
+    if (localReply && !localReply->ref.deref())
+        delete localReply;
 }
 
 void QDBusMessagePrivate::createResponseLink(const QDBusMessagePrivate *call)
@@ -83,7 +84,8 @@ void QDBusMessagePrivate::createResponseLink(const QDBusMessagePrivate *call)
 
     if (call->localMessage) {
         localMessage = true;
-        call->localReply = new QDBusMessage(*this); // keep an internal copy
+        ref.ref();
+        call->localReply = this; // keep an internal copy
     } else {
         serial = call->serial;
         service = call->service;
@@ -332,7 +334,7 @@ QDBusMessage QDBusMessagePrivate::makeLocalReply(const QDBusConnectionPrivate &c
     // simulate the reply (return or error) message being sent to the bus and
     // then received back.
     if (callMsg.d_ptr->localReply)
-        return makeLocal(conn, *callMsg.d_ptr->localReply);
+        return makeLocal(conn, QDBusMessage(*callMsg.d_ptr->localReply));
     return QDBusMessage();      // failed
 }
 

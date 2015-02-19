@@ -31,10 +31,19 @@
 **
 ****************************************************************************/
 
-
 #include <QtTest/QtTest>
 #include <QtNetwork/QDnsLookup>
 #include <QtNetwork/QHostAddress>
+#include <stdio.h>
+
+#ifndef LINE_MAX
+#  define LINE_MAX 512
+#endif
+
+#if defined(Q_CC_MSVC)
+#  define popen _popen
+#  define pclose _pclose
+#endif
 
 static bool waitForDone(QDnsLookup *lookup)
 {
@@ -50,10 +59,25 @@ static bool waitForDone(QDnsLookup *lookup)
 class tst_QDnsLookup: public QObject
 {
     Q_OBJECT
+    enum LocalResolverStatus {
+        Unknown = 0,
+        Failing = -1,
+        Working = 1
+    } localResolverStatus;
+
+    QString defaultDomainName()
+    { return QStringLiteral(".test.qt-project.org"); }
 
     QString domainName(const QString &input);
     QString domainNameList(const QString &input);
     QStringList domainNameListAlternatives(const QString &input);
+
+    LocalResolverStatus testLocalResolver();
+    QStringList resolve(const QByteArray &fqdn);
+
+public:
+    tst_QDnsLookup() : localResolverStatus(testLocalResolver()) {}
+
 public slots:
     void initTestCase();
 
@@ -68,8 +92,8 @@ private slots:
 void tst_QDnsLookup::initTestCase()
 {
     QTest::addColumn<QString>("tld");
-    QTest::newRow("normal") << ".test.macieira.org";
-    QTest::newRow("idn") << ".alqualond\xc3\xab.test.macieira.org";
+    QTest::newRow("normal") << defaultDomainName();
+    QTest::newRow("idn") << (".alqualond\xc3\xab"  + defaultDomainName());
 }
 
 QString tst_QDnsLookup::domainName(const QString &input)
@@ -105,6 +129,158 @@ QStringList tst_QDnsLookup::domainNameListAlternatives(const QString &input)
     for (int i = 0; i < alternatives.length(); ++i)
         alternatives[i] = domainNameList(alternatives[i]);
     return alternatives;
+}
+
+tst_QDnsLookup::LocalResolverStatus tst_QDnsLookup::testLocalResolver()
+{
+    QStringList result = resolve("localhost" + defaultDomainName().toLatin1());
+//    qDebug() << result;
+    if (result.contains("A 127.0.0.1") && result.contains("AAAA ::1"))
+        return Working;
+
+    return Failing;
+}
+
+static bool parseNslookupLine(const char *line, const char *needle, const char *rrtype, QString *result)
+{
+    if (strncmp(line, needle, strlen(needle)) != 0)
+        return false;
+
+    line += strlen(needle);
+    *result = QString::fromLatin1(line).trimmed();
+    result->prepend(rrtype);
+    return true;
+}
+
+QStringList tst_QDnsLookup::resolve(const QByteArray &fqdn)
+{
+    FILE *p;
+    QStringList response;
+    if (localResolverStatus == Failing)
+        return response;
+
+#ifdef Q_OS_UNIX
+    p = popen("dig +noquestion +noauthority +noadditional +nomultiline -t any " + fqdn, "r");
+    if (p) {
+        while (!feof(p)) {
+            char line[LINE_MAX];
+            if (fgets(line, sizeof line, p) == NULL)
+                break;
+            if (line[0] == ';' || line[0] == '\n') {
+                // empty or comment line
+                continue;
+            }
+
+            // the only non-empty, non-comment line in the dig output should be the answer section.
+            // format:
+            //   <fqdn> <sp>+ <ttl> <sp>+ <class> <tab> <rrtype> <tab> <result>
+            // this line should start with the FQDN we asked for
+            int minLen = fqdn.length();
+            if (strncmp(line, fqdn, minLen) != 0) {
+                response.clear();
+                break;
+            }
+
+            if (line[minLen] == '.')        // ending dot in the domain name for FQDN
+                ++minLen;
+            while (isspace(line[minLen]))
+                ++minLen;
+            while (isdigit(line[minLen]))   // TTL
+                ++minLen;
+            while (isspace(line[minLen]))
+                ++minLen;
+            while (minLen < (int)strlen(line) && !isspace(line[minLen])) // class
+                ++minLen;
+            while (isspace(line[minLen]))
+                ++minLen;
+
+            // append to the response
+            response << QString(line + minLen).simplified();
+        }
+        int ret = pclose(p);
+        if (ret == 0) {
+            response.sort();
+            return response;
+        }
+        response.clear();
+    }
+#endif
+
+#if !defined(Q_OS_WINCE) && !defined(Q_OS_WINRT)
+    p = popen("nslookup -type=any -nosearch " + fqdn, "r");
+    if (p) {
+        bool receivingAnswer = false;
+        while (!feof(p)) {
+            char line[LINE_MAX];
+            if (fgets(line, sizeof line, p) == NULL)
+                break;
+
+            if (!receivingAnswer) {
+                if (line[0] == '\n')
+                    receivingAnswer = true;
+                continue;
+            }
+
+            if (strncmp(line, "Authoritative answers", sizeof "Authoritative answers" - 1) == 0)
+                break;
+
+            if (strncmp(line, "Address:", sizeof "Address:" - 1) == 0) {
+                // A record, different format from the rest...
+                QByteArray ip = line + sizeof "Address:";
+                response.append("A " + qMove(ip).trimmed());
+                continue;
+            }
+
+            // all other records start with the FQDN we searched for
+            if (strncmp(line, fqdn, fqdn.length()) != 0)
+                continue;
+
+            const char *p = line + fqdn.length();
+            while (isspace(*p))
+                ++p;
+
+            QString entry;
+            if (parseNslookupLine(p, "nameserver =", "NS ", &entry)
+                    || parseNslookupLine(p, "internet address =", "A ", &entry)
+                    || parseNslookupLine(p, "has AAAA address", "AAAA ", &entry)
+                    || parseNslookupLine(p, "AAAA IPv6 address", "AAAA ", &entry)
+                    || parseNslookupLine(p, "mail exchanger =", "MX ", &entry)
+                    || parseNslookupLine(p, "text =", "TXT ", &entry)
+                    || parseNslookupLine(p, "name =", "PTR ", &entry)
+                    || parseNslookupLine(p, "canonical name =", "CNAME ", &entry)
+                    || parseNslookupLine(p, "service =", "SRV ", &entry)) {
+                response.append(entry);
+                continue;
+            }
+
+            // special case for MX lines with Windows nslookup.exe:
+            // MX preference = 10, mail exchanger = multi.test.qt-project.org
+            if (parseNslookupLine(p, "MX preference = ", 0, &entry)) {
+                int i = 0;
+                QString tmp;
+                qSwap(tmp, entry);
+
+                entry = "MX ";
+                for ( ; isdigit(tmp.at(i).unicode()); ++i)
+                    entry += tmp.at(i);
+
+                int equals = tmp.indexOf('=', i);
+                if (equals != -1 && tmp.at(i) == ',') {
+                    entry += tmp.mid(equals + 1);   // include the space
+                    response.append(entry);
+                }
+            }
+        }
+
+        int ret = pclose(p);
+        if (ret == 0) {
+            response.sort();
+            return response;
+        }
+        response.clear();
+    }
+#endif // !Q_OS_WINCE
+    return response;
 }
 
 void tst_QDnsLookup::lookup_data()
@@ -146,8 +322,30 @@ void tst_QDnsLookup::lookup_data()
 
     QTest::newRow("ns-empty") << int(QDnsLookup::NS) << "" << int(QDnsLookup::InvalidRequestError) << "" << "" << "" << "" << "" << "" << "";
     QTest::newRow("ns-notfound") << int(QDnsLookup::NS) << "invalid.invalid" << int(QDnsLookup::NotFoundError) << "" << "" << "" << "" << "" << "" << "";
-    QTest::newRow("ns-single") << int(QDnsLookup::NS) << "ns-single" << int(QDnsLookup::NoError) << "" << "" << "" << "ns3.macieira.info." << "" << "" << "";
-    QTest::newRow("ns-multi") << int(QDnsLookup::NS) << "ns-multi" << int(QDnsLookup::NoError) << "" << "" << "" << "gondolin.macieira.info.;ns3.macieira.info." << "" << "" << "";
+
+    QStringList nsmulti = QStringList() << "ns11.cloudns.net." << "ns12.cloudns.net.";
+    QString nssingle = nsmulti.first();
+
+    // attempt to update the NS records
+    if (localResolverStatus == Working) {
+        QStringList result = resolve("ns-multi" + defaultDomainName().toLatin1());
+        nsmulti.clear();
+        foreach (QString entry, result) {
+            if (entry.startsWith("NS "))
+                nsmulti << entry.remove(0, 3);
+        }
+        nsmulti.sort();
+
+        result = resolve("ns-single" + defaultDomainName().toLatin1());
+        nssingle = result.first();
+        if (nssingle.startsWith("NS "))
+            nssingle.remove(0, 3);
+
+        qDebug() << "Updated NS records to" << nssingle << "(single) and" << nsmulti << "(multi)";
+    }
+
+    QTest::newRow("ns-single") << int(QDnsLookup::NS) << "ns-single" << int(QDnsLookup::NoError) << "" << "" << "" << nssingle << "" << "" << "";
+    QTest::newRow("ns-multi") << int(QDnsLookup::NS) << "ns-multi" << int(QDnsLookup::NoError) << "" << "" << "" << nsmulti.join(';') << "" << "" << "";
 
     QTest::newRow("ptr-empty") << int(QDnsLookup::PTR) << "" << int(QDnsLookup::InvalidRequestError) << "" << "" << "" << "" << "" << "" << "";
     QTest::newRow("ptr-notfound") << int(QDnsLookup::PTR) << "invalid.invalid" << int(QDnsLookup::NotFoundError) << "" << "" << "" << "" << "" << "" << "";

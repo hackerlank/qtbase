@@ -130,6 +130,15 @@ void tst_QDnsLookup::lookup_data()
     QTest::newRow("any-a-plus-aaaa") << int(QDnsLookup::ANY) << "a-plus-aaaa" << int(QDnsLookup::NoError) << "" << "198.51.100.1;2001:db8::1:1" << "" << "" << "" << ""  << "";
     QTest::newRow("any-multi") << int(QDnsLookup::ANY) << "multi" << int(QDnsLookup::NoError) << "" << "198.51.100.1;198.51.100.2;198.51.100.3;2001:db8::1:1;2001:db8::1:2" << "" << "" << "" << ""  << "";
 
+    QTest::newRow("cname") << int(QDnsLookup::CNAME) << "cname" << int(QDnsLookup::NoError) << "multi" << ""  << "" << "" << "" << ""  << "";
+    QTest::newRow("cname-cname") << int(QDnsLookup::CNAME) << "cname-cname" << int(QDnsLookup::NoError) << "cname" << ""  << "" << "" << "" << ""  << "";
+    QTest::newRow("any-cname") << int(QDnsLookup::ANY) << "cname" << int(QDnsLookup::NoError) << "multi" << ""  << "" << "" << "" << ""  << "";
+    QTest::newRow("any-cname-cname") << int(QDnsLookup::ANY) << "cname-cname" << int(QDnsLookup::NoError) << "cname" << ""  << "" << "" << "" << ""  << "";
+    QTest::newRow("a-cname") << int(QDnsLookup::A) << "cname" << int(QDnsLookup::NoError) << "multi" << "198.51.100.1;198.51.100.2;198.51.100.3"  << "" << "" << "" << ""  << "";
+    QTest::newRow("a-cname-cname") << int(QDnsLookup::A) << "cname-cname" << int(QDnsLookup::NoError) << "cname;multi" << "198.51.100.1;198.51.100.2;198.51.100.3"  << "" << "" << "" << ""  << "";
+    QTest::newRow("aaaa-cname") << int(QDnsLookup::AAAA) << "cname" << int(QDnsLookup::NoError) << "multi" << "2001:db8::1:1;2001:db8::1:2"  << "" << "" << "" << ""  << "";
+    QTest::newRow("aaaa-cname-cname") << int(QDnsLookup::AAAA) << "cname-cname" << int(QDnsLookup::NoError) << "cname;multi" << "2001:db8::1:1;2001:db8::1:2"  << "" << "" << "" << ""  << "";
+
     QTest::newRow("mx-empty") << int(QDnsLookup::MX) << "" << int(QDnsLookup::InvalidRequestError) << "" << "" << "" << "" << "" << "" << "";
     QTest::newRow("mx-notfound") << int(QDnsLookup::MX) << "invalid.invalid" << int(QDnsLookup::NotFoundError) << "" << "" << "" << "" << "" << "" << "";
     QTest::newRow("mx-single") << int(QDnsLookup::MX) << "mx-single" << int(QDnsLookup::NoError) << "" << "" << "10 multi" << "" << "" << "" << "";
@@ -217,10 +226,14 @@ void tst_QDnsLookup::lookup()
     QFETCH(QString, txt);
 
     // transform the inputs
+
     domain = domainName(domain);
-    cname = domainName(cname);
+    cname = domainNameList(cname);
     ns = domainNameList(ns);
     ptr = domainNameList(ptr);
+
+    // the actual domain
+    QString canonicalDomain = domain;
 
     // SRV and MX have reply entries that can change order
     // and we can't sort
@@ -247,21 +260,29 @@ void tst_QDnsLookup::lookup()
     QCOMPARE(lookup.name(), domain);
 
     // canonical names
+    // note: this loop updates canonicalDomain
     if (!cname.isEmpty()) {
         QVERIFY(!lookup.canonicalNameRecords().isEmpty());
-        const QDnsDomainNameRecord cnameRecord = lookup.canonicalNameRecords().first();
-        QCOMPARE(cnameRecord.name(), domain);
-        QCOMPARE(cnameRecord.value(), cname);
+        QList<QDnsDomainNameRecord> cnameRecords = lookup.canonicalNameRecords();
+        QStringList expectedCnameRecords = cname.split(';');
+
+        for (int i = 0; i < qMin(cnameRecords.length(), expectedCnameRecords.length()); ++i) {
+            const QDnsDomainNameRecord &cnameRecord = cnameRecords.at(i);
+            QCOMPARE(cnameRecord.name(), canonicalDomain);
+            QCOMPARE(cnameRecord.value(), expectedCnameRecords.at(i));
+            canonicalDomain = cnameRecord.value();
+        }
+        QCOMPARE(cnameRecords.length(), expectedCnameRecords.length());
     } else {
         QVERIFY(lookup.canonicalNameRecords().isEmpty());
     }
 
     // host addresses
-    const QString hostName = cname.isEmpty() ? domain : cname;
     QStringList addresses;
     foreach (const QDnsHostAddressRecord &record, lookup.hostAddressRecords()) {
-        //reply may include A & AAAA records for nameservers, ignore them and only look at records matching the query
-        if (record.name() == hostName)
+        // reply may include A & AAAA records for nameservers, ignore them and
+        // only look at records matching the canonical domain
+        if (record.name() == canonicalDomain)
             addresses << record.value().toString().toLower();
     }
     addresses.sort();

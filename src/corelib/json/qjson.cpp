@@ -205,7 +205,7 @@ bool Object::isValid() const
         offset entryOffset = table()[i];
         if (entryOffset + sizeof(Entry) >= tableOffset)
             return false;
-        Entry *e = entryAt(i);
+        const Entry *e = entryAt(i);
         int s = e->size();
         if (table()[i] + s > tableOffset)
             return false;
@@ -277,11 +277,11 @@ int Value::usedStorage(const Base *b) const
         s = sizeof(double);
         break;
     case QJsonValue::String: {
-        char *d = data(b);
+        const char *d = data(b);
         if (latinOrIntValue)
-            s = sizeof(ushort) + qFromLittleEndian(*(ushort *)d);
+            s = sizeof(ushort) + qFromLittleEndian(*(const ushort *)d);
         else
-            s = sizeof(int) + sizeof(ushort) * qFromLittleEndian(*(int *)d);
+            s = sizeof(int) + sizeof(ushort) * qFromLittleEndian(*(const int *)d);
         break;
     }
     case QJsonValue::Array:
@@ -326,9 +326,9 @@ bool Value::isValid(const Base *b) const
     if (s < 0 || offset + s > (int)b->tableOffset)
         return false;
     if (type == QJsonValue::Array)
-        return static_cast<Array *>(base(b))->isValid();
+        return static_cast<const Array *>(base(b))->isValid();
     if (type == QJsonValue::Object)
-        return static_cast<Object *>(base(b))->isValid();
+        return static_cast<const Object *>(base(b))->isValid();
     return true;
 }
 

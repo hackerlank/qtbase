@@ -129,7 +129,7 @@ QJsonValue::QJsonValue(QJsonPrivate::Data *data, QJsonPrivate::Base *base, const
     case Array:
     case Object:
         d = data;
-        this->base = v.base(base);
+        this->base = const_cast<QJsonPrivate::Base *>(v.base(base));
         break;
     }
     if (d)
@@ -199,7 +199,7 @@ QJsonValue::QJsonValue(const QString &s)
 
 void QJsonValue::stringDataFromQStringHelper(const QString &string)
 {
-    stringData = *(QStringData **)(&string);
+    stringData = *(const QStringPrivate *)(&string);
     stringData->ref.ref();
 }
 

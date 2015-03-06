@@ -135,13 +135,13 @@ static void valueToJson(const QJsonPrivate::Base *b, const QJsonPrivate::Value &
         break;
     case QJsonValue::Array:
         json += compact ? "[" : "[\n";
-        arrayContentToJson(static_cast<QJsonPrivate::Array *>(v.base(b)), json, indent + (compact ? 0 : 1), compact);
+        arrayContentToJson(static_cast<const QJsonPrivate::Array *>(v.base(b)), json, indent + (compact ? 0 : 1), compact);
         json += QByteArray(4*indent, ' ');
         json += "]";
         break;
     case QJsonValue::Object:
         json += compact ? "{" : "{\n";
-        objectContentToJson(static_cast<QJsonPrivate::Object *>(v.base(b)), json, indent + (compact ? 0 : 1), compact);
+        objectContentToJson(static_cast<const QJsonPrivate::Object *>(v.base(b)), json, indent + (compact ? 0 : 1), compact);
         json += QByteArray(4*indent, ' ');
         json += "}";
         break;
@@ -183,7 +183,7 @@ static void objectContentToJson(const QJsonPrivate::Object *o, QByteArray &json,
 
     uint i = 0;
     while (1) {
-        QJsonPrivate::Entry *e = o->entryAt(i);
+        const QJsonPrivate::Entry *e = o->entryAt(i);
         json += indentString;
         json += '"';
         json += escapedString(e->key());

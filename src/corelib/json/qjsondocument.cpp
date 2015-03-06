@@ -182,7 +182,7 @@ QJsonDocument QJsonDocument::fromRawData(const char *data, int size, DataValidat
         return QJsonDocument();
     }
 
-    QJsonPrivate::Data *d = new QJsonPrivate::Data((char *)data, size);
+    QJsonPrivate::Data *d = new QJsonPrivate::Data(const_cast<char *>(data), size);
     d->ownsData = false;
 
     if (validation != BypassValidation && !d->valid()) {

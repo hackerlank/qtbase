@@ -292,7 +292,7 @@ class Latin1String;
 class String
 {
 public:
-    String(const char *data) { d = (Data *)data; }
+    String(const char *data) { d = const_cast<Data *>(reinterpret_cast<const Data *>(data)); }
 
     struct Data {
         qle_int length;
@@ -366,7 +366,7 @@ public:
 class Latin1String
 {
 public:
-    Latin1String(const char *data) { d = (Data *)data; }
+    Latin1String(const char *data) { d = const_cast<Data *>(reinterpret_cast<const Data *>(data)); }
 
     struct Data {
         qle_short length;
@@ -382,8 +382,8 @@ public:
         int i = 0;
 #ifdef __SSE2__
         for ( ; i + 16 < len; i += 16) {
-            __m128i chunk1 = _mm_loadu_si128((__m128i*)&uc[i]); // load
-            __m128i chunk2 = _mm_loadu_si128((__m128i*)&uc[i + 8]); // load
+            __m128i chunk1 = _mm_loadu_si128((const __m128i*)&uc[i]); // load
+            __m128i chunk2 = _mm_loadu_si128((const __m128i*)&uc[i + 8]); // load
             // pack the two vector to 16 x 8bits elements
             const __m128i result = _mm_packus_epi16(chunk1, chunk2);
             _mm_storeu_si128((__m128i*)&l[i], result); // store
@@ -391,7 +391,7 @@ public:
 #  ifdef Q_PROCESSOR_X86_64
         // we can do one more round, of 8 characters
         if (i + 8 < len) {
-            __m128i chunk = _mm_loadu_si128((__m128i*)&uc[i]); // load
+            __m128i chunk = _mm_loadu_si128((const __m128i*)&uc[i]); // load
             // pack with itself, we'll discard the high part anyway
             chunk = _mm_packus_epi16(chunk, chunk);
             // unaligned 64-bit store
@@ -546,7 +546,8 @@ public:
     inline bool isObject() const { return is_object; }
     inline bool isArray() const { return !isObject(); }
 
-    inline offset *table() const { return (offset *) (((char *) this) + tableOffset); }
+    inline const offset *table() const { return (const offset *) (((const char *) this) + tableOffset); }
+    inline offset *table() { return (offset *) (((char *) this) + tableOffset); }
 
     int reserveSpace(uint dataSize, int posInTable, uint numItems, bool replace);
     void removeItems(int pos, int numItems);
@@ -555,7 +556,10 @@ public:
 class Object : public Base
 {
 public:
-    Entry *entryAt(int i) const {
+    const Entry *entryAt(int i) const {
+        return reinterpret_cast<const Entry *>(((const char *)this) + table()[i]);
+    }
+    Entry *entryAt(int i) {
         return reinterpret_cast<Entry *>(((char *)this) + table()[i]);
     }
     int indexOf(const QString &key, bool *exists);
@@ -589,7 +593,7 @@ public:
         qle_signedbitfield<5, 27> int_value;
     };
 
-    inline char *data(const Base *b) const { return ((char *)b) + value; }
+    inline const char *data(const Base *b) const { return ((const char *)b) + value; }
     int usedStorage(const Base *b) const;
 
     bool toBoolean() const;
@@ -597,7 +601,7 @@ public:
     QString toString(const Base *b) const;
     String asString(const Base *b) const;
     Latin1String asLatin1String(const Base *b) const;
-    Base *base(const Base *b) const;
+    const Base *base(const Base *b) const;
 
     bool isValid(const Base *b) const;
 
@@ -608,7 +612,7 @@ public:
 
 inline Value Array::at(int i) const
 {
-    return *(Value *) (table() + i);
+    return *(const Value *) (table() + i);
 }
 
 inline Value &Array::operator [](int i)
@@ -627,9 +631,9 @@ public:
     int size() const {
         int s = sizeof(Entry);
         if (value.latinKey)
-            s += sizeof(ushort) + qFromLittleEndian(*(ushort *) ((const char *)this + sizeof(Entry)));
+            s += sizeof(ushort) + qFromLittleEndian(*(const ushort *) ((const char *)this + sizeof(Entry)));
         else
-            s += sizeof(uint) + sizeof(ushort)*qFromLittleEndian(*(int *) ((const char *)this + sizeof(Entry)));
+            s += sizeof(uint) + sizeof(ushort)*qFromLittleEndian(*(const int *) ((const char *)this + sizeof(Entry)));
         return alignedSize(s);
     }
 
@@ -721,10 +725,10 @@ inline QString Value::toString(const Base *b) const
         return asString(b).toString();
 }
 
-inline Base *Value::base(const Base *b) const
+inline const Base *Value::base(const Base *b) const
 {
     Q_ASSERT(type == QJsonValue::Array || type == QJsonValue::Object);
-    return reinterpret_cast<Base *>(data(b));
+    return reinterpret_cast<const Base *>(data(b));
 }
 
 class Data {
@@ -767,7 +771,7 @@ public:
     inline ~Data()
     { if (ownsData) free(rawData); }
 
-    uint offsetOf(const void *ptr) const { return (uint)(((char *)ptr - rawData)); }
+    uint offsetOf(const void *ptr) const { return (uint)(((const char *)ptr - rawData)); }
 
     QJsonObject toObject(Object *o) const
     {

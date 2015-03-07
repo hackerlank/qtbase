@@ -45,6 +45,10 @@
 #include <time.h>
 #include <unistd.h>
 
+#ifndef __has_include
+#  define __has_include(x)  0
+#endif
+
 #ifdef __linux__
 #  define HAVE_WAIT4    1
 #  if defined(__BIONIC__) || (defined(__GLIBC__) && (__GLIBC__ << 8) + __GLIBC_MINOR__ >= 0x207 && \
@@ -55,6 +59,10 @@
 #  if defined(__BIONIC__) || (defined(__GLIBC__) && (__GLIBC__ << 8) + __GLIBC_MINOR__ >= 0x209 && \
        (!defined(__UCLIBC__) || ((__UCLIBC_MAJOR__ << 16) + (__UCLIBC_MINOR__ << 8) + __UCLIBC_SUBLEVEL__ > 0x90201)))
 #    define HAVE_PIPE2    1
+#  endif
+#  if defined(__GLIBC__) || defined(__BIONIC__) || (__has_include(<sys/syscall.h>) && __has_include(<linux/sched.h>))
+#    include <linux/sched.h>
+#    include <sys/syscall.h>
 #  endif
 #endif
 #if defined(__FreeBSD__) && __FreeBSD__ >= 9
@@ -591,6 +599,30 @@ static int system_forkfd(int flags, pid_t *ppid)
         *ppid = pid;
     return ret;
 }
+
+#elif defined(FORKFD_NO_SPAWNFD) && defined(CLONE_FD) && defined(__NR_clone4)
+static ffd_atomic_int system_has_forkfd = FFD_ATOMIC_INIT(1);
+static int system_forkfd(int flags, pid_t *ppid)
+{
+    // Linux-only: kernel support for forkfd
+    int ffd;
+    struct clone4_args args;
+    memset(&args, 0, sizeof(args));
+    args.ptid = ppid;
+    args.clonefd = &ffd;
+    args.clonefd_flags = (flags & FFD_CLOEXEC ? O_CLOEXEC : 0) |
+                         (flags & FFD_NONBLOCK ? O_NONBLOCK : 0);
+    uint64_t kflags = CLONE_FD | CLONE_AUTOREAP | CLONE_CHILD_CLEARTID | CLONE_CHILD_SETTID |
+                      (ppid ? CLONE_PARENT_SETTID : 0);
+    int ret = syscall(__NR_clone4, kflags >> 32, (uint32_t)kflags, sizeof(args), &args, 0,0);
+    if (ret == -1 && (errno == ENOSYS || errno == EINVAL)) {
+        ffd_atomic_store(&system_has_forkfd, 0, FFD_ATOMIC_RELAXED);
+        return -1;
+    }
+    if (ret == 0)
+        return FFD_CHILD_PROCESS;
+    return ffd;
+}
 #else
 static const int system_has_forkfd = 0;
 static int system_forkfd(int flags, pid_t *ppid)
@@ -851,6 +883,24 @@ int forkfd_wait(int ffd, forkfd_info *info, struct rusage *rusage)
         ret = wait4(pid, &status, options, rusage);
         if (ret != -1 && info)
             convertStatusToForkfdInfo(status, info);
+        return ret == -1 ? -1 : 0;
+#elif defined(CLONE_FD)
+        struct clonefd_info kinfo;
+        ret = read(ffd, &kinfo, sizeof(kinfo));
+        if (ret == -1)
+            return ret;
+
+        if (info) {
+            info->code = kinfo.code;
+            info->status = kinfo.status;
+        }
+        if (rusage) {
+            memset(rusage, 0, sizeof(*rusage));
+            rusage->ru_utime.tv_sec = kinfo.utime / CLOCKS_PER_SEC;
+            rusage->ru_utime.tv_usec = kinfo.utime % CLOCKS_PER_SEC;
+            rusage->ru_stime.tv_sec = kinfo.stime / CLOCKS_PER_SEC;
+            rusage->ru_stime.tv_usec = kinfo.stime % CLOCKS_PER_SEC;
+        }
         return ret == -1 ? -1 : 0;
 #endif
     }

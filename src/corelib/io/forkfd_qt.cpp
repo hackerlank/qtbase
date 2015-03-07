@@ -71,6 +71,56 @@ QT_BEGIN_NAMESPACE
 
 QT_END_NAMESPACE
 
+#ifdef Q_OS_LINUX
+#  include <linux/types.h>
+#  include <linux/posix_types.h>
+#  include <linux/sched.h>
+#  ifndef CLONE_FD
+
+/*
+ * Flags that only work with clone4.
+ */
+#define CLONE_AUTOREAP  0x00001000      /* Automatically reap the process */
+#define CLONE_FD        0x00400000      /* Signal exit via file descriptor */
+
+/*
+ * Structure read from CLONE_FD file descriptor after process exits
+ */
+struct clonefd_info {
+        __s32 code;
+        __s32 status;
+        __u64 utime;
+        __u64 stime;
+};
+
+/*
+ * Structure passed to clone4 for additional arguments.  Initialized to 0,
+ * then overwritten with arguments from userspace, so arguments not supplied by
+ * userspace will remain 0.  New versions of the kernel may safely append new
+ * arguments to the end.
+ */
+struct clone4_args {
+    __kernel_pid_t *ptid;
+    __kernel_pid_t *ctid;
+    __kernel_ulong_t stack_start;
+    __kernel_ulong_t stack_size;
+    __kernel_ulong_t tls;
+    int *clonefd;
+    __u32 clonefd_flags;
+};
+
+#  endif
+#  if !defined(__NR_clone4) && defined(Q_PROCESSOR_X86)
+#    ifdef __LP64__
+#      define __NR_clone4   330
+#    elif defined(__ILP32__)
+#      define __NR_clone4   (__X32_SYSCALL_BIT + 548)
+#    else
+#      define __NR_clone4   381
+#    endif
+#  endif
+#endif
+
 extern "C" {
 #include "../../3rdparty/forkfd/forkfd.c"
 }

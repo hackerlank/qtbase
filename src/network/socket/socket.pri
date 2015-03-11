@@ -39,7 +39,8 @@ qtConfig(sctp) {
 
 !winrt {
     SOURCES += socket/qnativesocketengine.cpp
-    HEADERS += socket/qnativesocketengine_p.h
+    HEADERS += socket/qnativesocketengine_p.h \
+               socket/qcmsg_p.h
 }
 
 unix: {

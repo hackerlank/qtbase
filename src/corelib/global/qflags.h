@@ -145,6 +145,7 @@ public:
     Q_DECL_CONSTEXPR inline bool operator!() const Q_DECL_NOTHROW { return !i; }
 
     Q_DECL_CONSTEXPR inline bool testFlag(Enum f) const Q_DECL_NOTHROW { return (i & Int(f)) == Int(f) && (Int(f) != 0 || i == Int(f) ); }
+    Q_DECL_CONSTEXPR inline bool testFlag(QFlags f) const Q_DECL_NOTHROW { return testFlag(Enum(f.i)); }
     Q_DECL_RELAXED_CONSTEXPR inline QFlags &setFlag(Enum f, bool on = true) Q_DECL_NOTHROW
     {
         return on ? (*this |= f) : (*this &= ~f);

@@ -45,6 +45,7 @@
 #include <ws2tcpip.h>
 
 #include "qnativesocketengine_p.h"
+#include "qcmsg_p.h"
 
 #include <qabstracteventdispatcher.h>
 #include <qsocketnotifier.h>
@@ -1191,27 +1192,20 @@ qint64 QNativeSocketEnginePrivate::nativePendingDatagramSize() const
 qint64 QNativeSocketEnginePrivate::nativeReceiveDatagram(char *data, qint64 maxLength, QIpPacketHeader *header,
                                                          QAbstractSocketEngine::PacketHeaderOptions options)
 {
-    union {
-        char cbuf[WSA_CMSG_SPACE(sizeof(struct in6_pktinfo)) + WSA_CMSG_SPACE(sizeof(int))];
-        WSACMSGHDR align;    // only to ensure alignment
-    };
-    WSAMSG msg;
-    WSABUF buf;
-    qt_sockaddr aa;
-    char c;
-    memset(&msg, 0, sizeof(msg));
-    memset(&aa, 0, sizeof(aa));
+    Q_STATIC_ASSERT(sizeof(in6_pktinfo) >= sizeof(in_pktinfo));
 
     // we need to receive at least one byte, even if our user isn't interested in it
-    buf.buf = maxLength ? data : &c;
-    buf.len = maxLength ? maxLength : 1;
-    msg.lpBuffers = &buf;
-    msg.dwBufferCount = 1;
-    msg.name = reinterpret_cast<LPSOCKADDR>(&aa);
-    msg.namelen = sizeof(aa);
-    if (options & (QAbstractSocketEngine::WantDatagramHopLimit | QAbstractSocketEngine::WantDatagramDestination)) {
-        msg.Control.buf = cbuf;
-        msg.Control.len = sizeof(cbuf);
+    char c;
+    SocketMessage<in6_pktinfo, in6_hoplimit> msg(maxLength ? data : &c, qMax(maxLength, qint64(1)));
+
+    // turn off what we're not interested in
+    if (!options.testFlag(QAbstractSocketEngine::WantDatagramSender)) {
+        msg.name = 0;
+        msg.namelen = 0;
+    }
+    if (!options.testFlag(QAbstractSocketEngine::WantDatagramHopLimit | QAbstractSocketEngine::WantDatagramDestination)) {
+        msg.Control.buf = 0;
+        msg.Control.len = 0;
     }
 
     DWORD flags = 0;
@@ -1219,9 +1213,10 @@ qint64 QNativeSocketEnginePrivate::nativeReceiveDatagram(char *data, qint64 maxL
     qint64 ret;
 
     if (recvmsg)
-        ret = recvmsg(socketDescriptor, &msg, &bytesRead, 0,0);
+        ret = recvmsg(socketDescriptor, msg.forReceiving(), &bytesRead, 0,0);
     else
-        ret = ::WSARecvFrom(socketDescriptor, &buf, 1, &bytesRead, &flags, msg.name, &msg.namelen,0,0);
+        ret = ::WSARecvFrom(socketDescriptor, msg.lpBuffers, msg.dwBufferCount, &bytesRead, &flags,
+                            msg.name, msg.name ? &msg.namelen : 0,0,0);
     if (ret == SOCKET_ERROR) {
         int err = WSAGetLastError();
         if (err == WSAEMSGSIZE) {
@@ -1248,36 +1243,28 @@ qint64 QNativeSocketEnginePrivate::nativeReceiveDatagram(char *data, qint64 maxL
     } else {
         ret = qint64(bytesRead);
         if (options & QNativeSocketEngine::WantDatagramSender)
-            qt_socket_getPortAndAddress(socketDescriptor, &aa, &header->senderPort, &header->senderAddress);
+            qt_socket_getPortAndAddress(socketDescriptor, &msg.address, &header->senderPort, &header->senderAddress);
     }
 
     if (ret != -1 && recvmsg) {
-        // get the ancillary data
-        WSACMSGHDR *cmsgptr;
-        for (cmsgptr = WSA_CMSG_FIRSTHDR(&msg); cmsgptr != NULL;
-             cmsgptr = WSA_CMSG_NXTHDR(&msg, cmsgptr)) {
-            if (cmsgptr->cmsg_level == IPPROTO_IPV6 && cmsgptr->cmsg_type == IPV6_PKTINFO
-                    && cmsgptr->cmsg_len >= WSA_CMSG_LEN(sizeof(in6_pktinfo))) {
-                in6_pktinfo *info = reinterpret_cast<in6_pktinfo *>(WSA_CMSG_DATA(cmsgptr));
-                QHostAddress target(reinterpret_cast<quint8 *>(&info->ipi6_addr));
-                if (info->ipi6_ifindex)
-                    target.setScopeId(QString::number(info->ipi6_ifindex));
+        // parse the ancillary data
+        for (AncillaryData *adata = msg.firstAncillaryPayload(); adata; adata = msg.next(adata)) {
+            if (in6_pktinfo *info = adata->payload<in6_pktinfo>()) {
+                header->destinationAddress.setAddress(reinterpret_cast<quint8 *>(&info->ipi6_addr));
+                header->ifindex = info->ipi6_ifindex;
+                if (header->ifindex)
+                    header->destinationAddress.setScopeId(QString::number(info->ipi6_ifindex));
+                else
+                    header->destinationAddress.setScopeId(QString());
             }
-            if (cmsgptr->cmsg_level == IPPROTO_IP && cmsgptr->cmsg_type == IP_PKTINFO
-                    && cmsgptr->cmsg_len >= WSA_CMSG_LEN(sizeof(in_pktinfo))) {
-                in_pktinfo *info = reinterpret_cast<in_pktinfo *>(WSA_CMSG_DATA(cmsgptr));
-                u_long addr;
-                WSANtohl(socketDescriptor, info->ipi_addr.s_addr, &addr);
-                QHostAddress target(addr);
-                if (info->ipi_ifindex)
-                    target.setScopeId(QString::number(info->ipi_ifindex));
+            if (in_pktinfo *info = adata->payload<in_pktinfo>()) {
+                header->destinationAddress.setAddress(ntohl(info->ipi_addr.s_addr));
+                header->ifindex = info->ipi_ifindex;
             }
-
-            if (cmsgptr->cmsg_len == WSA_CMSG_LEN(sizeof(int))
-                    && ((cmsgptr->cmsg_level == IPPROTO_IPV6 && cmsgptr->cmsg_type == IPV6_HOPLIMIT)
-                        || (cmsgptr->cmsg_level == IPPROTO_IP && cmsgptr->cmsg_type == IP_TTL))) {
-                header->hopLimit = *reinterpret_cast<int *>(WSA_CMSG_DATA(cmsgptr));
-            }
+            if (in_ttl *ptr = adata->payload<in_ttl>())
+                header->hopLimit = ptr->value;
+            if (in6_hoplimit *ptr = adata->payload<in6_hoplimit>())
+                header->hopLimit = ptr->value;
         }
     }
 
@@ -1296,85 +1283,42 @@ qint64 QNativeSocketEnginePrivate::nativeReceiveDatagram(char *data, qint64 maxL
 qint64 QNativeSocketEnginePrivate::nativeSendDatagram(const char *data, qint64 len,
                                                       const QIpPacketHeader &header)
 {
-    union {
-        char cbuf[WSA_CMSG_SPACE(sizeof(struct in6_pktinfo)) + WSA_CMSG_SPACE(sizeof(int))];
-        WSACMSGHDR align;    // ensures alignment
-    };
-    WSACMSGHDR *cmsgptr = &align;
-    WSAMSG msg;
-    WSABUF buf;
-    qt_sockaddr aa;
+    Q_STATIC_ASSERT(sizeof(in6_pktinfo) >= sizeof(in_pktinfo));
+    SocketMessage<in6_pktinfo, in6_hoplimit> msg(data, len);
 
-    memset(&msg, 0, sizeof(msg));
-    memset(&aa, 0, sizeof(aa));
-    buf.buf = len ? (char*)data : 0;
-    msg.lpBuffers = &buf;
-    msg.dwBufferCount = 1;
-    msg.name = &aa.a;
-    buf.len = len;
+    setPortAndAddress(header.destinationPort, header.destinationAddress, &msg.address, &msg.namelen);
 
-    setPortAndAddress(header.destinationPort, header.destinationAddress, &aa, &msg.namelen);
+    if (msg.namelen == sizeof(msg.address.a6)) {
+        if (header.hopLimit != -1)
+            msg.appendAncillaryPayload<in6_hoplimit>()->value = header.hopLimit;
 
-    if (msg.namelen == sizeof(aa.a6)) {
-        // sending IPv6
-        if (header.hopLimit != -1) {
-            msg.Control.len += WSA_CMSG_SPACE(sizeof(int));
-            cmsgptr->cmsg_len = WSA_CMSG_LEN(sizeof(int));
-            cmsgptr->cmsg_level = IPPROTO_IPV6;
-            cmsgptr->cmsg_type = IPV6_HOPLIMIT;
-            memcpy(WSA_CMSG_DATA(cmsgptr), &header.hopLimit, sizeof(int));
-            cmsgptr = reinterpret_cast<WSACMSGHDR *>(reinterpret_cast<char *>(cmsgptr)
-                                                     + WSA_CMSG_SPACE(sizeof(int)));
-        }
         if (header.ifindex != 0 || !header.senderAddress.isNull()) {
-            struct in6_pktinfo *data = reinterpret_cast<in6_pktinfo *>(WSA_CMSG_DATA(cmsgptr));
-            memset(data, 0, sizeof(*data));
-            msg.Control.len += WSA_CMSG_SPACE(sizeof(*data));
-            cmsgptr->cmsg_len = WSA_CMSG_LEN(sizeof(*data));
-            cmsgptr->cmsg_level = IPPROTO_IPV6;
-            cmsgptr->cmsg_type = IPV6_PKTINFO;
+            in6_pktinfo *data = msg.appendAncillaryPayload<in6_pktinfo>();
             data->ipi6_ifindex = header.ifindex;
 
-            Q_IPV6ADDR tmp = header.senderAddress.toIPv6Address();
+            QIPv6Address tmp = header.senderAddress.toIPv6Address();
             memcpy(&data->ipi6_addr, &tmp, sizeof(tmp));
-            cmsgptr = reinterpret_cast<WSACMSGHDR *>(reinterpret_cast<char *>(cmsgptr)
-                                                     + WSA_CMSG_SPACE(sizeof(*data)));
         }
     } else {
-        // sending IPv4
-        if (header.hopLimit != -1) {
-            msg.Control.len += WSA_CMSG_SPACE(sizeof(int));
-            cmsgptr->cmsg_len = WSA_CMSG_LEN(sizeof(int));
-            cmsgptr->cmsg_level = IPPROTO_IP;
-            cmsgptr->cmsg_type = IP_TTL;
-            memcpy(WSA_CMSG_DATA(cmsgptr), &header.hopLimit, sizeof(int));
-            cmsgptr = reinterpret_cast<WSACMSGHDR *>(reinterpret_cast<char *>(cmsgptr)
-                                                     + WSA_CMSG_SPACE(sizeof(int)));
-        }
+        if (header.hopLimit != -1)
+            msg.appendAncillaryPayload<in_ttl>()->value = header.hopLimit;
+
         if (header.ifindex != 0 || !header.senderAddress.isNull()) {
-            struct in_pktinfo *data = reinterpret_cast<in_pktinfo *>(WSA_CMSG_DATA(cmsgptr));
+            in_pktinfo *data = msg.appendAncillaryPayload<in_pktinfo>();
             memset(data, 0, sizeof(*data));
-            msg.Control.len += WSA_CMSG_SPACE(sizeof(*data));
-            cmsgptr->cmsg_len = WSA_CMSG_LEN(sizeof(*data));
-            cmsgptr->cmsg_level = IPPROTO_IP;
-            cmsgptr->cmsg_type = IP_PKTINFO;
             data->ipi_ifindex = header.ifindex;
-            WSAHtonl(socketDescriptor, header.senderAddress.toIPv4Address(), &data->ipi_addr.s_addr);
-            cmsgptr = reinterpret_cast<WSACMSGHDR *>(reinterpret_cast<char *>(cmsgptr)
-                                                     + WSA_CMSG_SPACE(sizeof(*data)));
+            data->ipi_addr.s_addr = htonl(header.senderAddress.toIPv4Address());
         }
     }
-
-    if (msg.Control.len != 0)
-        msg.Control.buf = cbuf;
 
     DWORD flags = 0;
     DWORD bytesSent = 0;
     qint64 ret = -1;
     if (sendmsg) {
-        ret = sendmsg(socketDescriptor, &msg, flags, &bytesSent, 0,0);
+        ret = sendmsg(socketDescriptor, msg.forSending(), flags, &bytesSent, 0,0);
     } else {
-        ret = ::WSASendTo(socketDescriptor, &buf, 1, &bytesSent, flags, msg.name, msg.namelen, 0,0);
+        ret = ::WSASendTo(socketDescriptor, msg.lpBuffers, msg.dwBufferCount, &bytesSent, flags,
+                          msg.name, msg.namelen, 0,0);
     }
     if (ret == SOCKET_ERROR) {
         int err = WSAGetLastError();

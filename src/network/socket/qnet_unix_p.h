@@ -88,7 +88,25 @@ static inline int qt_safe_socket(int domain, int type, int protocol, int flags =
     int newtype = type | SOCK_CLOEXEC;
     if (flags & O_NONBLOCK)
         newtype |= SOCK_NONBLOCK;
+
+#  if defined(SOCK_NOSIGPIPE)
+    // try to detect support for SOCK_NOSIGPIPE
+    int sigpipestatus = QtSigpipeStatus::status.load();
+    if (sigpipestatus != QtSigpipeStatus::SigpipeIgnored) {
+        fd = ::socket(domain, newtype | SOCK_NOSIGPIPE, protocol);
+        if (fd != -1 || errno != EINVAL) {
+            // supported
+            if (!sigpipestatus)
+                QtSigpipeStatus::status.store(QtSigpipeStatus::NosigpipeSupported);
+            return fd;
+        }
+    }
+#  endif
+
     fd = ::socket(domain, newtype, protocol);
+#  if defined(F_SETNOSIGPIPE) && !defined(SOCK_NOSIGPIPE)
+    qt_setnosigpipe(fd);
+#  endif
     return fd;
 #else
     fd = ::socket(domain, type, protocol);
@@ -96,6 +114,9 @@ static inline int qt_safe_socket(int domain, int type, int protocol, int flags =
         return -1;
 
     ::fcntl(fd, F_SETFD, FD_CLOEXEC);
+#  if defined(F_SETNOSIGPIPE)
+    qt_setnosigpipe(fd);
+#  endif
 
     // set non-block too?
     if (flags & O_NONBLOCK)
@@ -116,10 +137,32 @@ static inline int qt_safe_accept(int s, struct sockaddr *addr, QT_SOCKLEN_T *add
     int sockflags = SOCK_CLOEXEC;
     if (flags & O_NONBLOCK)
         sockflags |= SOCK_NONBLOCK;
+
+#  ifdef SOCK_NOSIGPIPE
+    // try to detect support for SOCK_NOSIGPIPE
+    int sigpipestatus = QtSigpipeStatus::status.load();
+    if (sigpipestatus != QtSigpipeStatus::SigpipeIgnored) {
+#    if defined(Q_OS_NETBSD)
+        fd = ::paccept(s, addr, static_cast<QT_SOCKLEN_T *>(addrlen), NULL, sockflags | SOCK_NOSIGPIPE);
+#    else
+        fd = ::accept4(s, addr, static_cast<QT_SOCKLEN_T *>(addrlen), sockflags | SOCK_NOSIGPIPE);
+#    endif
+        if (fd != -1 || errno != EINVAL) {
+            // supported
+            if (!sigpipestatus)
+                QtSigpipeStatus::status.store(QtSigpipeStatus::NosigpipeSupported);
+            return fd;
+        }
+    }
+#  endif
+
 # if defined(Q_OS_NETBSD)
     fd = ::paccept(s, addr, static_cast<QT_SOCKLEN_T *>(addrlen), NULL, sockflags);
 # else
     fd = ::accept4(s, addr, static_cast<QT_SOCKLEN_T *>(addrlen), sockflags);
+# endif
+# if defined(F_SETNOSIGPIPE) && !defined(SOCK_NOSIGPIPE)
+    qt_setnosigpipe(fd);
 # endif
     return fd;
 #else
@@ -128,6 +171,9 @@ static inline int qt_safe_accept(int s, struct sockaddr *addr, QT_SOCKLEN_T *add
         return -1;
 
     ::fcntl(fd, F_SETFD, FD_CLOEXEC);
+#  if defined(F_SETNOSIGPIPE)
+    qt_setnosigpipe(fd);
+#  endif
 
     // set non-block too?
     if (flags & O_NONBLOCK)

@@ -49,6 +49,10 @@
 
 QT_BEGIN_NAMESPACE
 
+namespace QtSigpipeStatus {
+QBasicAtomicInt status  = Q_BASIC_ATOMIC_INITIALIZER(0);
+}
+
 #if !defined(QT_HAVE_PPOLL) && defined(QT_HAVE_POLLTS)
 # define ppoll pollts
 # define QT_HAVE_PPOLL

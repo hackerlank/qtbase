@@ -158,11 +158,31 @@ inline timeval timespecToTimeval(const timespec &ts)
 }
 
 
+namespace QtSigpipeStatus {
+enum {
+    NotTested       = 0,
+    SigpipeIgnored  = 1,
+    NosigpipeSupported = 2
+};
+extern Q_CORE_EXPORT QBasicAtomicInt status;
+} // namespace QtSigpipeStatus
+
+#ifdef F_SETNOSIGPIPE
+// This exists on OS X
+static inline int qt_setnosigpipe(int fd)
+{
+    int ret = ::fcntl(fd, F_SETNOSIGPIPE, 1);
+    Q_ASSERT(ret != -1);        // require it to work
+    QtSigpipeStatus::status.store(QtSigpipeStatus::NosigpipeSupported);
+    return ret;
+}
+#endif
+
 inline void qt_ignore_sigpipe()
 {
     // Set to ignore SIGPIPE once only.
-    static QBasicAtomicInt atom = Q_BASIC_ATOMIC_INITIALIZER(0);
-    if (!atom.load()) {
+    // We won't fiddle with SIGPIPE if O_NOSIGPIPE is working properly
+    if (QtSigpipeStatus::status.load() == QtSigpipeStatus::NotTested) {
         // More than one thread could turn off SIGPIPE at the same time
         // But that's acceptable because they all would be doing the same
         // action
@@ -170,7 +190,7 @@ inline void qt_ignore_sigpipe()
         memset(&noaction, 0, sizeof(noaction));
         noaction.sa_handler = SIG_IGN;
         ::sigaction(SIGPIPE, &noaction, 0);
-        atom.store(1);
+        QtSigpipeStatus::status.store(QtSigpipeStatus::SigpipeIgnored);
     }
 }
 
@@ -203,6 +223,20 @@ static inline int qt_safe_pipe(int pipefd[2], int flags = 0)
 #ifdef QT_THREADSAFE_CLOEXEC
     // use pipe2
     flags |= O_CLOEXEC;
+#  ifdef O_NOSIGPIPE
+    // check whether pipe2 supports O_NOSIGPIPE
+    int sigpipestatus = QtSigpipeStatus::status.load();
+    if (sigpipestatus != QtSigpipeStatus::SigpipeIgnored) {
+        int ret = ::pipe2(pipefd, flags | O_NOSIGPIPE);
+        if (ret == 0) {
+            // pipe2 supports O_NOSIGPIPE
+            if (!sigpipestatus)
+                QtSigpipeStatus::status.store(QtSigpipeStatus::NosigpipeSupported);
+            return ret;
+        }
+    }
+#  endif
+
     return ::pipe2(pipefd, flags); // pipe2 is documented not to return EINTR
 #else
     int ret = ::pipe(pipefd);

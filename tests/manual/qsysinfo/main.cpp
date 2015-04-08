@@ -134,6 +134,7 @@ int main(int argc, char *argv[])
     printf("QSysInfo::productType() = %s\n", qPrintable(QSysInfo::productType()));
     printf("QSysInfo::productVersion() = %s\n", qPrintable(QSysInfo::productVersion()));
     printf("QSysInfo::prettyProductName() = %s\n", qPrintable(QSysInfo::prettyProductName()));
+    printf("QSysInfo::machineUniqueId() = %s\n", qPrintable(QSysInfo::machineUniqueId()));
 
     return 0;
 }

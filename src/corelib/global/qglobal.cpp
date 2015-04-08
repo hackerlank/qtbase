@@ -2703,6 +2703,65 @@ QString QSysInfo::prettyProductName()
 }
 
 /*!
+    \since 5.6
+
+    Returns an unique ID for this machine, if one could be determined. If no
+    unique ID could be determined, this function returns an empty string.
+    Unlike machineHostName(), the value returned by this function is likely
+    globally unique.
+
+    A unique ID is useful in network operations to identify this machine for an
+    extended period of time, when the IP address could change or if this
+    machine could have more than one IP address. For example, the ID could be
+    used when communicating with a server or when storing device-specific data
+    in shared network storage.
+
+    Note that on some systems, this value will persist across reboots and on
+    some it will not. Applications should not blindly depend on this fact
+    without verifying the OS capabilities. In particular, on Linux systems,
+    this ID is usually permanent except for nodes without their own storage
+    (replicated nodes).
+
+    On Linux, this ID matches the D-Bus machine ID.
+*/
+QString QSysInfo::machineUniqueId()
+{
+#ifdef Q_OS_BSD4
+    char uuid[sizeof "12345678-1234-1234-1234-123456789abc"];
+    size_t uuidlen = sizeof(uuid);
+#  ifdef KERN_HOSTUUID
+    int name[] = { CTL_KERN, KERN_HOSTUUID };
+    if (sysctl(name, sizeof name / sizeof name[0], &uuid, &uuidlen, 0, 0) == 0)
+        return QString::fromLatin1(uuid, uuidlen);
+
+#  else
+    // OS X: no fixed value, we need to search by name
+    if (sysctlbyname("kern.uuid", uuid, &uuidlen, 0, 0) == 0)
+        return QString::fromLatin1(uuid, uuidlen);
+#  endif
+#elif defined(Q_OS_UNIX)
+    // the modern name on Linux is /etc/machine-id, but that path is
+    // unlikely to exist on non-Linux (non-systemd) systems. The old
+    // path is more than enough.
+    static const char fullfilename[] = "/usr/local/var/lib/dbus/machine-id";
+    const char *firstfilename = fullfilename + sizeof("/usr/local") - 1;
+    int fd = qt_safe_open(firstfilename, O_RDONLY);
+    if (fd == -1 && errno == ENOENT)
+        fd = qt_safe_open(fullfilename, O_RDONLY);
+
+    if (fd != -1) {
+        char buffer[32]; // it's 128 bit hex-encoded
+        qint64 len = qt_safe_read(fd, buffer, sizeof(buffer));
+        qt_safe_close(fd);
+
+        if (len != -1)
+            return QString::fromLatin1(buffer, len);
+    }
+#endif
+    return QString();
+}
+
+/*!
     \macro void Q_ASSERT(bool test)
     \relates <QtGlobal>
 

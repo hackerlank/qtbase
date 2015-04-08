@@ -179,6 +179,7 @@ public:
     static QString productType();
     static QString productVersion();
     static QString prettyProductName();
+    static QString machineUniqueId();
 };
 
 QT_END_NAMESPACE

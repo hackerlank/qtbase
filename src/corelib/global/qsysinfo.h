@@ -217,6 +217,7 @@ public:
     static QString prettyProductName();
 
     static QString machineHostName();
+    static QString machineUniqueId();
 };
 
 QT_END_NAMESPACE

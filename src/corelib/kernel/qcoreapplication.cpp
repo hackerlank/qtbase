@@ -710,6 +710,8 @@ void QCoreApplication::flush()
 #endif
 
 /*!
+    \fn QCoreApplication::QCoreApplication(int &argc, char **argv)
+
     Constructs a Qt kernel application. Kernel applications are
     applications without a graphical user interface. These type of
     applications are used at the console or as server processes.
@@ -723,11 +725,8 @@ void QCoreApplication::flush()
     \a argc must be greater than zero and \a argv must contain at least
     one valid character string.
 */
-QCoreApplication::QCoreApplication(int &argc, char **argv
 #ifndef Q_QDOC
-                                   , int _internal
-#endif
-                                   )
+QCoreApplication::QCoreApplication(int &argc, char **argv, int _internal)
 #ifdef QT_NO_QOBJECT
     : d_ptr(new QCoreApplicationPrivate(argc, argv, _internal))
 #else
@@ -735,10 +734,32 @@ QCoreApplication::QCoreApplication(int &argc, char **argv
 #endif
 {
     init();
+}
+
+QCoreApplication::QCoreApplication(int &argc, char **argv, int _internal, QCoreApplication **_pself)
+#ifdef QT_NO_QOBJECT
+    : d_ptr(new QCoreApplicationPrivate(argc, argv, _internal))
+#else
+    : QObject(*new QCoreApplicationPrivate(argc, argv, _internal))
+#endif
+{
+    if (Q_UNLIKELY(_pself != &self)) {
+        /* See QTBUG-45755: when Qt is compiled with symbolic symbol binding on ELF systems,
+         * we need to ensure that the target application did not use copy relocations and thus
+         * change the official address of Qt symbols. */
+        qFatal("Linker error: more than one QCoreApplication::self objects in the application."
+#  ifdef QT_REDUCE_RELOCATIONS
+               "\nThis build of Qt was compiled with configure option -reduce-relocations, please"
+               "\nensure that the main application source code was compiled with -fPIC."
+#  endif
+               );
+    }
+    init();
 #ifndef QT_NO_QOBJECT
     QCoreApplicationPrivate::eventDispatcher->startingUp();
 #endif
 }
+#endif
 
 
 // ### move to QCoreApplicationPrivate constructor?

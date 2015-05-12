@@ -82,11 +82,13 @@ public:
     enum { ApplicationFlags = QT_VERSION
     };
 
-    QCoreApplication(int &argc, char **argv
-#ifndef Q_QDOC
-                     , int = ApplicationFlags
+#ifdef Q_QDOC
+    QCoreApplication(int &argc, char **argv);
+#else
+    // ### Qt 6: remove one of the two, see comments in .cpp
+    QCoreApplication(int &argc, char **argv, int);
+    QCoreApplication(int &argc, char **argv, int = ApplicationFlags, QCoreApplication ** = &self);
 #endif
-            );
 
     ~QCoreApplication();
 

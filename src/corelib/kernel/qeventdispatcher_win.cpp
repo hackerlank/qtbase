@@ -38,9 +38,13 @@
 **
 ****************************************************************************/
 
+//#define QTIMER_COARSENESS_DEBUG
+
 #include "qeventdispatcher_win_p.h"
+#include "qabstracteventdispatcher_p.h"
 
 #include "qcoreapplication.h"
+#include "qdebug.h"
 #include <private/qsystemlibrary_p.h>
 #include "qpair.h"
 #include "qset.h"
@@ -361,15 +365,48 @@ static HWND qt_create_internal_window(const QEventDispatcherWin32 *eventDispatch
     return wnd;
 }
 
-static void calculateNextTimeout(WinTimerInfo *t, quint64 currentTime)
+static void calculateCoarseTimerTimeout(WinTimerInfo *t, quint64 currentTime)
 {
-    uint interval = t->interval;
-    if ((interval >= 20000u && t->timerType != Qt::PreciseTimer) || t->timerType == Qt::VeryCoarseTimer) {
-        // round the interval, VeryCoarseTimers only have full second accuracy
-        interval = ((interval + 500)) / 1000 * 1000;
+    uint interval = uint(t->interval);
+    uint msec = t->timeout % 1000;
+    t->timeout -= msec;     // rounded down to its full-second, we'll update below
+    Q_ASSERT(interval >= 20);
+
+    msec = QAbstractEventDispatcherPrivate::calculateCoarseTimerBoundary(interval, msec);
+
+    t->timeout += msec;
+    if (t->timeout < currentTime)
+        t->timeout += interval;
+}
+
+static uint calculateNextTimeout(WinTimerInfo *t, quint64 currentTime)
+{
+    switch (t->timerType)
+    {
+    case Qt::PreciseTimer:
+        t->timeout = currentTime + t->interval;
+        return t->interval;
+
+    case Qt::CoarseTimer:
+        t->timeout = currentTime + t->interval;
+        calculateCoarseTimerTimeout(t, currentTime);
+        break;
+
+    case Qt::VeryCoarseTimer:
+        t->timeout = currentTime + 500 + t->interval;
+        t->timeout /= 1000;
+        t->timeout *= 1000;
+        break;
     }
-    t->interval = interval;
-    t->timeout = currentTime + interval;
+
+#ifdef QTIMER_COARSENESS_DEBUG
+    qDebug() << (t->timerType == Qt::CoarseTimer ? "CoarseTimer" : "VeryCoarseTimer")
+             << t->timerId << ": correcting timeout from" << t->interval
+             << "to" << t->timeout - currentTime << "so it will fire at" << t->timeout
+             << "(error will be" << qSetRealNumberPrecision(1)
+             << ((t->timeout - currentTime) * 100.0 / t->interval - 100) << "%)";
+#endif // QTIMER_COARSENESS_DEBUG
+    return t->timeout - currentTime;
 }
 
 void QEventDispatcherWin32Private::registerTimer(WinTimerInfo *t)
@@ -378,9 +415,26 @@ void QEventDispatcherWin32Private::registerTimer(WinTimerInfo *t)
 
     Q_Q(QEventDispatcherWin32);
 
+    if (t->timerType == Qt::CoarseTimer) {
+        // coarse timers have 5% inacuracy
+        if (t->interval > 20000) {
+            // at 20 seconds, 5% is 1 s, so it's equivalent to a very coarse timer
+            t->timerType = Qt::VeryCoarseTimer;
+        } else if (t->interval < 20) {
+            // and at 20 ms, 5% is 1 ms, so it s equivalent to a precise timer
+            t->timerType = Qt::PreciseTimer;
+        }
+    }
+    if (t->timerType == Qt::VeryCoarseTimer) {
+        // the very coarse timer is based on full second precision,
+        // so we keep the interval in seconds (round to closest second)
+        t->interval /= 1000;
+        t->interval *= 1000;
+    }
+
+    uint interval = calculateNextTimeout(t, qt_msectime());
+
     bool ok = false;
-    calculateNextTimeout(t, qt_msectime());
-    uint interval = t->interval;
     if (interval == 0u) {
         // optimization for single-shot-zero-timer
         QCoreApplication::postEvent(q, new QZeroTimerEvent(t->timerId));
@@ -423,7 +477,7 @@ void QEventDispatcherWin32Private::sendTimerEvent(int timerId)
         t->inTimerEvent = true;
 
         // recalculate next emission
-        calculateNextTimeout(t, qt_msectime());
+        uint nextInterval = calculateNextTimeout(t, qt_msectime());
 
         QTimerEvent e(t->timerId);
         QCoreApplication::sendEvent(t->obj, &e);
@@ -432,6 +486,14 @@ void QEventDispatcherWin32Private::sendTimerEvent(int timerId)
         t = timerDict.value(timerId);
         if (t) {
             t->inTimerEvent = false;
+
+            // re-register the timer with the system if it needs updating
+            // but only if it's more than 20 ms (SetTimer's precision)
+            if (qAbs(int(nextInterval) - t->interval) >= 20) {
+                Q_ASSERT(t->timerType != Qt::PreciseTimer);
+                if (SetTimer(internalHwnd, t->timerId, nextInterval, 0) == 0)
+                    qErrnoWarning("QEventDispatcherWin32::registerTimer: Failed to reset a timer");
+            }
         }
     }
 }

@@ -405,7 +405,7 @@ namespace QtPrivate {
     template <class T> struct AlignOf<T &&> : AlignOf<T> {};
 #endif
 
-#if defined(Q_PROCESSOR_X86_32) && !defined(Q_OS_WIN)
+#if defined(Q_PROCESSOR_X86_32) && !defined(Q_OS_WIN) && !defined(Q_PROCESSOR_X86_MCU)
     template <class T> struct AlignOf_WorkaroundForI386Abi { enum { Value = sizeof(T) }; };
 
     // x86 ABI weirdness

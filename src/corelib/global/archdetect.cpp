@@ -51,6 +51,8 @@
 #  define ARCH_PROCESSOR "avr32"
 #elif defined(Q_PROCESSOR_BLACKFIN)
 #  define ARCH_PROCESSOR "bfin"
+#elif defined(Q_PROCESSOR_X86_MCU)
+#  define ARCH_PROCESSOR "iamcu"
 #elif defined(Q_PROCESSOR_X86_32)
 #  define ARCH_PROCESSOR "i386"
 #elif defined(Q_PROCESSOR_X86_64)
@@ -120,7 +122,7 @@
 #else
 #  define ARCH_ABI1 ""
 #endif
-#if defined(__ARM_PCS_VFP) || defined(__mips_hard_float)
+#if defined(__ARM_PCS_VFP) || defined(__mips_hard_float) || (defined(__iamcu__) && !defined(_SOFT_FLOAT))
 // Use "-hardfloat" for platforms that usually have no FPUs
 // (and for the platforms which had "-hardfloat" before we established the rule)
 #  define ARCH_ABI2 "-hardfloat"

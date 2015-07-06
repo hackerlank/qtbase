@@ -201,6 +201,9 @@
 #  else
 #    define Q_PROCESSOR_X86     3
 #  endif
+#  ifdef __iamcu
+#    define Q_PROCESSOR_X86_MCU
+#  endif
 
 #elif defined(__x86_64) || defined(__x86_64__) || defined(__amd64) || defined(_M_X64)
 #  define Q_PROCESSOR_X86       6

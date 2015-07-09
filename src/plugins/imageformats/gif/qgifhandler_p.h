@@ -56,6 +56,7 @@
 // We mean it.
 //
 
+#include "qgifhandler_p.h"      // include self to avoid syncqt warning
 #include <QtGui/qimageiohandler.h>
 #include <QtGui/qimage.h>
 #include <QtCore/qbytearray.h>

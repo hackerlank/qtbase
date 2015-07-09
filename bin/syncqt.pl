@@ -347,6 +347,7 @@ sub check_header {
     my $line;
     my $stop_processing = 0;
     my $we_mean_it = 0;
+    my $private_includes = 0;
     while ($line = <F>) {
         chomp $line;
         my $output_line = 1;
@@ -370,6 +371,8 @@ sub check_header {
                         print STDERR "$lib: WARNING: $iheader includes $include when it should include $trylib/$include\n";
                     }
                 }
+            } elsif ($include && $private_header) {
+                ++$private_includes if ($include =~ /_p.h$/);
             }
         } elsif (!$private_header) {
             if ($header_skip_qt_begin_namespace_test == 0 and $line =~ /^QT_BEGIN_NAMESPACE(_[A-Z_]+)?\s*$/) {
@@ -394,6 +397,7 @@ sub check_header {
             }
         }
     } elsif ($private_header) {
+        print STDERR "$lib: WARNING: $iheader does not include any other private headers\n" if ($private_includes == 0);
         print STDERR "$lib: WARNING: $iheader does not have the \"We mean it.\" warning\n" if (!$we_mean_it);
     }
 

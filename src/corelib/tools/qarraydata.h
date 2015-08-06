@@ -112,6 +112,9 @@ struct Q_CORE_EXPORT QArrayData
         return result;
     }
 
+#if defined(Q_CC_GNU)
+    __attribute__((__malloc__))
+#endif
     static QArrayData *allocate(size_t objectSize, size_t alignment,
             size_t capacity, AllocationOptions options = Default)
         Q_DECL_NOTHROW Q_REQUIRED_RESULT;

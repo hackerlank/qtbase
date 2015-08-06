@@ -21,6 +21,7 @@ HEADERS += \
         kernel/qobjectdefs_impl.h \
         kernel/qsignalmapper.h \
         kernel/qsocketnotifier.h \
+        kernel/qsocketnotifier_p.h \
         kernel/qtimer.h \
         kernel/qtranslator.h \
         kernel/qtranslator_p.h \
@@ -42,7 +43,7 @@ HEADERS += \
         kernel/qmath.h \
         kernel/qsystemerror_p.h \
         kernel/qmetatype_p.h \
-        kernel/qmetatypeswitcher_p.h \
+        kernel/qmetatypeswitcher_p.h
 
 SOURCES += \
         kernel/qabstracteventdispatcher.cpp \

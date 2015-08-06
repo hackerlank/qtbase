@@ -38,6 +38,7 @@
 ****************************************************************************/
 
 #include "qsocketnotifier.h"
+#include "qsocketnotifier_p.h"
 
 #include "qplatformdefs.h"
 
@@ -48,15 +49,6 @@
 #include <private/qthread_p.h>
 
 QT_BEGIN_NAMESPACE
-
-class QSocketNotifierPrivate : public QObjectPrivate
-{
-    Q_DECLARE_PUBLIC(QSocketNotifier)
-public:
-    qintptr sockfd;
-    QSocketNotifier::Type sntype;
-    bool snenabled;
-};
 
 /*!
     \class QSocketNotifier

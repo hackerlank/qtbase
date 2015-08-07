@@ -1,9 +1,9 @@
 /****************************************************************************
 **
-** Copyright (C) 2016 The Qt Company Ltd.
-** Contact: https://www.qt.io/licensing/
+** Copyright (C) 2016 Intel Corporation.
+** Contact: http://www.qt.io/licensing/
 **
-** This file is part of the QtCore module of the Qt Toolkit.
+** This file is part of the QtNetwork module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
 ** Commercial License Usage
@@ -37,45 +37,57 @@
 **
 ****************************************************************************/
 
-#ifndef QSOCKETNOTIFIER_H
-#define QSOCKETNOTIFIER_H
+#ifndef QUNIXFILEDESCRIPTORWRITER_P_H
+#define QUNIXFILEDESCRIPTORWRITER_P_H
 
-#include <QtCore/qobject.h>
+//
+//  W A R N I N G
+//  -------------
+//
+// This file is not part of the Qt API.  It exists purely as an
+// implementation detail.  This header file may change from version to
+// version without notice, or even be removed.
+//
+// We mean it.
+//
+
+#include <qbytearray.h>
+#include <private/qringbuffer_p.h>
+#include <qsocketnotifier.h>
 
 QT_BEGIN_NAMESPACE
 
-class QSocketNotifierPrivate;
-class Q_CORE_EXPORT QSocketNotifier : public QObject
+class QUnixFileDescriptorWriterPrivate;
+class QUnixFileDescriptorWriter : public QSocketNotifier
 {
     Q_OBJECT
-    Q_DECLARE_PRIVATE(QSocketNotifier)
-
 public:
-    enum Type { Read, Write, Exception };
-    enum State { Disabled, Enabled };
+    explicit QUnixFileDescriptorWriter(int fd, QObject *parent = 0);
+    ~QUnixFileDescriptorWriter();
 
-    QSocketNotifier(qintptr socket, Type, QObject *parent = Q_NULLPTR);
-    QSocketNotifier(qintptr socket, Type, State, QObject *parent = nullptr);
-    ~QSocketNotifier();
+    int fileDescriptor() const;
+    bool flush() { return waitForBytesWritten(0); }
+    void close();
 
-    qintptr socket() const;
-    Type type() const;
+    qint64 write(const char *data, qint64 len);
 
-    bool isEnabled() const;
-
-public Q_SLOTS:
-    void setEnabled(bool);
-
-Q_SIGNALS:
-    void activated(int socket, QPrivateSignal);
+    qint64 bytesToWrite() const { return buffer.size(); }
+    bool waitForBytesWritten(int msecs);
 
 protected:
     bool event(QEvent *) Q_DECL_OVERRIDE;
 
+signals:
+    void bytesWritten(qint64 = 0);
+
 private:
-    Q_DISABLE_COPY(QSocketNotifier)
+    Q_DISABLE_COPY(QUnixFileDescriptorWriter)
+    Q_DECLARE_PRIVATE(QUnixFileDescriptorWriter)
+    qint64 doWrite();
+
+    QRingBuffer buffer;
 };
 
 QT_END_NAMESPACE
 
-#endif // QSOCKETNOTIFIER_H
+#endif // QUNIXFILEDESCRIPTORWRITER_H

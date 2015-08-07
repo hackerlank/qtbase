@@ -132,19 +132,30 @@ QT_BEGIN_NAMESPACE
 */
 
 QSocketNotifier::QSocketNotifier(qintptr socket, Type type, QObject *parent)
-    : QObject(*new QSocketNotifierPrivate, parent)
+    : QObject(*new QSocketNotifierPrivate(socket, type, Enabled), parent)
 {
-    Q_D(QSocketNotifier);
-    d->sockfd = socket;
-    d->sntype = type;
-    d->snenabled = true;
+    d_func()->init();
+}
 
-    if (socket < 0)
-        qWarning("QSocketNotifier: Invalid socket specified");
-    else if (!d->threadData->eventDispatcher.load())
-        qWarning("QSocketNotifier: Can only be used with threads started with QThread");
-    else
-        d->threadData->eventDispatcher.load()->registerSocketNotifier(this);
+/*!
+    \since 5.7
+
+    Constructs a socket notifier with the given \a parent. If \a state is
+    Enabled, it enables the \a socket, and watches for events of the given \a
+    type.
+
+    It is generally advisable to explicitly enable or disable the
+    socket notifier, especially for write notifiers.
+
+    \b{Note for Windows users:} The socket passed to QSocketNotifier
+    will become non-blocking, even if it was created as a blocking socket.
+
+    \sa setEnabled(), isEnabled()
+*/
+QSocketNotifier::QSocketNotifier(qintptr socket, Type type, State state, QObject *parent)
+    : QObject(*new QSocketNotifierPrivate(socket, type, state), parent)
+{
+    d_func()->init();
 }
 
 /*!
@@ -259,6 +270,16 @@ bool QSocketNotifier::event(QEvent *e)
         return true;
     }
     return false;
+}
+
+void QSocketNotifierPrivate::init()
+{
+    if (sockfd < 0)
+        qWarning("QSocketNotifier: Invalid socket specified");
+    else if (!threadData->eventDispatcher.load())
+        qWarning("QSocketNotifier: Can only be used with threads started with QThread");
+    else if (snenabled)
+        threadData->eventDispatcher.load()->registerSocketNotifier(q_func());
 }
 
 QT_END_NAMESPACE

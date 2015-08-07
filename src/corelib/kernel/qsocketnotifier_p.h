@@ -54,7 +54,13 @@ QT_BEGIN_NAMESPACE
 class QSocketNotifierPrivate : public QObjectPrivate
 {
     Q_DECLARE_PUBLIC(QSocketNotifier)
+    void init();
 public:
+    QSocketNotifierPrivate(qintptr socket, QSocketNotifier::Type type,
+                           QSocketNotifier::State state)
+        : sockfd(socket), sntype(type), snenabled(state == QSocketNotifier::Enabled)
+    {}
+
     qintptr sockfd;
     QSocketNotifier::Type sntype;
     bool snenabled;

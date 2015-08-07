@@ -134,12 +134,14 @@ win32 {
                 io/qlockfile_unix.cpp \
                 io/qprocess_unix.cpp \
                 io/qunixfiledescriptorreader.cpp \
+                io/qunixfiledescriptorwriter.cpp \
                 io/qfilesystemiterator_unix.cpp
 
         !integrity:!uikit {
             SOURCES += io/forkfd_qt.cpp
             HEADERS += \
                 io/qunixfiledescriptorreader_p.h \
+                io/qunixfiledescriptorwriter_p.h \
                      ../3rdparty/forkfd/forkfd.h
             INCLUDEPATH += ../3rdparty/forkfd
         }

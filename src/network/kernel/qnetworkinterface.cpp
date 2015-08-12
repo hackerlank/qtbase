@@ -499,6 +499,17 @@ QNetworkInterface::InterfaceFlags QNetworkInterface::flags() const
 }
 
 /*!
+    \since 5.7
+
+    Returns the type of this interface, if it could be determined. If it could
+    not be determined, this function returns QNetworkInterface::Unknown.
+*/
+QNetworkInterface::InterfaceType QNetworkInterface::type() const
+{
+    return d ? d->type : Unknown;
+}
+
+/*!
     Returns the low-level hardware address for this interface. On
     Ethernet interfaces, this will be a MAC address in string
     representation, separated by colons.

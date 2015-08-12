@@ -75,13 +75,14 @@ public:
 class QNetworkInterfacePrivate: public QSharedData
 {
 public:
-    QNetworkInterfacePrivate() : index(0), flags(0)
+    QNetworkInterfacePrivate() : index(0), flags(0), type(QNetworkInterface::Unknown)
     { }
     ~QNetworkInterfacePrivate()
     { }
 
     int index;                  // interface index, if know
     QNetworkInterface::InterfaceFlags flags;
+    QNetworkInterface::InterfaceType type;
 
     QString name;
     QString friendlyName;

@@ -362,11 +362,83 @@ QT_END_INCLUDE_NAMESPACE
 # if defined(Q_OS_LINUX) &&  __GLIBC__ - 0 >= 2 && __GLIBC_MINOR__ - 0 >= 1 && !defined(QT_LINUXBASE)
 #  include <netpacket/packet.h>
 
+/* from linux/wireless.h */
+#define SIOCGIWMODE       0x8B07          /* get operation mode */
+
+/* from linux/if_arp.h */
+#define ARPHRD_ETHER 	1		/* Ethernet 10Mbps		*/
+#define ARPHRD_PPP	512
+#define ARPHRD_TUNNEL	768		/* IPIP tunnel			*/
+#define ARPHRD_TUNNEL6	769		/* IP6IP6 tunnel       		*/
+#define ARPHRD_LOOPBACK	772		/* Loopback device		*/
+#define ARPHRD_IEEE80211 801		/* IEEE 802.11			*/
+#define ARPHRD_IEEE80211_PRISM 802	/* IEEE 802.11 + Prism2 header  */
+#define ARPHRD_IEEE80211_RADIOTAP 803	/* IEEE 802.11 + radiotap header */
+#define ARPHRD_IEEE802154	  804
+#define ARPHRD_IEEE802154_MONITOR 805	/* IEEE 802.15.4 network monitor */
+#define ARPHRD_PHONET	820		/* PhoNet media type		*/
+#define ARPHRD_PHONET_PIPE 821		/* PhoNet pipe header		*/
+#define ARPHRD_6LOWPAN	825		/* IPv6 over LoWPAN             */
+#define ARPHRD_VOID	  0xFFFF	/* Void type, nothing is known */
+#define ARPHRD_NONE	  0xFFFE	/* zero header length */
+
+static int openSocket(int &socket)
+{
+    if (socket == -1)
+        socket = qt_safe_socket(AF_INET, SOCK_DGRAM, 0);
+    return socket;
+}
+
+static QNetworkInterface::InterfaceType probeIfType(int socket, struct ifreq *req, short arptype)
+{
+    switch (ushort(arptype)) {
+    case ARPHRD_LOOPBACK:
+        return QNetworkInterface::Loopback;
+
+    case ARPHRD_ETHER:
+        if (socket != -1) {
+            if (qt_safe_ioctl(socket, SIOCGIWMODE, req) >= 0) {
+                return QNetworkInterface::Wifi;
+            }
+        }
+        return QNetworkInterface::Ethernet;
+
+    case ARPHRD_PPP:
+        return QNetworkInterface::Ppp;
+
+    case ARPHRD_IEEE80211:
+    case ARPHRD_IEEE80211_PRISM:
+    case ARPHRD_IEEE80211_RADIOTAP:
+        return QNetworkInterface::Ieee80211;
+
+    case ARPHRD_IEEE802154:
+    case ARPHRD_IEEE802154_MONITOR:
+        return QNetworkInterface::Ieee802154;
+
+    case ARPHRD_PHONET:
+    case ARPHRD_PHONET_PIPE:
+        return QNetworkInterface::Phonet;
+
+    case ARPHRD_6LOWPAN:
+        return QNetworkInterface::SixLoWPAN;
+
+    case ARPHRD_TUNNEL:
+    case ARPHRD_TUNNEL6:
+    case ARPHRD_NONE:
+    case ARPHRD_VOID:
+        return QNetworkInterface::Virtual;
+    }
+    return QNetworkInterface::Unknown;
+}
+
 static QList<QNetworkInterfacePrivate *> createInterfaces(ifaddrs *rawList)
 {
     QList<QNetworkInterfacePrivate *> interfaces;
     QSet<QString> seenInterfaces;
     QVarLengthArray<int, 16> seenIndexes;   // faster than QSet<int>
+
+    struct ifreq req;
+    int socket = -1;
 
     // On Linux, glibc, uClibc and MUSL obtain the address listing via two
     // netlink calls: first an RTM_GETLINK to obtain the interface listing,
@@ -384,6 +456,9 @@ static QList<QNetworkInterfacePrivate *> createInterfaces(ifaddrs *rawList)
             iface->name = QString::fromLatin1(ptr->ifa_name);
             iface->flags = convertFlags(ptr->ifa_flags);
             iface->hardwareAddress = iface->makeHwAddress(sll->sll_halen, (uchar*)sll->sll_addr);
+
+            strncpy(req.ifr_name, ptr->ifa_name, sizeof(req.ifr_name));
+            iface->type = probeIfType(openSocket(socket), &req, sll->sll_hatype);
 
             Q_ASSERT(!seenIndexes.contains(iface->index));
             seenIndexes.append(iface->index);
@@ -412,15 +487,27 @@ static QList<QNetworkInterfacePrivate *> createInterfaces(ifaddrs *rawList)
             iface->name = name;
             iface->flags = convertFlags(ptr->ifa_flags);
             iface->index = ifindex;
+
+            // try to get the hardware address and type
+            if (openSocket(socket) != -1) {
+                strncpy(req.ifr_name, ptr->ifa_name, sizeof(req.ifr_name));
+                if (qt_safe_ioctl(socket, SIOCGIFHWADDR, &req) >= 0) {
+                    iface->hardwareAddress = iface->makeHwAddress(IFHWADDRLEN, (uchar*)&req.ifr_hwaddr.sa_data);
+                    iface->type = probeIfType(openSocket(socket), &req, req.ifr_hwaddr.sa_family);
+                }
+            }
         }
     }
 
+    if (socket)
+        qt_safe_close(socket);
     return interfaces;
 }
 
 # elif defined(Q_OS_BSD4)
 QT_BEGIN_INCLUDE_NAMESPACE
 #  include <net/if_dl.h>
+#  include <net/if_types.h>
 QT_END_INCLUDE_NAMESPACE
 
 static QList<QNetworkInterfacePrivate *> createInterfaces(ifaddrs *rawList)
@@ -439,6 +526,29 @@ static QList<QNetworkInterfacePrivate *> createInterfaces(ifaddrs *rawList)
             iface->name = QString::fromLatin1(ptr->ifa_name);
             iface->flags = convertFlags(ptr->ifa_flags);
             iface->hardwareAddress = iface->makeHwAddress(sdl->sdl_alen, (uchar*)LLADDR(sdl));
+
+            switch (sdl->sdl_type) {
+            case IFT_ETHER:
+                iface->type = QNetworkInterface::Ethernet;
+                break;
+
+            case IFT_PPP:
+                iface->type = QNetworkInterface::Ppp;
+                break;
+
+            case IFT_LOOP:
+                iface->type = QNetworkInterface::Loopback;
+                break;
+
+            case IFT_GIF:
+            case IFT_STF:
+                iface->type = QNetworkInterface::Virtual;
+                break;
+
+            case IFT_IEEE1394:
+                iface->type = QNetworkInterface::Ieee1394;
+                break;
+            }
         }
 
     return interfaces;

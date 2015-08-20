@@ -167,7 +167,9 @@ void QDBusConnectionManager::setConnection(const QString &name, QDBusConnectionP
 
 void QDBusConnectionManager::run()
 {
-    exec();
+    int status = exec();
+    if (status)
+        return; // don't do any cleanup
 
     // cleanup:
     QMutexLocker locker(&mutex);

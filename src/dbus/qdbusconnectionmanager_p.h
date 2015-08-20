@@ -61,7 +61,7 @@
 
 QT_BEGIN_NAMESPACE
 
-class QDBusConnectionManager : public QDaemonThread
+class Q_DBUS_EXPORT QDBusConnectionManager : public QDaemonThread
 {
     Q_OBJECT
     struct ConnectionRequestData;

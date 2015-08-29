@@ -80,6 +80,7 @@ qtConfig(opengl.*) {
 RESOURCES += qcocoaresources.qrc
 
 LIBS += -framework AppKit -framework Carbon -framework IOKit -lcups
+CONFIG += qpa/basicunixfontdatabase
 
 QT += \
     core-private gui-private \

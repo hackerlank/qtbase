@@ -47,6 +47,11 @@
     Q_CORE_EXPORT extern const char sym ## _ ## m ## _ ## n = 0; \
     asm(".symver " QT_STRINGIFY(sym) "_" QT_STRINGIFY(m) "_" QT_STRINGIFY(n) ", " \
         QT_STRINGIFY(sym) separator "Qt_" QT_STRINGIFY(m) "." QT_STRINGIFY(n))
+
+#elif defined(Q_OS_WIN)
+#  define make_versioned_symbol2(sym, m, n, separator)     \
+    Q_CORE_EXPORT extern const char sym ## _ ## m ## _ ## n = 0;
+
 #else
 #  define make_versioned_symbol2(sym, m, n, separator)
 #endif

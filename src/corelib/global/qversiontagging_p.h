@@ -31,8 +31,10 @@
 **
 ****************************************************************************/
 
-#ifndef QGLOBAL_P_H
-#define QGLOBAL_P_H
+#include "qglobal_p.h"
+
+#ifndef QVERSIONTAGGING_P_H
+#define QVERSIONTAGGING_P_H
 
 //
 //  W A R N I N G
@@ -45,13 +47,8 @@
 // We mean it.
 //
 
-#include "qglobal.h"
-#include "qversiontagging_p.h"
-
-#ifndef QT_BOOTSTRAPPED
-#include <QtCore/private/qconfig_p.h>
-#include <QtCore/private/qtcore-config_p.h>
+#if defined(QT_VERSION_TAG) && !defined(QT_BUILD_CORE_LIB)
+QT_VERSION_TAG(qt_private_api_tag,,);
 #endif
 
-#endif // QGLOBAL_P_H
-
+#endif // QVERSIONTAGGING_P_H

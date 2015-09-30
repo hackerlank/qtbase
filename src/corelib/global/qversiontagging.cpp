@@ -47,13 +47,20 @@
     Q_CORE_EXPORT extern const char sym ## _ ## m ## _ ## n = 0; \
     asm(".symver " QT_STRINGIFY(sym) "_" QT_STRINGIFY(m) "_" QT_STRINGIFY(n) ", " \
         QT_STRINGIFY(sym) separator "Qt_" QT_STRINGIFY(m) "." QT_STRINGIFY(n))
+#  define make_private_versioned_symbol()   \
+    Q_CORE_EXPORT extern const char QT_MANGLE_NAMESPACE(qt_private_api_tag__) = 0; \
+    asm(".symver " QT_STRINGIFY(QT_MANGLE_NAMESPACE(qt_private_api_tag__)) ", " \
+         QT_STRINGIFY(QT_MANGLE_NAMESPACE(qt_private_api_tag)) "@@Qt_" QT_STRINGIFY(QT_VERSION_MAJOR) "_PRIVATE_API")
 
 #elif defined(Q_OS_WIN)
 #  define make_versioned_symbol2(sym, m, n, separator)     \
     Q_CORE_EXPORT extern const char sym ## _ ## m ## _ ## n = 0;
+#  define make_private_versioned_symbol()   \
+    Q_CORE_EXPORT extern const char QT_MANGLE_NAMESPACE(qt_private_api_tag__) = 0;
 
 #else
 #  define make_versioned_symbol2(sym, m, n, separator)
+#  define make_private_versioned_symbol()
 #endif
 #define make_versioned_symbol(sym, m, n, separator)    make_versioned_symbol2(sym, m, n, separator)
 
@@ -94,4 +101,8 @@ make_versioned_symbol(SYM, QT_VERSION_MAJOR, 9, "@");
 
 // the default version:
 make_versioned_symbol(SYM, QT_VERSION_MAJOR, QT_VERSION_MINOR, "@@");
+
+// the private API tag
+make_private_versioned_symbol();
+
 }

@@ -308,6 +308,8 @@ void tst_QDBusInterface::notConnected()
                              connection);
 
     QVERIFY(!interface.isValid());
+
+    QTest::ignoreMessage(QtWarningMsg, "QMetaObject::invokeMethod: No such method QDBusAbstractInterface::ListNames()");
     QVERIFY(!QMetaObject::invokeMethod(&interface, "ListNames", Qt::DirectConnection));
 }
 
@@ -320,6 +322,8 @@ void tst_QDBusInterface::notValid()
                              connection);
 
     QVERIFY(!interface.isValid());
+
+    QTest::ignoreMessage(QtWarningMsg, "QMetaObject::invokeMethod: No such method QDBusAbstractInterface::ListNames()");
     QVERIFY(!QMetaObject::invokeMethod(&interface, "ListNames", Qt::DirectConnection));
 }
 
@@ -341,6 +345,8 @@ void tst_QDBusInterface::invalidAfterServiceOwnerChanged()
     QDBusInterface invalidInterface("com.example.Test", "/");
     QVERIFY(!invalidInterface.isValid());
 
+    QTest::ignoreMessage(QtWarningMsg,
+                         "Connecting to deprecated signal QDBusConnectionInterface::serviceOwnerChanged(QString,QString,QString)");
     QTestEventLoop::instance().connect(connIface, SIGNAL(serviceOwnerChanged(QString,QString,QString)),
                                        SLOT(exitLoop()));
     QCOMPARE(connIface->registerService("com.example.Test").value(), QDBusConnectionInterface::ServiceRegistered);

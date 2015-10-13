@@ -461,6 +461,9 @@ public:
     };
     Q_DECLARE_FLAGS(TypeFlags, TypeFlag)
 
+    typedef void *(*Allocator)(size_t);
+    typedef void (*Deallocator)(void *);
+
     typedef void (*Deleter)(void *);
     typedef void *(*Creator)(const void *);
 
@@ -653,8 +656,8 @@ public:
 private:
     static QMetaType typeInfo(const int type);
     inline QMetaType(const ExtensionFlag extensionFlags, const QMetaTypeInterface *info,
-                     Creator creator,
-                     Deleter deleter,
+                     Allocator allocator,
+                     Deallocator deallocator,
                      SaveOperator saveOp,
                      LoadOperator loadOp,
                      Constructor constructor,
@@ -701,8 +704,8 @@ public:
     static void unregisterConverterFunction(int from, int to);
 private:
 
-    Creator m_creator_unused;
-    Deleter m_deleter_unused;
+    Allocator m_allocator;
+    Deallocator m_deallocator;
     SaveOperator m_saveOp;
     LoadOperator m_loadOp;
     Constructor m_constructor;
@@ -2067,8 +2070,8 @@ QT_BEGIN_NAMESPACE
 #undef Q_DECLARE_METATYPE_TEMPLATE_SMART_POINTER_ITER
 
 inline QMetaType::QMetaType(const ExtensionFlag extensionFlags, const QMetaTypeInterface *info,
-                            Creator creator,
-                            Deleter deleter,
+                            Allocator allocator,
+                            Deallocator deallocator,
                             SaveOperator saveOp,
                             LoadOperator loadOp,
                             Constructor constructor,
@@ -2077,8 +2080,8 @@ inline QMetaType::QMetaType(const ExtensionFlag extensionFlags, const QMetaTypeI
                             uint theTypeFlags,
                             int typeId,
                             const QMetaObject *_metaObject)
-    : m_creator_unused(creator)
-    , m_deleter_unused(deleter)
+    : m_allocator(allocator)
+    , m_deallocator(deallocator)
     , m_saveOp(saveOp)
     , m_loadOp(loadOp)
     , m_constructor(constructor)

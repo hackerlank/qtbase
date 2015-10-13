@@ -2250,8 +2250,8 @@ QMetaType::QMetaType(const int typeId)
      Copy constructs a QMetaType object.
 */
 QMetaType::QMetaType(const QMetaType &other)
-    : m_creator_unused(other.m_creator_unused)
-    , m_deleter_unused(other.m_deleter_unused)
+    : m_allocator(other.m_allocator)
+    , m_deallocator(other.m_deallocator)
     , m_saveOp(other.m_saveOp)
     , m_loadOp(other.m_loadOp)
     , m_constructor(other.m_constructor)
@@ -2266,8 +2266,8 @@ QMetaType::QMetaType(const QMetaType &other)
 
 QMetaType &QMetaType::operator =(const QMetaType &other)
 {
-    m_creator_unused = other.m_creator_unused;
-    m_deleter_unused = other.m_deleter_unused;
+    m_allocator = other.m_allocator;
+    m_deallocator = other.m_deallocator;
     m_saveOp = other.m_saveOp;
     m_loadOp = other.m_loadOp;
     m_constructor = other.m_constructor;

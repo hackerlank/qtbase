@@ -494,9 +494,14 @@ public:
                             Constructor constructor,
                             int size,
                             QMetaType::TypeFlags flags,
-                            const QMetaObject *metaObject);
+                            const QMetaObject *metaObject); // ### Qt 6: remove me
     static int registerNormalizedType(const QT_PREPEND_NAMESPACE(QByteArray) &normalizedTypeName, Destructor destructor,
                             Constructor constructor,
+                            int size,
+                            QMetaType::TypeFlags flags,
+                            const QMetaObject *metaObject); // ### Qt 6: remove me
+    static int registerNormalizedType(const QT_PREPEND_NAMESPACE(QByteArray) &normalizedTypeName, Destructor destructor,
+                            Constructor constructor, Allocator allocator, Deallocator deallocator,
                             int size,
                             QMetaType::TypeFlags flags,
                             const QMetaObject *metaObject);
@@ -788,6 +793,18 @@ template <>
 struct QMetaTypeFunctionHelper<void, /* Accepted */ true>
         : public QMetaTypeFunctionHelper<void, /* Accepted */ false>
 {};
+
+template <typename T> static QMetaType::Allocator operatorNew(short)
+{ return nullptr; }
+template <typename T> static QMetaType::Allocator
+operatorNew(typename QtPrivate::QEnableIf<(static_cast<QMetaType::Allocator>(&T::operator new), true), int>::Type)
+{ return &T::operator new; }
+
+template <typename T> static QMetaType::Deallocator operatorDelete(short)
+{ return nullptr; }
+template <typename T> static QMetaType::Deallocator
+operatorDelete(typename QtPrivate::QEnableIf<(static_cast<QMetaType::Deallocator>(&T::operator delete), true), int>::Type)
+{ return &T::operator delete; }
 
 struct VariantData
 {
@@ -1671,6 +1688,8 @@ int qRegisterNormalizedMetaType(const QT_PREPEND_NAMESPACE(QByteArray) &normaliz
     const int id = QMetaType::registerNormalizedType(normalizedTypeName,
                                    QtMetaTypePrivate::QMetaTypeFunctionHelper<T>::Destruct,
                                    QtMetaTypePrivate::QMetaTypeFunctionHelper<T>::Construct,
+                                   QtMetaTypePrivate::operatorNew<T>(0),
+                                   QtMetaTypePrivate::operatorDelete<T>(0),
                                    int(sizeof(T)),
                                    flags,
                                    QtPrivate::MetaObjectForType<T>::value());

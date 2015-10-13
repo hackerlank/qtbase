@@ -123,6 +123,7 @@ private slots:
     void compareCustomType();
     void compareCustomEqualOnlyType();
     void customDebugStream();
+    void classOperatorNewDelete();
 };
 
 struct Foo { int i; };
@@ -2424,6 +2425,46 @@ void tst_QMetaType::customDebugStream()
     QMetaType::registerDebugStreamOperator<CustomDebugStreamableType>();
     handler.expectedMessage = "QVariant(CustomDebugStreamableType, string-content)";
     qDebug() << v1;
+}
+
+struct ClassWithOperatorNewDelete
+{
+    int i;
+    static int static_i;
+
+    void *operator new(size_t) { ++static_i; return &static_i; }
+    void operator delete(void *data) { if (data == &static_i) --static_i; }
+
+    // placement new is required by QMetaType:
+    void *operator new(size_t, void *ptr) { return ptr; }
+    void operator delete(void *, void *) {}
+};
+int ClassWithOperatorNewDelete::static_i;
+Q_DECLARE_METATYPE(ClassWithOperatorNewDelete)
+
+void tst_QMetaType::classOperatorNewDelete()
+{
+    const int id = qRegisterMetaType<ClassWithOperatorNewDelete>();
+    QMetaType mt(id);
+
+    // first, test the allocator/deallocator functions
+    {
+        ClassWithOperatorNewDelete::static_i = 0;
+        void *ptr = mt.allocate(mt.sizeOf());
+        QCOMPARE(ptr, (void*)&ClassWithOperatorNewDelete::static_i);
+        QCOMPARE(ClassWithOperatorNewDelete::static_i, 1);
+
+        mt.deallocate(ptr);
+        QCOMPARE(ClassWithOperatorNewDelete::static_i, 0);
+    }
+
+    // test allocation / deallocation
+    ClassWithOperatorNewDelete *ptr = static_cast<ClassWithOperatorNewDelete *>(mt.create());
+    QCOMPARE(&ptr->i, &ClassWithOperatorNewDelete::static_i);
+    QCOMPARE(ClassWithOperatorNewDelete::static_i, 1);
+
+    mt.destroy(ptr);
+    QCOMPARE(ClassWithOperatorNewDelete::static_i, 0);
 }
 
 // Compile-time test, it should be possible to register function pointer types

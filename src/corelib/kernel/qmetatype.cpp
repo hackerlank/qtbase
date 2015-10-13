@@ -67,6 +67,8 @@
 # include "qline.h"
 #endif
 
+#include <new>
+
 QT_BEGIN_NAMESPACE
 
 #define NS(x) QT_PREPEND_NAMESPACE(x)
@@ -966,6 +968,30 @@ int QMetaType::registerNormalizedType(const NS(QByteArray) &normalizedTypeName,
                             Constructor constructor,
                             int size, TypeFlags flags, const QMetaObject *metaObject)
 {
+    return registerNormalizedType(normalizedTypeName, destructor, constructor, nullptr, nullptr,
+                                  size, flags, metaObject);
+}
+
+
+/*!
+    \internal
+    \since 5.7
+
+    Registers a user type for marshalling, with \a normalizedTypeName, a \a
+    destructor, a \a constructor, the corresponding \a deallocator and \a
+    allocator functions and \a size. Returns the type's handle, or -1 if the
+    type could not be registered.
+
+    \note normalizedTypeName is not checked for conformance with Qt's
+    normalized format, so it must already conform.
+*/
+int QMetaType::registerNormalizedType(const NS(QByteArray) &normalizedTypeName,
+                                      Destructor destructor,
+                                      Constructor constructor,
+                                      Allocator allocator,
+                                      Deallocator deallocator,
+                                      int size, TypeFlags flags, const QMetaObject *metaObject)
+{
     QVector<QCustomTypeInfo> *ct = customTypes();
     if (!ct || normalizedTypeName.isEmpty() || !destructor || !constructor)
         return -1;
@@ -980,6 +1006,10 @@ int QMetaType::registerNormalizedType(const NS(QByteArray) &normalizedTypeName,
         idx = qMetaTypeCustomType_unlocked(normalizedTypeName.constData(),
                                            normalizedTypeName.size());
         if (idx == UnknownType) {
+            if (!allocator)
+                allocator = &::operator new;
+            if (!deallocator)
+                deallocator = &::operator delete;
             QCustomTypeInfo inf;
             inf.typeName = normalizedTypeName;
 #ifndef QT_NO_DATASTREAM
@@ -989,6 +1019,8 @@ int QMetaType::registerNormalizedType(const NS(QByteArray) &normalizedTypeName,
             inf.alias = -1;
             inf.constructor = constructor;
             inf.destructor = destructor;
+            inf.allocator = allocator;
+            inf.deallocator = deallocator;
             inf.size = size;
             inf.flags = flags;
             inf.metaObject = metaObject;

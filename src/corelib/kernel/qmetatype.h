@@ -398,7 +398,8 @@ class Q_CORE_EXPORT QMetaType {
                          ConstructEx = 0x4, DestructEx = 0x8,
                          NameEx = 0x10, SizeEx = 0x20,
                          CtorEx = 0x40, DtorEx = 0x80,
-                         FlagsEx = 0x100, MetaObjectEx = 0x200
+                         FlagsEx = 0x100, MetaObjectEx = 0x200,
+                         AllocateEx = 0x400, DeallocateEx = 0x800
                        };
 public:
 #ifndef Q_QDOC
@@ -535,6 +536,8 @@ public:
     inline TypeFlags flags() const;
     inline const QMetaObject *metaObject() const;
 
+    inline void *allocate(std::size_t size) const;
+    inline void deallocate(void *data) const Q_DECL_NOTHROW;
     inline void *create(const void *copy = 0) const;
     inline void destroy(void *data) const;
     inline void *construct(void *where, const void *copy = 0) const;
@@ -676,6 +679,8 @@ private:
     uint sizeExtended() const;
     QMetaType::TypeFlags flagsExtended() const;
     const QMetaObject *metaObjectExtended() const;
+    void *allocateExtended(std::size_t size) const;
+    void deallocateExtended(void *data) const Q_DECL_NOTHROW;
     void *createExtended(const void *copy = 0) const;
     void destroyExtended(void *data) const;
     void *constructExtended(void *where, const void *copy = 0) const;
@@ -2111,6 +2116,20 @@ inline bool QMetaType::isValid() const
 inline bool QMetaType::isRegistered() const
 {
     return isValid();
+}
+
+void *QMetaType::allocate(std::size_t size) const
+{
+    if (Q_UNLIKELY(isExtended(AllocateEx)))
+        return allocateExtended(size);
+    return m_allocator(size);
+}
+
+void QMetaType::deallocate(void *data) const Q_DECL_NOTHROW
+{
+    if (Q_UNLIKELY(isExtended(DeallocateEx)))
+        return deallocateExtended(data);
+    return m_deallocator(data);
 }
 
 inline void *QMetaType::create(const void *copy) const

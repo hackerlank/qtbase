@@ -118,6 +118,8 @@ public:
     QMetaType::LoadOperator loadOp;
     QMetaType::Constructor constructor;
     QMetaType::Destructor destructor;
+    QMetaType::Allocator allocator;
+    QMetaType::Deallocator deallocator;
     int size;
     quint32 flags; // same as QMetaType::TypeFlags
     const QMetaObject *metaObject;
@@ -149,6 +151,8 @@ public:
     DATASTREAM_DELEGATE(Type) \
     /*constructor*/(QtMetaTypePrivate::QMetaTypeFunctionHelper<Type, QtMetaTypePrivate::TypeDefinition<Type>::IsAvailable>::Construct), \
     /*destructor*/(QtMetaTypePrivate::QMetaTypeFunctionHelper<Type, QtMetaTypePrivate::TypeDefinition<Type>::IsAvailable>::Destruct), \
+    /*allocator*/&::operator new, \
+    /*deallocator*/&::operator delete, \
     /*size*/(QTypeInfo<Type>::sizeOf), \
     /*flags*/QtPrivate::QMetaTypeTypeFlags<Type>::Flags, \
     /*metaObject*/METAOBJECT_DELEGATE(Type) \
@@ -172,6 +176,8 @@ public:
     QT_METATYPE_INTERFACE_INIT_EMPTY_DATASTREAM_IMPL(void) \
     /*constructor*/ 0, \
     /*destructor*/ 0, \
+    /*allocator*/ 0, \
+    /*deallocator*/ 0, \
     /*size*/ 0, \
     /*flags*/ 0, \
     /*metaObject*/ 0 \

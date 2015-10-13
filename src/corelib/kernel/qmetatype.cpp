@@ -1643,7 +1643,8 @@ void *QMetaType::create(int type, const void *copy)
 {
     QMetaType info(type);
     int size = info.sizeOf();
-    return info.construct(operator new(size), copy);
+        return info.construct(info.allocate(size), copy);
+    return 0;
 }
 
 /*!
@@ -1655,7 +1656,7 @@ void QMetaType::destroy(int type, void *data)
 {
     QMetaType info(type);
     info.destruct(data);
-    operator delete(data);
+    info.deallocate(data);
 }
 
 namespace {
@@ -2207,8 +2208,8 @@ QMetaType QMetaType::typeInfo(const int type)
     QMetaTypeSwitcher::switcher<void>(typeInfo, type, 0);
     return typeInfo.info.constructor ? QMetaType(static_cast<ExtensionFlag>(QMetaType::CreateEx | QMetaType::DestroyEx)
                                  , static_cast<const QMetaTypeInterface *>(0) // typeInfo::info is a temporary variable, we can't return address of it.
-                                 , 0 // unused
-                                 , 0 // unused
+                                 , typeInfo.info.allocator
+                                 , typeInfo.info.deallocator
                                  , typeInfo.info.saveOp
                                  , typeInfo.info.loadOp
                                  , typeInfo.info.constructor
@@ -2311,6 +2312,25 @@ void QMetaType::dtor()
 {}
 
 /*!
+    Method used for future binary compatible extensions. The function may be called
+    during QMetaType::allocate to force library call from inlined code.
+ */
+void *QMetaType::allocateExtended(std::size_t size) const
+{
+    Q_UNUSED(size);
+    return 0;
+}
+
+/*!
+    Method used for future binary compatible extensions. The function may be called
+    during QMetaType::deallocate to force library call from inlined code.
+ */
+void QMetaType::deallocateExtended(void *data) const Q_DECL_NOTHROW
+{
+    Q_UNUSED(data);
+}
+
+/*!
     \fn void *QMetaType::createExtended(const void *copy) const
     \internal
 
@@ -2323,7 +2343,7 @@ void *QMetaType::createExtended(const void *copy) const
 {
     if (m_typeId == QMetaType::UnknownType)
         return 0;
-    return m_constructor(operator new(m_size), copy);
+    return m_constructor(allocate(m_size), copy);
 }
 
 /*!
@@ -2338,7 +2358,7 @@ void *QMetaType::createExtended(const void *copy) const
 void QMetaType::destroyExtended(void *data) const
 {
     m_destructor(data);
-    operator delete(data);
+    deallocate(data);
 }
 
 /*!

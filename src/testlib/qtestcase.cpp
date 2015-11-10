@@ -2395,6 +2395,15 @@ char *QTest::toString(const void *p)
 
 /*! \internal
  */
+char *QTest::toString(void (*fptr)())
+{
+    if (sizeof(fptr) == sizeof(void*))
+        return toString(reinterpret_cast<const void *>(fptr));
+    return nullptr;
+}
+
+/*! \internal
+ */
 bool QTest::compare_string_helper(const char *t1, const char *t2, const char *actual,
                                   const char *expected, const char *file, int line)
 {

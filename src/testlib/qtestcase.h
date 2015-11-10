@@ -1,6 +1,7 @@
 /****************************************************************************
 **
 ** Copyright (C) 2016 The Qt Company Ltd.
+** Copyright (C) 2016 Intel Corporation.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the QtTest module of the Qt Toolkit.
@@ -237,7 +238,32 @@ class QTestData;
 
 namespace QTest
 {
+    Q_TESTLIB_EXPORT char *toString(const char *);
+    Q_TESTLIB_EXPORT char *toString(const void *);
+    Q_TESTLIB_EXPORT char *toString(void (*)());
+
     namespace Internal {
+    struct PointerToData {};
+    inline PointerToData classifyPointer(const void *) { return PointerToData(); }
+    inline char *pointerToString(const void *t, PointerToData)
+    {
+        return QTest::toString(t);
+    }
+
+    // if it's a pointer and cannot automatically cast to const void*, it's a function pointer
+    struct PointerToFunction {};
+    inline PointerToFunction classifyPointer(...) { return PointerToFunction(); }
+    template <typename T> inline char *pointerToString(T *t, PointerToFunction)
+    {
+        Q_STATIC_ASSERT(sizeof(t) == sizeof(void (*)()));
+        return QTest::toString(reinterpret_cast<void (*)()>(t));
+    }
+
+    template<typename T> // Output pointers
+    inline char *toString(T *t)
+    {
+        return Internal::pointerToString(t, Internal::classifyPointer(t));
+    }
 
     template<typename T> // Output registered enums
     inline typename QtPrivate::QEnableIf<QtPrivate::IsQEnumHelper<T>::Value, char*>::Type toString(T e)
@@ -263,8 +289,6 @@ namespace QTest
     Q_TESTLIB_EXPORT char *toHexRepresentation(const char *ba, int length);
     Q_TESTLIB_EXPORT char *toPrettyCString(const char *unicode, int length);
     Q_TESTLIB_EXPORT char *toPrettyUnicode(const ushort *unicode, int length);
-    Q_TESTLIB_EXPORT char *toString(const char *);
-    Q_TESTLIB_EXPORT char *toString(const void *);
 
     Q_TESTLIB_EXPORT int qExec(QObject *testObject, int argc = 0, char **argv = Q_NULLPTR);
     Q_TESTLIB_EXPORT int qExec(QObject *testObject, const QStringList &arguments);
@@ -331,27 +355,6 @@ namespace QTest
     Q_TESTLIB_EXPORT bool qCompare(double const &t1, double const &t2,
                     const char *actual, const char *expected, const char *file, int line);
 
-    inline bool compare_ptr_helper(const volatile void *t1, const volatile void *t2, const char *actual,
-                                   const char *expected, const char *file, int line)
-    {
-        return compare_helper(t1 == t2, "Compared pointers are not the same",
-                              toString(t1), toString(t2), actual, expected, file, line);
-    }
-
-    inline bool compare_ptr_helper(const volatile void *t1, std::nullptr_t, const char *actual,
-                                   const char *expected, const char *file, int line)
-    {
-        return compare_helper(t1 == nullptr, "Compared pointers are not the same",
-                              toString(t1), toString(nullptr), actual, expected, file, line);
-    }
-
-    inline bool compare_ptr_helper(std::nullptr_t, const volatile void *t2, const char *actual,
-                                   const char *expected, const char *file, int line)
-    {
-        return compare_helper(nullptr == t2, "Compared pointers are not the same",
-                              toString(nullptr), toString(t2), actual, expected, file, line);
-    }
-
     Q_TESTLIB_EXPORT bool compare_string_helper(const char *t1, const char *t2, const char *actual,
                                       const char *expected, const char *file, int line);
 
@@ -406,41 +409,32 @@ namespace QTest
     inline bool qCompare(const T *t1, const T *t2, const char *actual, const char *expected,
                         const char *file, int line)
     {
-        return compare_ptr_helper(t1, t2, actual, expected, file, line);
+        return compare_helper(t1 == t2, "Compared pointers are not the same",
+                              toString(t1), toString(t2), actual, expected, file, line);
     }
     template <typename T>
     inline bool qCompare(T *t1, T *t2, const char *actual, const char *expected,
                         const char *file, int line)
     {
-        return compare_ptr_helper(t1, t2, actual, expected, file, line);
-    }
-
-    template <typename T>
-    inline bool qCompare(T *t1, std::nullptr_t, const char *actual, const char *expected,
-                        const char *file, int line)
-    {
-        return compare_ptr_helper(t1, nullptr, actual, expected, file, line);
-    }
-    template <typename T>
-    inline bool qCompare(std::nullptr_t, T *t2, const char *actual, const char *expected,
-                        const char *file, int line)
-    {
-        return compare_ptr_helper(nullptr, t2, actual, expected, file, line);
+        return compare_helper(t1 == t2, "Compared pointers are not the same",
+                              toString(t1), toString(t2), actual, expected, file, line);
     }
 
     template <typename T1, typename T2>
     inline bool qCompare(const T1 *t1, const T2 *t2, const char *actual, const char *expected,
                         const char *file, int line)
     {
-        return compare_ptr_helper(t1, static_cast<const T1 *>(t2), actual, expected, file, line);
+        return compare_helper(t1 == t2, "Compared pointers are not the same",
+                              toString(t1), toString(t2), actual, expected, file, line);
     }
     template <typename T1, typename T2>
     inline bool qCompare(T1 *t1, T2 *t2, const char *actual, const char *expected,
                         const char *file, int line)
     {
-        return compare_ptr_helper(const_cast<const T1 *>(t1),
-                static_cast<const T1 *>(const_cast<const T2 *>(t2)), actual, expected, file, line);
+        return compare_helper(t1 == t2, "Compared pointers are not the same",
+                              toString(t1), toString(t2), actual, expected, file, line);
     }
+
     inline bool qCompare(const char *t1, const char *t2, const char *actual,
                                        const char *expected, const char *file, int line)
     {

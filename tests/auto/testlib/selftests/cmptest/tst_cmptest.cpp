@@ -130,6 +130,7 @@ private slots:
     void compare_boolfuncs();
     void compare_to_nullptr();
     void compare_pointerfuncs();
+    void compare_funcpointerfuncs();
     void compare_tostring();
     void compare_tostring_data();
     void compareQStringLists();
@@ -213,6 +214,22 @@ void tst_Cmptest::compare_pointerfuncs()
     QCOMPARE(&i, &i);
     QCOMPARE(intptr(), &i);
     QCOMPARE(&i, intptr());
+}
+
+void tst_Cmptest::compare_funcpointerfuncs()
+{
+    QCOMPARE(intptr, intptr);
+    int *(*fptr)() = intptr;
+    QCOMPARE(fptr, intptr);
+    QCOMPARE(intptr, fptr);
+
+    typedef int *(Function)();
+    typedef const Function *ConstFptr;
+    ConstFptr cfptr = intptr;
+    QCOMPARE(cfptr, cfptr);
+    QCOMPARE(cfptr, intptr);
+    QCOMPARE(cfptr, fptr);
+    QCOMPARE(fptr, cfptr);
 }
 
 

@@ -43,6 +43,10 @@
 <Incident type="pass" file="" line="0" />
     <Duration msecs="0"/>
 </TestFunction>
+<TestFunction name="compare_funcpointerfuncs">
+<Incident type="pass" file="" line="0" />
+    <Duration msecs="0"/>
+</TestFunction>
 <TestFunction name="compare_tostring">
 <Incident type="fail" file="tst_cmptest.cpp" line="262">
     <DataTag><![CDATA[int, string]]></DataTag>

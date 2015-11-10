@@ -14,6 +14,7 @@ FAIL!  : tst_Cmptest::compare_class_enums() Compared values are not the same
 PASS   : tst_Cmptest::compare_boolfuncs()
 PASS   : tst_Cmptest::compare_to_nullptr()
 PASS   : tst_Cmptest::compare_pointerfuncs()
+PASS   : tst_Cmptest::compare_funcpointerfuncs()
 FAIL!  : tst_Cmptest::compare_tostring(int, string) Compared values are not the same
    Actual   (actual)  : QVariant(int,123)
    Expected (expected): QVariant(QString,hi)
@@ -121,5 +122,5 @@ FAIL!  : tst_Cmptest::tryVerify2() 'opaqueFunc() < 2' returned FALSE. (42)
    Loc: [tst_cmptest.cpp(485)]
 PASS   : tst_Cmptest::verifyExplicitOperatorBool()
 PASS   : tst_Cmptest::cleanupTestCase()
-Totals: 15 passed, 30 failed, 0 skipped, 0 blacklisted, 244ms
+Totals: 16 passed, 30 failed, 0 skipped, 0 blacklisted, 244ms
 ********* Finished testing of tst_Cmptest *********

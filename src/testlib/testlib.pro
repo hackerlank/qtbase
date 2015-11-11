@@ -69,6 +69,7 @@ DEFINES *= QT_NO_CAST_TO_ASCII \
     QT_NO_FOREACH \
     QT_NO_DATASTREAM
 embedded:QMAKE_CXXFLAGS += -fno-rtti
+unix: LIBS_PRIVATE += $$QMAKE_LIBS_DYNLOAD
 
 mac {
     LIBS += -framework Security

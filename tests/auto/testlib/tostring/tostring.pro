@@ -5,3 +5,5 @@ QT += testlib
 qtHaveModule(network): QT += network
 qtHaveModule(widgets): QT += widgets
 SOURCES += tst_tostring.cpp
+
+linux|freebsd: QMAKE_LFLAGS += -rdynamic

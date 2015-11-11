@@ -29,6 +29,7 @@
 #include <QtTest>
 #include <QScopedPointer>
 #include <string.h>
+#include <stdarg.h>
 
 class tst_ToString : public QObject
 {
@@ -62,12 +63,48 @@ Q_DECLARE_OPERATORS_FOR_FLAGS(tst_ToString::Options)
         QCOMPARE(actual.data(), expected); \
     } while (false)
 
-#define CHECK_PTR_TOSTRING(ptr) \
+#define CHECK_PTR_TOSTRING(ptr, gccsym) \
     do { \
-        char expected[3 + 2*sizeof(void*)]; \
-        qsnprintf(expected, sizeof(expected), "%p", ptr); \
-        CHECK_TOSTRING(ptr, expected); \
+        bool failed = true; \
+        QScopedArrayPointer<char> actual(QTest::toString(ptr)); \
+        compare_sym(&failed, actual.data(), gccsym, ptr); \
+        if (failed) QFAIL("Failure location"); \
     } while (false)
+
+inline void compare_sym(bool *failed, char *actual, const char *gccsym, ...)
+{
+    QVERIFY(actual);
+
+    QByteArray expected(3 + 2*sizeof(void*), Qt::Uninitialized);
+
+    va_list ap;
+    va_start(ap, gccsym);
+    int n = qvsnprintf(expected.data(), expected.length(), "%p", ap);
+    va_end(ap);
+
+    expected.truncate(n);
+
+    QCOMPARE(QByteArray(actual).left(n), expected);
+    QVERIFY2(strlen(actual) == size_t(n) || actual[n] == ' ',
+        "Actual: \"" + QByteArray(actual) +
+        "\"; Expected: \"" + expected + '"');
+
+    if (strlen(actual) > size_t(n)) {
+        actual += n + 1;
+        QVERIFY2(actual[0] == '<' && actual[strlen(actual) - 1] == '>', actual);
+        actual[strlen(actual) - 1] = '\0';
+        ++actual;
+
+#if defined(Q_CC_GNU)
+        QCOMPARE(QByteArray(actual).left(strlen(gccsym)), QByteArray(gccsym));
+        QCOMPARE(actual[strlen(gccsym)], '+');
+#else
+        Q_UNUSED(gccsym);
+#endif
+    }
+
+    *failed = false;
+}
 
 void tst_ToString::basic()
 {
@@ -136,35 +173,39 @@ void tst_ToString::enumsAndFlags()
 }
 
 void testfunction(int) {}
+int gi = 0;
 void tst_ToString::pointers()
 {
     // pointer to variables
-    static int si = 0;
     int i;
     {
         int *p = 0;
-        CHECK_PTR_TOSTRING(p);
-        CHECK_PTR_TOSTRING(&i);
-        CHECK_PTR_TOSTRING(&si);
+        CHECK_PTR_TOSTRING(p, "");
+        CHECK_PTR_TOSTRING(&i, "");
+        CHECK_PTR_TOSTRING(&gi, "gi");
     }
     {
         void *v = 0;
-        CHECK_PTR_TOSTRING(v);
-        CHECK_PTR_TOSTRING((void*)&i);
-        CHECK_PTR_TOSTRING((void*)&si);
+        CHECK_PTR_TOSTRING(v, "");
+        CHECK_PTR_TOSTRING((void*)&i, "");
+        CHECK_PTR_TOSTRING((void*)&gi, "gi");
+        CHECK_PTR_TOSTRING(1+(quint8*)&gi, "gi");
     }
     {
         const void *v = 0;
-        CHECK_PTR_TOSTRING(v);
-        CHECK_PTR_TOSTRING((const void*)&i);
-        CHECK_PTR_TOSTRING((const void*)&si);
+        CHECK_PTR_TOSTRING(v, "");
+        CHECK_PTR_TOSTRING((const void*)&i, "");
+        CHECK_PTR_TOSTRING((const void*)&gi, "gi");
+        CHECK_PTR_TOSTRING(1+(const quint8*)&gi, "gi");
     }
 
     {
         void (*f)(int) = 0;
 #ifdef Q_COMPILER_VARIADIC_TEMPLATES
-        CHECK_PTR_TOSTRING(f);
-        CHECK_PTR_TOSTRING(testfunction);
+        CHECK_PTR_TOSTRING(f, "");
+        CHECK_PTR_TOSTRING(testfunction, "testfunction(int)");
+        CHECK_PTR_TOSTRING(&testfunction, "testfunction(int)");
+        CHECK_PTR_TOSTRING(&tst_ToString::staticmember, "tst_ToString::staticmember(int)");
 #else
         char *null = 0;
         CHECK_TOSTRING(f, null);

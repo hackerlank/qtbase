@@ -96,6 +96,8 @@
 #include <windows.h> // for Sleep
 #endif
 #ifdef Q_OS_UNIX
+#include <dlfcn.h>
+#include <inttypes.h>
 #include <errno.h>
 #include <signal.h>
 #include <time.h>
@@ -2388,8 +2390,34 @@ char *QTest::toString(const char *str)
  */
 char *QTest::toString(const void *p)
 {
-    char *msg = new char[128];
-    qsnprintf(msg, 128, "%p", p);
+    enum { PtrLen = 2 + 2 * sizeof(void*) };    // 0xnnnnnnnnnnnnnnnnn
+#ifdef Q_OS_UNIX
+    const char *symname = nullptr;
+    Dl_info info;
+    int r = dladdr(p, &info);
+    if (r)
+        symname = info.dli_sname;
+
+    // try to demangle the name
+#  ifdef HAVE_CXXABI
+    QScopedPointer<char, QScopedPointerPodDeleter> dynbuffer;
+    if (symname) {
+        int status;
+        dynbuffer.reset(abi::__cxa_demangle(symname, nullptr, nullptr, &status));
+        if (dynbuffer)
+            symname = dynbuffer.data();
+    }
+#  endif
+    if (symname) {
+        int len = 2*PtrLen + 5 + strlen(symname);
+        char *msg = new char[len];
+        qsnprintf(msg, len, "%p <%s%+" PRIdPTR ">", p, symname,
+                  static_cast<const char *>(p) - static_cast<const char *>(info.dli_saddr));
+        return msg;
+    }
+#endif
+    char *msg = new char[PtrLen + 1];
+    qsnprintf(msg, PtrLen + 1, "%p", p);
     return msg;
 }
 

@@ -23,6 +23,7 @@
   <testcase result="pass" name="compare_to_nullptr"/>
   <testcase result="pass" name="compare_pointerfuncs"/>
   <testcase result="pass" name="compare_funcpointerfuncs"/>
+  <testcase result="pass" name="compare_pmfs"/>
   <testcase result="fail" name="compare_tostring">
     <failure tag="int, string" message="Compared values are not the same
    Actual   (actual)  : QVariant(int,123)

@@ -131,6 +131,7 @@ private slots:
     void compare_to_nullptr();
     void compare_pointerfuncs();
     void compare_funcpointerfuncs();
+    void compare_pmfs();
     void compare_tostring();
     void compare_tostring_data();
     void compareQStringLists();
@@ -230,6 +231,18 @@ void tst_Cmptest::compare_funcpointerfuncs()
     QCOMPARE(cfptr, intptr);
     QCOMPARE(cfptr, fptr);
     QCOMPARE(fptr, cfptr);
+}
+
+void tst_Cmptest::compare_pmfs()
+{
+    QCOMPARE(&tst_Cmptest::compare_pmfs, &tst_Cmptest::compare_pmfs);
+
+    void (tst_Cmptest:: *pmf)() = 0;
+    QCOMPARE(pmf, pmf);
+    pmf = &tst_Cmptest::compare_pmfs;
+    QCOMPARE(pmf, pmf);
+    QCOMPARE(pmf, &tst_Cmptest::compare_pmfs);
+    QCOMPARE(&tst_Cmptest::compare_pmfs, pmf);
 }
 
 

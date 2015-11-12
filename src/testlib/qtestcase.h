@@ -238,11 +238,26 @@ class QTestData;
 
 namespace QTest
 {
+    Q_TESTLIB_EXPORT char *toPrettyPmf(const void *, size_t, const char *classname);
     Q_TESTLIB_EXPORT char *toString(const char *);
     Q_TESTLIB_EXPORT char *toString(const void *);
     Q_TESTLIB_EXPORT char *toString(void (*)());
 
     namespace Internal {
+    template <typename C> // Retrieve the class name
+    inline typename QtPrivate::QEnableIf<QtPrivate::IsPointerToTypeDerivedFromQObject<C*>::Value, const char *>::Type
+    className()
+    {
+        return C::staticMetaObject.className();
+    }
+
+    template <typename C> // Fallback
+    inline typename QtPrivate::QEnableIf<!QtPrivate::IsPointerToTypeDerivedFromQObject<C*>::Value, const char *>::Type
+    className()
+    {
+        return Q_NULLPTR;
+    }
+
     struct PointerToData {};
     inline PointerToData classifyPointer(const void *) { return PointerToData(); }
     inline char *pointerToString(const void *t, PointerToData)
@@ -264,6 +279,46 @@ namespace QTest
     {
         return Internal::pointerToString(t, Internal::classifyPointer(t));
     }
+
+#ifdef Q_COMPILER_VARIADIC_TEMPLATES
+    template <typename C, typename R, typename... Args>
+    inline char *toString(R (C::*t)(Args...))
+    {
+        return toPrettyPmf(&t, sizeof(t), Internal::className<C>());
+    }
+
+    template <typename C, typename R, typename... Args>
+    inline char *toString(R (C::*t)(Args...) const)
+    {
+        return toPrettyPmf(&t, sizeof(t), Internal::className<C>());
+    }
+
+#  ifdef Q_COMPILER_REF_QUALIFIERS
+    template <typename C, typename R, typename... Args>
+    inline char *toString(R (C::*t)(Args...) &)
+    {
+        return toPrettyPmf(&t, sizeof(t), Internal::className<C>());
+    }
+
+    template <typename C, typename R, typename... Args>
+    inline char *toString(R (C::*t)(Args...) const &)
+    {
+        return toPrettyPmf(&t, sizeof(t), Internal::className<C>());
+    }
+
+    template <typename C, typename R, typename... Args>
+    inline char *toString(R (C::*t)(Args...) &&)
+    {
+        return toPrettyPmf(&t, sizeof(t), Internal::className<C>());
+    }
+
+    template <typename C, typename R, typename... Args>
+    inline char *toString(R (C::*t)(Args...) const &&)
+    {
+        return toPrettyPmf(&t, sizeof(t), Internal::className<C>());
+    }
+#  endif
+#endif
 
     template<typename T> // Output registered enums
     inline typename QtPrivate::QEnableIf<QtPrivate::IsQEnumHelper<T>::Value, char*>::Type toString(T e)

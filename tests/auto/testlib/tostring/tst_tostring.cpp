@@ -31,6 +31,8 @@
 #include <string.h>
 #include <stdarg.h>
 
+struct Type {};
+
 class tst_ToString : public QObject
 {
     Q_OBJECT
@@ -42,9 +44,15 @@ public:
     Q_DECLARE_FLAGS(Options, Option)
 
 private:
-    void constmember() const {}
+    void constmember(Type) const {}
     virtual void virtualmember() {}
     static void staticmember(int) {}
+#ifdef Q_COMPILER_REF_QUALIFIERS
+    void lvaluemember(const Type &&) & {}
+    void clvaluemember(Type &&) const & {}
+    void rvaluemember(const Type &) && {}
+    void crvaluemember(Type &) const && {}
+#endif
 
 private Q_SLOTS:
     void basic();
@@ -210,6 +218,43 @@ void tst_ToString::pointers()
         char *null = 0;
         CHECK_TOSTRING(f, null);
         CHECK_TOSTRING(testfunction, null);
+#endif
+    }
+
+    {
+        void (tst_ToString:: *f)() = 0;
+#if defined(Q_COMPILER_VARIADIC_TEMPLATES) && defined(Q_CC_GNU)
+        CHECK_PTR_TOSTRING(f, "");
+        CHECK_PTR_TOSTRING(&tst_ToString::pointers, "tst_ToString::pointers()");
+        CHECK_PTR_TOSTRING(&tst_ToString::constmember, "tst_ToString::constmember(Type) const");
+
+#  ifdef Q_COMPILER_REF_QUALIFIERS
+        CHECK_PTR_TOSTRING(&tst_ToString::lvaluemember, "tst_ToString::lvaluemember(Type const&&) &");
+        CHECK_PTR_TOSTRING(&tst_ToString::clvaluemember, "tst_ToString::clvaluemember(Type&&) const &");
+        CHECK_PTR_TOSTRING(&tst_ToString::rvaluemember, "tst_ToString::rvaluemember(Type const&) &&");
+        CHECK_PTR_TOSTRING(&tst_ToString::crvaluemember, "tst_ToString::crvaluemember(Type&) const &&");
+#  endif
+
+        // virtual members are a little more delicate
+        QScopedArrayPointer<char> data(QTest::toString(&tst_ToString::virtualmember));
+#  if defined(Q_PROCESSOR_X86) || defined(Q_PROCESSOR_SPARC) || defined(Q_PROCESSOR_POWER) \
+    || defined(Q_PROCESSOR_MIPS) || defined(Q_PROCESSOR_ARM)
+        QByteArray result(data.data());
+        QVERIFY2(result.startsWith("tst_ToString::virtual"), result);
+#  endif
+#else
+        char *null = 0;
+        CHECK_TOSTRING(f, null);
+        CHECK_TOSTRING(&tst_ToString::pointers, null);
+        CHECK_TOSTRING(&tst_ToString::constmember, null);
+        CHECK_TOSTRING(&tst_ToString::virtualmember, null);
+
+#  ifdef Q_COMPILER_REF_QUALIFIERS
+        CHECK_TOSTRING(&tst_ToString::lvaluemember, null);
+        CHECK_TOSTRING(&tst_ToString::clvaluemember, null);
+        CHECK_TOSTRING(&tst_ToString::rvaluemember, null);
+        CHECK_TOSTRING(&tst_ToString::crvaluemember, null);
+#  endif
 #endif
     }
 }

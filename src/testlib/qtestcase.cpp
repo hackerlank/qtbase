@@ -102,6 +102,10 @@
 #include <signal.h>
 #include <time.h>
 #endif
+#if (defined(__GLIBC__) && defined(__GLIBCXX__)) || QT_HAS_INCLUDE(<cxxabi.h>)
+#  include <cxxabi.h>
+#  define HAVE_CXXABI
+#endif
 
 #if defined(Q_OS_MACX)
 #include <IOKit/pwr_mgt/IOPMLib.h>
@@ -2428,6 +2432,51 @@ char *QTest::toString(void (*fptr)())
     if (sizeof(fptr) == sizeof(void*))
         return toString(reinterpret_cast<const void *>(fptr));
     return nullptr;
+}
+
+/*! \internal
+ */
+char *QTest::toPrettyPmf(const void *pptr, size_t ptrsize, const char *classname)
+{
+    // we can only do this in an ABI- and psABI-dependent manner
+#if defined(HAVE_CXXABI)
+    Q_STATIC_ASSERT(sizeof(void (QString::*)()) == 2 * sizeof(void*));
+    Q_ASSERT_X(ptrsize == 2*sizeof(void*), "QTest::toPrettyPmf",
+               "Internal error: size of a pointer-to-member function is not what the ABI expects");
+
+    // the low word of the PMF contains the function entry point
+    // the high word contains the adjustment
+    const void *entry = static_cast<const void *const *>(pptr)[0];
+
+    // The rules for virtual functions depend on the psABI
+#  if defined(Q_PROCESSOR_ARM) || defined(Q_PROCESSOR_MIPS)
+    // virtual functions are identified by the adjustment having the LSB set
+    quintptr adjust = static_cast<const quintptr *>(pptr)[1];
+    bool isVirtual = adjust & 1;
+#  elif defined(Q_PROCESSOR_PPC) || defined(Q_PROCESSOR_SPARC) || defined(Q_PROCESSOR_X86)
+    // virtual functions are identified by the entry point having the LSB set
+    bool isVirtual = quintptr(entry) & 1;
+    entry = reinterpret_cast<const void *>(quintptr(entry) & ~1);
+#  else
+    // unknown architecture
+    return nullptr;
+#  endif
+
+    if (!isVirtual)
+        return toString(entry);
+
+    char *msg = new char[128];
+    if (classname)
+        qsnprintf(msg, 128, "%s::virtual%+p", classname, entry);
+    else
+        qsnprintf(msg, 128, "virtual%+p", entry);
+    return msg;
+#else
+    Q_UNUSED(pptr);
+    Q_UNUSED(ptrsize);
+    Q_UNUSED(classname);
+    return nullptr;
+#endif
 }
 
 /*! \internal

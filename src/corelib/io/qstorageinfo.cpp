@@ -288,6 +288,21 @@ QByteArray QStorageInfo::subvolume() const
 }
 
 /*!
+    \since 5.7
+    Returns the filesystem ID, if known. If the filesystem ID could not be
+    determined, this function returns an empty QByteArray.
+
+    The format of the ID is dependent on the operating system. It might be a
+    UUID or a smaller hex data.
+
+    \sa name()
+ */
+QByteArray QStorageInfo::fileSystemId() const
+{
+    return d->fsid;
+}
+
+/*!
     Returns the human-readable name of a filesystem, usually called \c label.
 
     Not all filesystems support this feature. In this case, the value returned by
@@ -297,7 +312,7 @@ QByteArray QStorageInfo::subvolume() const
     On Linux, retrieving the volume's label requires \c udev to be present in the
     system.
 
-    \sa fileSystemType()
+    \sa fileSystemType(), fileSystemId()
 */
 QString QStorageInfo::name() const
 {

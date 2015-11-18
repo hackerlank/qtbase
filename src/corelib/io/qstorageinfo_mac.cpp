@@ -83,6 +83,13 @@ void QStorageInfoPrivate::retrievePosixInfo()
         readOnly = (statfs_buf.f_flags & MNT_RDONLY) != 0;
         fileSystemType = QByteArray(statfs_buf.f_fstypename);
         blockSize = statfs_buf.f_bsize;
+
+        if (statfs_buf.f_fsid.val[0] != 0 && statfs_buf.f_fsid.val[1] != 0) {
+            // read val[1] then val[0]
+            char buf[sizeof "0123456701234567"];
+            snprintf(buf, sizeof(buf), "%08x%08x", statfs_buf.f_fsid.val[1], statfs_buf.f_fsid.val[0]);
+            fsid = buf;
+        }
     }
 }
 
@@ -149,6 +156,11 @@ void QStorageInfoPrivate::retrieveUrlProperties(bool initRootPath)
     bytesTotal = CFDictionaryGetInt64(map, kCFURLVolumeTotalCapacityKey);
     bytesAvailable = CFDictionaryGetInt64(map, kCFURLVolumeAvailableCapacityKey);
     bytesFree = bytesAvailable;
+
+    // overwrite the fsid with the UUID if it is available
+    QString uuid = QCFString((CFStringRef)CFDictionaryGetValue(map, kCFURLVolumeUUIDStringKey));
+    if (!uuid.isEmpty())
+        fsid = uuid.toLatin1();
 }
 
 void QStorageInfoPrivate::retrieveLabel()

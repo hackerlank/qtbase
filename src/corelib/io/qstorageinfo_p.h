@@ -87,6 +87,7 @@ public:
     QByteArray device;
     QByteArray subvolume;
     QByteArray fileSystemType;
+    QByteArray fsid;
     QString name;
 
     qint64 bytesTotal;

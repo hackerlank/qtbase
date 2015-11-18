@@ -125,10 +125,11 @@ void QStorageInfoPrivate::retrieveVolumeInfo()
     wchar_t nameBuffer[defaultBufferSize];
     wchar_t fileSystemTypeBuffer[defaultBufferSize];
     DWORD fileSystemFlags = 0;
+    DWORD serialNumber;
     const bool result = ::GetVolumeInformation(reinterpret_cast<const wchar_t *>(path.utf16()),
                                                nameBuffer,
                                                defaultBufferSize,
-                                               Q_NULLPTR,
+                                               &serialNumber,
                                                Q_NULLPTR,
                                                &fileSystemFlags,
                                                fileSystemTypeBuffer,
@@ -144,6 +145,10 @@ void QStorageInfoPrivate::retrieveVolumeInfo()
         name = QString::fromWCharArray(nameBuffer);
 
         readOnly = (fileSystemFlags & FILE_READ_ONLY_VOLUME) != 0;
+
+        char buf[sizeof "aaaa-bbbb"];
+        snprintf(buf, sizeof(buf), "%04x-%04x", serialNumber & 0xffff, serialNumber >> 16);
+        fsid = buf;
     }
 
     ::SetErrorMode(oldmode);

@@ -148,6 +148,27 @@ private:
 #endif
 };
 
+template <typename T> static QByteArray convertFsId(T *ptr)
+{
+    // traditionally, the fsid is a pair of integers
+    struct { int val[2]; } fsid;
+
+    char *p = reinterpret_cast<char *>(ptr);
+    for (size_t i = 0; i < sizeof(T); ++i) {
+        if (p[i]) {
+            if (sizeof(T) != sizeof(fsid))
+                return QByteArray::fromRawData(p, sizeof(T)).toHex();
+
+            memcpy(&fsid, p, sizeof(T));
+            char buf[sizeof "0123456701234567"];
+            snprintf(buf, sizeof(buf), "%08x%08x", fsid.val[0], fsid.val[1]);
+            return buf;
+        }
+    }
+
+    return QByteArray();
+}
+
 template <typename String>
 static bool isParentOf(const String &parent, const QString &dirName)
 {
@@ -538,19 +559,19 @@ void QStorageInfoPrivate::initRootPath()
     }
 }
 
-static inline QString retrieveLabel(const QByteArray &device)
+static inline QString retrieveLabel(const QString &device)
 {
 #ifdef Q_OS_LINUX
     static const char pathDiskByLabel[] = "/dev/disk/by-label";
 
-    QFileInfo devinfo(QFile::decodeName(device));
+    QFileInfo devinfo(device);
     QString devicePath = devinfo.canonicalFilePath();
 
     QDirIterator it(QLatin1String(pathDiskByLabel), QDir::NoDotAndDotDot);
     while (it.hasNext()) {
         it.next();
         QFileInfo fileInfo(it.fileInfo());
-        if (fileInfo.isSymLink() && fileInfo.symLinkTarget() == devicePath)
+        if (fileInfo.isSymLink() && fileInfo.symLinkTarget() == device)
             return fileInfo.fileName();
     }
 #elif defined Q_OS_HAIKU
@@ -573,6 +594,32 @@ static inline QString retrieveLabel(const QByteArray &device)
     return QString();
 }
 
+static inline QByteArray retrieveUuid(const QString &devicePath)
+{
+#ifdef Q_OS_LINUX
+    static const char pathDiskByUuid[] = "/dev/disk/by-uuid";
+
+    QDirIterator it(QLatin1String(pathDiskByUuid), QDir::NoDotAndDotDot);
+    while (it.hasNext()) {
+        it.next();
+        QFileInfo fileInfo(it.fileInfo());
+        if (fileInfo.isSymLink() && fileInfo.symLinkTarget() == devicePath)
+            return QFile::encodeName(fileInfo.fileName());
+    }
+#else
+    Q_UNUSED(devicePath);
+#endif
+
+    return QByteArray();
+}
+
+static inline QPair<QString, QByteArray> retrieveLabelAndUuid(const QByteArray &device)
+{
+    QFileInfo devinfo(QFile::decodeName(device));
+    QString devicePath = devinfo.canonicalFilePath();
+    return qMakePair(retrieveLabel(devicePath), retrieveUuid(devicePath));
+}
+
 void QStorageInfoPrivate::doStat()
 {
     initRootPath();
@@ -580,7 +627,10 @@ void QStorageInfoPrivate::doStat()
         return;
 
     retrieveVolumeInfo();
-    name = retrieveLabel(device);
+    auto pair = retrieveLabelAndUuid(device);
+    name = pair.first;
+    if (!pair.second.isEmpty())
+        fsid = pair.second;
 }
 
 void QStorageInfoPrivate::retrieveVolumeInfo()
@@ -591,6 +641,7 @@ void QStorageInfoPrivate::retrieveVolumeInfo()
     if (result == 0) {
         valid = true;
         ready = true;
+        fsid = convertFsId(&statfs_buf.f_fsid);
 
 #if defined(Q_OS_INTEGRITY) || (defined(Q_OS_BSD4) && !defined(Q_OS_NETBSD))
         bytesTotal = statfs_buf.f_blocks * statfs_buf.f_bsize;

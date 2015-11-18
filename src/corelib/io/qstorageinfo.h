@@ -73,6 +73,7 @@ public:
     QByteArray device() const;
     QByteArray subvolume() const;
     QByteArray fileSystemType() const;
+    QByteArray fileSystemId() const;
     QString name() const;
     QString displayName() const;
 

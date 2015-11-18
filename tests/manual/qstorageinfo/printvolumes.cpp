@@ -36,13 +36,13 @@
 void printVolumes(const QList<QStorageInfo> &volumes, int (*printer)(const char *, ...))
 {
     // Sample output:
-    //  Filesystem (Type)            Size  Available BSize  Label            Mounted on
-    //  /dev/sda2 (ext4)    RO     388480     171218  1024                   /boot
+    //  Filesystem (Type)            Size  Available BSize  ID (Label)                Mounted on
+    //  /dev/sda2 (ext4)    RO     388480     171218  1024  fc5e59200a4d774d          /boot
     //  /dev/mapper/system-root (btrfs) RW
-    //                          214958080   39088272  4096                   /
-    //  /dev/disk1s2 (hfs)  RW  488050672  419909696  4096  Macintosh HD2    /Volumes/Macintosh HD2
+    //                          214958080   39088272  4096  95046e259f14bf2a (SYS)    /
+    //  /dev/disk1s2 (hfs)  RW  488050672  419909696  4096  Macintosh HD2             /Volumes/Macintosh HD2
 
-    printf("Filesystem (Type)            Size  Available BSize  Label            Mounted on\n");
+    printer("Filesystem (Type)            Size  Available BSize  ID (Label)                Mounted on\n");
     foreach (const QStorageInfo &info, volumes) {
         QByteArray fsAndType = info.device();
         if (info.fileSystemType() != fsAndType)
@@ -53,10 +53,12 @@ void printVolumes(const QList<QStorageInfo> &volumes, int (*printer)(const char 
             printer("\n%23s", "");
 
         printer("%10llu %10llu %5u  ", info.bytesTotal() / 1024, info.bytesFree() / 1024, info.blockSize());
+
+        QByteArray idAndLabel = info.fileSystemId();
         if (!info.subvolume().isEmpty())
-            printer("subvol=%-18s ", qPrintable(info.subvolume()));
-        else
-            printer("%-25s ", qPrintable(info.name()));
-        printer("%s\n", qPrintable(info.rootPath()));
+            idAndLabel += " (subvol=" + info.subvolume() + ')';
+        else if (!info.name().isEmpty())
+            idAndLabel += " (" + info.name().toLocal8Bit() + ')';
+        printer("%-25s %s\n", qPrintable(idAndLabel), qPrintable(info.rootPath()));
     }
 }

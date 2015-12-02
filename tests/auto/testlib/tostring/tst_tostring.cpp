@@ -33,15 +33,28 @@
 class tst_ToString : public QObject
 {
     Q_OBJECT
+public:
+    enum AnEnum { Value2 = 2, Value1 = 1 };
+    Q_ENUM(AnEnum)
+
+    enum Option { Option1 = 1, Option2 = 2 };
+    Q_DECLARE_FLAGS(Options, Option)
+
+private:
+    void constmember() const {}
+    virtual void virtualmember() {}
+    static void staticmember(int) {}
 
 private Q_SLOTS:
     void basic();
     void strings();
+    void enumsAndFlags();
     void pointers();
     void qtcore();
     void qtnetwork();
     void qtwidgets();
 };
+Q_DECLARE_OPERATORS_FOR_FLAGS(tst_ToString::Options)
 
 #define CHECK_TOSTRING(expr, expected)  \
     do { \
@@ -103,6 +116,23 @@ void tst_ToString::strings()
 
     // Unlike QDebug, QTest::toString will not decode surrogate pairs
     CHECK_TOSTRING(QString("\xf0\x90\x80\x80"), "\"\\uD800\\uDC00\"");
+}
+
+void tst_ToString::enumsAndFlags()
+{
+    CHECK_TOSTRING(Value1, "Value1");
+    CHECK_TOSTRING(Value2, "Value2");
+
+#if 0
+    // flags aren't enums, so this doesn't work
+    CHECK_TOSTRING(Option1, "Option1");
+    CHECK_TOSTRING(Option2, "Option2");
+#endif
+
+    CHECK_TOSTRING(Qt::Sunday, "Sunday");
+    CHECK_TOSTRING(Qt::Monday, "Monday");
+    Qt::DayOfWeek dw = Qt::Tuesday;
+    CHECK_TOSTRING(dw, "Tuesday");
 }
 
 void testfunction(int) {}

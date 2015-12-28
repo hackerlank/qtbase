@@ -30,7 +30,7 @@ debug_and_release:debug_and_release_target {
 }
 
 # Allow for a custom test runner script
-$${type}.commands += $(TESTRUNNER)
+$${type}.commands += $(TESTRUNNER) $$TESTRUNNER
 
 unix {
     isEmpty(TEST_TARGET_DIR): TEST_TARGET_DIR = .

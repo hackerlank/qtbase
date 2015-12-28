@@ -3,3 +3,4 @@ TARGET = tst_qdbusconnection_delayed
 QT = core dbus testlib
 SOURCES += tst_qdbusconnection_delayed.cpp
 DEFINES += SRCDIR=\\\"$$PWD/\\\"
+include(../dbus-testcase.pri)

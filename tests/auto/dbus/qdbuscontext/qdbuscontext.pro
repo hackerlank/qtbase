@@ -3,3 +3,4 @@ TARGET = tst_qdbuscontext
 QT = core dbus testlib
 SOURCES += tst_qdbuscontext.cpp
 
+include(../dbus-testcase.pri)

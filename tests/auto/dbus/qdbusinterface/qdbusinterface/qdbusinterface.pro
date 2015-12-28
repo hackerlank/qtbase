@@ -5,3 +5,4 @@ TARGET = ../tst_qdbusinterface
 DESTDIR = ./
 
 QT = core core-private dbus testlib
+include(../../dbus-testcase.pri)

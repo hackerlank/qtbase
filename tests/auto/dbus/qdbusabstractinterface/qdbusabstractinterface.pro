@@ -4,3 +4,4 @@ TEMPLATE = subdirs
 CONFIG += ordered
 SUBDIRS = qpinger qdbusabstractinterface
 OTHER_FILES += org.qtproject.QtDBus.Pinger.xml
+include(../dbus-testcase.pri)

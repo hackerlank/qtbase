@@ -11,3 +11,4 @@ qtConfig(dbus-linked) {
 } else {
     SOURCES += ../../../../../src/dbus/qdbus_symbols.cpp
 }
+include(../../dbus-testcase.pri)

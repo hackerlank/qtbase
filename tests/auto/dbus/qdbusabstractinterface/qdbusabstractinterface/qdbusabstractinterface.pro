@@ -10,3 +10,4 @@ QT += dbus
 
 DBUS_INTERFACES = ../org.qtproject.QtDBus.Pinger.xml
 QDBUSXML2CPP_INTERFACE_HEADER_FLAGS += -i ../interface.h
+include(../../dbus-testcase.pri)

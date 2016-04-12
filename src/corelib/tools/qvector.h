@@ -96,8 +96,8 @@ public:
     void reserve(int size);
     inline void squeeze()
     {
-        reallocData(d->size, d->size, QArrayData::ArrayOptions(d->flags));
-        if (!d->isShared()) {
+        reallocData(d->size, d->size, d->detachFlags());
+        if (!d->isStatic()) {
             // realloc might have left shared if d->size == alloc == 0
             d->flags &= ~QArrayData::CapacityReserved;
         }
@@ -110,13 +110,13 @@ public:
     {
         if (sharable == d->isSharable())
             return;
-        if (!sharable)
-            detach();
-
-        if (d == Data::unsharableEmpty()) {
-            if (sharable)
-                d = Data::sharedNull();
+        if (d->isStatic()) {
+            // allocate memory (or maybe not)
+            d = Data::allocate(d->size, sharable ?
+                                   d->detachFlags() & ~Data::Unsharable :
+                                   d->detachFlags() | Data::Unsharable);
         } else {
+            detach();
             d->setSharable(sharable);
         }
         Q_ASSERT(d->isSharable() == sharable);
@@ -382,14 +382,16 @@ void QVector<T>::detach()
 {
     if (d->needsDetach()) {
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
-        if (!d->allocatedCapacity())
-
-            d = Data::unsharableEmpty();
-        else
+        if (!d->allocatedCapacity()) {
+            // allocate memory (or maybe not -- it might not detach!)
+            d = Data::allocate(d->size, d->detachFlags());
+        } else
 #endif
+        {
             reallocData(d->size, d->allocatedCapacity(), d->detachFlags());
+            Q_ASSERT(isDetached());
+        }
     }
-    Q_ASSERT(isDetached());
 }
 
 template <typename T>
@@ -589,6 +591,7 @@ void QVector<T>::reallocData(const int asize, const int aalloc, QArrayData::Arra
             x->size = asize;
         }
     } else {
+        // setSharable(false) doesn't call this function
         x = Data::sharedNull();
     }
     if (d != x) {
@@ -607,7 +610,6 @@ void QVector<T>::reallocData(const int asize, const int aalloc, QArrayData::Arra
     Q_ASSERT(d->data());
     Q_ASSERT(d->size <= int(d->allocatedCapacity()));
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
-    Q_ASSERT(d != Data::unsharableEmpty());
 #endif
     Q_ASSERT(aalloc ? d != Data::sharedNull() : d == Data::sharedNull());
     Q_ASSERT(int(d->allocatedCapacity()) >= aalloc);
@@ -804,11 +806,12 @@ QVector<T> &QVector<T>::operator+=(const QVector &l)
         uint newSize = d->size + l.d->size;
         const bool isTooSmall = newSize > d->allocatedCapacity();
         if (!isDetached() || isTooSmall) {
-            QArrayData::ArrayOptions opt(isTooSmall ? d->flags | QArrayData::GrowsForward : d->flags);
+            QArrayData::ArrayOptions opt(isTooSmall ? d->detachFlags() | QArrayData::GrowsForward : d->detachFlags());
             reallocData(d->size, isTooSmall ? newSize : d->allocatedCapacity(), opt);
         }
 
         if (l.d->size) {
+        reallocData(d->size, newSize, d->detachFlags() | QArrayData::GrowsForward);
             T *w = d->begin() + newSize;
             T *i = l.d->end();
             T *b = l.d->begin();

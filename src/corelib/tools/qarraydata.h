@@ -134,7 +134,11 @@ struct Q_CORE_EXPORT QArrayData
 
     bool isShared() const
     {
+#if !defined(QT_NO_UNSHARABLE_CONTAINERS)
+        return isStatic() ? isSharable() : refCounterValue() != 1;
+#else
         return isStatic() || refCounterValue() != 1;
+#endif
     }
 
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
@@ -440,13 +444,7 @@ struct QTypedArrayData
         Q_STATIC_ASSERT(sizeof(QTypedArrayData) == sizeof(QArrayData));
         return allocate(/* capacity */ 0);
     }
-
 #if !defined(QT_NO_UNSHARABLE_CONTAINERS)
-    static QTypedArrayData *unsharableEmpty()
-    {
-        Q_STATIC_ASSERT(sizeof(QTypedArrayData) == sizeof(QArrayData));
-        return allocate(/* capacity */ 0, Unsharable);
-    }
 #endif
 
     static T *sharedNullData()

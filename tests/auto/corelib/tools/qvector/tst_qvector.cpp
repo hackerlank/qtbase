@@ -2671,21 +2671,23 @@ void tst_QVector::setSharableCustom()
 template<typename T>
 void tst_QVector::detach() const
 {
+    // Note: empty vectors remain attached
+
     {
-        // detach an empty vector
+        // detach an empty vector -- nothing happens
         QVector<T> v;
         v.detach();
-        QVERIFY(v.isDetached());
+        QVERIFY(!v.isDetached());
         QCOMPARE(v.size(), 0);
         QCOMPARE(v.capacity(), 0);
     }
     {
-        // detach an empty referenced vector
+        // detach an empty referenced vector -- nothing happens
         QVector<T> v;
         QVector<T> ref(v);
         QVERIFY(!v.isDetached());
         v.detach();
-        QVERIFY(v.isDetached());
+        QVERIFY(!v.isDetached());
         QCOMPARE(v.size(), 0);
         QCOMPARE(v.capacity(), 0);
     }

@@ -62,11 +62,14 @@ class QFile;
 class Preprocessor : public Parser
 {
 public:
-    Preprocessor(){}
+    Preprocessor() : alreadyPreprocessed(false) {}
+
     static bool preprocessOnly;
     QList<QByteArray> frameworks;
     QSet<QByteArray> preprocessedIncludes;
     Macros macros;
+    bool alreadyPreprocessed;
+
     Symbols preprocessed(const QByteArray &filename, QFile *device);
 
     void parseDefineArguments(Macro *m);

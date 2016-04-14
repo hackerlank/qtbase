@@ -178,8 +178,10 @@ private: \
 #endif // QT_NO_META_MACROS
 
 #else // Q_MOC_RUN
-#define slots slots
-#define signals signals
+#if !defined(QT_NO_SIGNALS_SLOTS_KEYWORDS) && !defined(QT_NO_KEYWORDS)
+#  define slots Q_SLOTS
+#  define signals Q_SIGNALS
+#endif
 #define Q_SLOTS Q_SLOTS
 #define Q_SIGNALS Q_SIGNALS
 #define Q_CLASSINFO(name, value) Q_CLASSINFO(name, value)

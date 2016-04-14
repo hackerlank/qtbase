@@ -2,6 +2,7 @@
 **
 ** Copyright (C) 2015 The Qt Company Ltd.
 ** Copyright (C) 2014 Olivier Goffart <ogoffart@woboq.org>
+** Copyright (C) 2016 Intel Corporation.
 ** Contact: http://www.qt.io/licensing/
 **
 ** This file is part of the tools applications of the Qt Toolkit.
@@ -106,7 +107,82 @@ static QByteArray cleaned(const QByteArray &input)
             ++data;
         }
     }
+
     result.resize(output - result.constData());
+
+    // ensure output ends in a newline
+    if (!result.endsWith('\n'))
+        result.append('\n');
+
+    return result;
+}
+
+static QByteArray actualSource(const QByteArray &filename, const QByteArray &input)
+{
+    QByteArray result;
+    const char *data = input.constData();
+    const char * const end = input.constData() + input.size();
+    const char *nl;
+    bool keep = true;
+    int linenum = 1;
+
+    for ( ; data != end; data = nl + 1, ++linenum) {
+        nl = static_cast<const char *>(memchr(data, '\n', end - data));
+        if (!nl) {
+            // last line
+            // cleaned() above ensures that we have an empty line at the end
+            Q_ASSERT(data + 1 == end);
+            break;
+        }
+
+        // MSVC-style preprocessor output: #line n "x"
+        // Unix-style preprocessor output: #n "x" [flags]
+        //  (there was a space between '#' and the first digit, but we've eaten it)
+        if (nl - data > 5 && data[0] == '#') {
+            const char *fbegin = nullptr;
+            const char *fend = nl - 1;
+
+            while (*fend != '"' && fend > data)
+                --fend;
+            if (fend == data)
+                fend = nullptr;
+
+            if (is_digit_char(data[1]) || memcmp(data + 1, "line ", 5) == 0)
+                fbegin = static_cast<const char *>(memchr(data + 3, '"', nl - data - 3));
+            if (fbegin && fend) {
+                // it's a line directive, find the file name
+                QByteArray current = QByteArray::fromRawData(fbegin + 1, fend - fbegin - 1);
+                current.replace("\\\\", "\\");
+                keep = (current == filename);
+
+                // skip this line anyway
+                continue;
+            }
+        }
+
+        bool keepAnyway = false;
+        QByteArray line = QByteArray::fromRawData(data, nl - data + 1);
+        if (!keep) {
+            // check if we keep this line anyway
+            static const char q_declare[] = "Q_DECLARE_";
+            int pos = line.indexOf(q_declare);
+            if (pos != -1) {
+                pos += strlen(q_declare);
+                QByteArray whatdeclared = QByteArray::fromRawData(data + pos, nl - data - pos + 1);
+                keepAnyway = whatdeclared.startsWith("FLAGS") ||
+                             whatdeclared.startsWith("INTERFACE") ||
+                             whatdeclared.startsWith("METATYPE");
+            }
+        }
+
+        if (keep || keepAnyway) {
+            // append to the output
+//            printf("%-4d %s", linenum, line.data());
+            result.append(std::move(line));
+        }
+    }
+
+    Q_UNUSED(linenum);
     return result;
 }
 
@@ -1177,7 +1253,7 @@ void Preprocessor::preprocess(const QByteArray &filename, Symbols &preprocessed)
         case SIGNALS:
         case SLOTS: {
             Symbol sym = symbol();
-            if (macros.contains("QT_NO_KEYWORDS"))
+            if (alreadyPreprocessed || macros.contains("QT_NO_KEYWORDS"))
                 sym.token = IDENTIFIER;
             else
                 sym.token = (token == SIGNALS ? Q_SIGNALS_TOKEN : Q_SLOTS_TOKEN);
@@ -1202,7 +1278,11 @@ Symbols Preprocessor::preprocessed(const QByteArray &filename, QFile *file)
     // phase 1: get rid of backslash-newlines
     input = cleaned(input);
 
-    // phase 2: tokenize for the preprocessor
+    // phase 2: if the input is already preprocessed, drop all other files
+    if (alreadyPreprocessed)
+        input = actualSource(filename, input);
+
+    // phase 3: tokenize for the preprocessor
     symbols = tokenize(input);
 
 #if 0
@@ -1213,7 +1293,7 @@ Symbols Preprocessor::preprocessed(const QByteArray &filename, QFile *file)
                tokenTypeName(symbols[j].token));
 #endif
 
-    // phase 3: preprocess conditions and substitute macros
+    // phase 4: preprocess conditions and substitute macros
     Symbols result;
     preprocess(filename, result);
     mergeStringLiterals(&result);

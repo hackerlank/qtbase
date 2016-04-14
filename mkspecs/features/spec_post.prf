@@ -66,6 +66,7 @@ equals(MAKEFILE_GENERATOR, MSBUILD) \
     # xcopy copies the contained files if source is a directory. Deal with it.
     CONFIG                 += copy_dir_files
     QMAKE_MOVE              = move
+    QMAKE_CREATE_FILE       = copy /y NUL
     QMAKE_DEL_FILE          = del
     QMAKE_DEL_DIR           = rmdir
     QMAKE_DEL_TREE          = rmdir /s /q
@@ -84,6 +85,7 @@ equals(MAKEFILE_GENERATOR, MSBUILD) \
     QMAKE_COPY_FILE         = $$QMAKE_COPY
     QMAKE_COPY_DIR          = $$QMAKE_COPY -R
     QMAKE_MOVE              = mv -f
+    QMAKE_CREATE_FILE       = touch
     QMAKE_DEL_FILE          = rm -f
     QMAKE_DEL_DIR           = rmdir
     QMAKE_DEL_TREE          = rm -rf

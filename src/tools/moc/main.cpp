@@ -211,6 +211,10 @@ int runMoc(int argc, char **argv)
     outputOption.setValueName(QStringLiteral("file"));
     parser.addOption(outputOption);
 
+    QCommandLineOption preprocessedInputOption(QStringLiteral("preprocessed"));
+    preprocessedInputOption.setDescription(QStringLiteral("Assumes the input is already preprocessed."));
+    parser.addOption(preprocessedInputOption);
+
     QCommandLineOption includePathOption(QStringLiteral("I"));
     includePathOption.setDescription(QStringLiteral("Add dir to the include path for header files."));
     includePathOption.setValueName(QStringLiteral("dir"));
@@ -372,8 +376,8 @@ int runMoc(int argc, char **argv)
         }
     }
 
-    if (filename.isEmpty()) {
-        filename = QStringLiteral("standard input");
+    const bool alreadyPreprocessed = parser.isSet(preprocessedInputOption);
+    if (alreadyPreprocessed || filename.isEmpty()) {
         in.open(stdin, QIODevice::ReadOnly);
     } else {
         in.setFileName(filename);
@@ -381,8 +385,10 @@ int runMoc(int argc, char **argv)
             fprintf(stderr, "moc: %s: No such file\n", qPrintable(filename));
             return 1;
         }
-        moc.filename = filename.toLocal8Bit();
     }
+    moc.filename = filename.toLocal8Bit();
+    if (filename.isEmpty())
+        filename = QStringLiteral("standard input");
 
     foreach (const QString &md, parser.values(metadataOption)) {
         int split = md.indexOf(QLatin1Char('='));
@@ -406,7 +412,14 @@ int runMoc(int argc, char **argv)
     moc.includes = pp.includes;
 
     // 1. preprocess
-    moc.symbols = pp.preprocessed(moc.filename, &in);
+    if (alreadyPreprocessed) {
+        if (parser.isSet(includeOption) || parser.isSet(includePathOption) || parser.isSet(defineOption)) {
+            error("options -I/-D/--include are ignored when --preprocessed is active");
+            // but continue
+        }
+        pp.alreadyPreprocessed = true;
+    }
+    moc.symbols += pp.preprocessed(moc.filename, &in);
 
     if (!pp.preprocessOnly) {
         // 2. parse

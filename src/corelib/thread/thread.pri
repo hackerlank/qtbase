@@ -48,6 +48,8 @@ win32 {
         thread/qmutex_win.cpp \
         thread/qthread_win.cpp \
         thread/qwaitcondition_win.cpp
+
+    winrt: LIBS += synchronization.lib
 } else {
     darwin {
         SOURCES += thread/qmutex_mac.cpp

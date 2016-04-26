@@ -52,7 +52,7 @@
 #include <errno.h>
 #include <asm/unistd.h>
 
-#ifndef QT_LINUX_FUTEX
+#ifndef QT_ALWAYS_USE_FUTEX
 # error "Qt build is broken: qmutex_linux.cpp is being built but futex support is not wanted"
 #endif
 
@@ -109,6 +109,11 @@ QT_BEGIN_NAMESPACE
 
 static QBasicAtomicInt futexFlagSupport = Q_BASIC_ATOMIC_INITIALIZER(-1);
 
+static bool futexAvailable()
+{
+    return true;
+}
+
 static inline int _q_futex(void *addr, int op, int val, const struct timespec *timeout) Q_DECL_NOTHROW
 {
     volatile int *int_addr = reinterpret_cast<volatile int *>(addr);
@@ -129,7 +134,7 @@ static inline QMutexData *dummyFutexValue()
 }
 
 template <bool IsTimed> static inline
-bool lockInternal_helper(QBasicAtomicPointer<QMutexData> &d_ptr, int timeout = -1, QElapsedTimer *elapsedTimer = 0) Q_DECL_NOTHROW
+bool lockFutex(QBasicAtomicPointer<QMutexData> &d_ptr, int timeout, QElapsedTimer *elapsedTimer) Q_DECL_NOTHROW
 {
     if (!IsTimed)
         timeout = -1;
@@ -174,32 +179,14 @@ bool lockInternal_helper(QBasicAtomicPointer<QMutexData> &d_ptr, int timeout = -
     return true;
 }
 
-void QBasicMutex::lockInternal() Q_DECL_NOTHROW
+static void unlockFutex(QBasicAtomicPointer<QMutexData> &d_ptr) Q_DECL_NOTHROW
 {
     Q_ASSERT(!isRecursive());
-    lockInternal_helper<false>(d_ptr);
-}
-
-bool QBasicMutex::lockInternal(int timeout) Q_DECL_NOTHROW
-{
     Q_ASSERT(!isRecursive());
-    QElapsedTimer elapsedTimer;
-    elapsedTimer.start();
-    return lockInternal_helper<true>(d_ptr, timeout, &elapsedTimer);
-}
-
-void QBasicMutex::unlockInternal() Q_DECL_NOTHROW
-{
-    QMutexData *d = d_ptr.load();
-    Q_ASSERT(d); //we must be locked
-    Q_ASSERT(d != dummyLocked()); // testAndSetRelease(dummyLocked(), 0) failed
-    Q_UNUSED(d);
     Q_ASSERT(!isRecursive());
-
     d_ptr.storeRelease(0);
     _q_futex(&d_ptr, FUTEX_WAKE, 1, 0);
 }
-
 
 QT_END_NAMESPACE
 

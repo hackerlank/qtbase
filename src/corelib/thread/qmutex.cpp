@@ -49,11 +49,17 @@
 #include "qthread.h"
 #include "qmutex_p.h"
 
-#ifndef QT_LINUX_FUTEX
+#ifndef QT_ALWAYS_USE_FUTEX
 #include "private/qfreelist_p.h"
 #endif
 
 QT_BEGIN_NAMESPACE
+
+// these functions are defined in qmutex_xxx.cpp
+template <bool IsTimed> static inline
+bool lockFutex(QBasicAtomicPointer<QMutexData> &d_ptr, int timeout = -1, QElapsedTimer *elapsedTimer = 0) Q_DECL_NOTHROW;
+static void unlockFutex(QBasicAtomicPointer<QMutexData> &d_ptr) Q_DECL_NOTHROW;
+static bool futexAvailable();
 
 static inline bool isRecursive(QMutexData *d)
 {
@@ -193,9 +199,7 @@ QMutex::~QMutex()
 {
     QMutexData *d = d_ptr.load();
     if (isRecursive()) {
-        delete static_cast<QRecursiveMutexPrivate *>(d);
-    } else if (d) {
-#ifndef QT_LINUX_FUTEX
+#ifndef QT_ALWAYS_USE_FUTEX
         if (d != dummyLocked() && static_cast<QMutexPrivate *>(d)->possiblyUnlocked.load()
             && tryLock()) {
             unlock();
@@ -448,8 +452,6 @@ bool QBasicMutex::isRecursive() const Q_DECL_NOTHROW
 
 */
 
-#ifndef QT_LINUX_FUTEX //linux implementation is in qmutex_linux.cpp
-
 /*
   For a rough introduction on how this works, refer to
   http://woboq.com/blog/internals-of-qmutex-in-qt5.html
@@ -475,7 +477,10 @@ bool QBasicMutex::isRecursive() const Q_DECL_NOTHROW
  */
 void QBasicMutex::lockInternal() QT_MUTEX_LOCK_NOEXCEPT
 {
-    lockInternal(-1);
+    if (futexAvailable())
+        lockFutex<false>(d_ptr);
+    else
+        lockInternal(-1);
 }
 
 /*!
@@ -485,6 +490,13 @@ bool QBasicMutex::lockInternal(int timeout) QT_MUTEX_LOCK_NOEXCEPT
 {
     Q_ASSERT(!isRecursive());
 
+    if (futexAvailable()) {
+        QElapsedTimer elapsedTimer;
+        elapsedTimer.start();
+        return lockFutex<true>(d_ptr, timeout, &elapsedTimer);
+    }
+
+#if !defined(QT_ALWAYS_USE_FUTEX)
     while (!fastTryLock()) {
         QMutexData *copy = d_ptr.loadAcquire();
         if (!copy) // if d is 0, the mutex is unlocked
@@ -584,6 +596,9 @@ bool QBasicMutex::lockInternal(int timeout) QT_MUTEX_LOCK_NOEXCEPT
     }
     Q_ASSERT(d_ptr.load() != 0);
     return true;
+#else
+    Q_UNREACHABLE();
+#endif
 }
 
 /*!
@@ -596,6 +611,10 @@ void QBasicMutex::unlockInternal() Q_DECL_NOTHROW
     Q_ASSERT(copy != dummyLocked()); // testAndSetRelease(dummyLocked(), 0) failed
     Q_ASSERT(!isRecursive());
 
+    if (futexAvailable())
+        return unlockFutex(d_ptr);
+
+#if !defined(QT_ALWAYS_USE_FUTEX)
     QMutexPrivate *d = reinterpret_cast<QMutexPrivate *>(copy);
 
     // If no one is waiting for the lock anymore, we should reset d to 0x0.
@@ -617,8 +636,12 @@ void QBasicMutex::unlockInternal() Q_DECL_NOTHROW
         d->wakeUp();
     }
     d->deref();
+#else
+    Q_UNUSED(copy);
+#endif
 }
 
+#if !defined(QT_ALWAYS_USE_FUTEX)
 //The freelist management
 namespace {
 struct FreeListConstants : QFreeListDefaultConstants {
@@ -717,7 +740,7 @@ inline void QRecursiveMutexPrivate::unlock() Q_DECL_NOTHROW
 
 QT_END_NAMESPACE
 
-#ifdef QT_LINUX_FUTEX
+#ifdef QT_ALWAYS_USE_FUTEX
 #  include "qmutex_linux.cpp"
 #elif defined(Q_OS_MAC)
 #  include "qmutex_mac.cpp"

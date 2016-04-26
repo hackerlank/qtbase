@@ -63,7 +63,7 @@
 # include <mach/semaphore.h>
 #elif defined(Q_OS_LINUX) && !defined(QT_LINUXBASE)
 // use Linux mutexes everywhere except for LSB builds
-#  define QT_LINUX_FUTEX
+#  define QT_ALWAYS_USE_FUTEX
 #elif defined(Q_OS_UNIX)
 # if _POSIX_VERSION-0 >= 200112L || _XOPEN_VERSION-0 >= 600
 #  include <semaphore.h>
@@ -83,7 +83,7 @@ public:
         : recursive(mode == QMutex::Recursive) {}
 };
 
-#if !defined(QT_LINUX_FUTEX)
+#if !defined(QT_ALWAYS_USE_FUTEX)
 class QMutexPrivate : public QMutexData
 {
 public:
@@ -140,7 +140,6 @@ public:
 #endif
 };
 #endif //QT_LINUX_FUTEX
-
 
 #ifdef Q_OS_UNIX
 // helper functions for qmutex_unix.cpp and qwaitcondition_unix.cpp

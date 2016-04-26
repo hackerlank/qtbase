@@ -158,6 +158,23 @@ void QMutexPrivate::wakeUp() Q_DECL_NOTHROW
 
 #endif
 
+static bool futexAvailable()
+{
+    return false;
+}
+
+template <bool IsTimed> static inline
+bool lockFutex(QBasicAtomicPointer<QMutexData> &, int, QElapsedTimer *) Q_DECL_NOTHROW
+{
+    Q_UNREACHABLE();
+    return false;
+}
+
+static void unlockFutex(QBasicAtomicPointer<QMutexData> &) Q_DECL_NOTHROW
+{
+    Q_UNREACHABLE();
+}
+
 QT_END_NAMESPACE
 
 #endif // QT_NO_THREAD

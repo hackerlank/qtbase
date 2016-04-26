@@ -61,37 +61,15 @@ bool lockFutex(QBasicAtomicPointer<QMutexData> &d_ptr, int timeout = -1, QElapse
 static void unlockFutex(QBasicAtomicPointer<QMutexData> &d_ptr) Q_DECL_NOTHROW;
 static bool futexAvailable();
 
-static inline bool isRecursive(QMutexData *d)
+inline bool QMutexData::trackingOwner(const QBasicMutex *m)
 {
-    quintptr u = quintptr(d);
-    if (Q_LIKELY(u <= 0x3))
-        return false;
-#ifdef QT_LINUX_FUTEX
-    Q_ASSERT(d->recursive);
-    return true;
+#if defined(QT_NO_DEBUG) && !defined(QT_FORCE_ASSERTS)
+    Q_UNUSED(m);
+    return false;
 #else
-    return d->recursive;
+    return m->tracking;
 #endif
 }
-
-class QRecursiveMutexPrivate : public QMutexData
-{
-public:
-    QRecursiveMutexPrivate()
-        : QMutexData(QMutex::Recursive), owner(0), count(0) {}
-
-    // written to by the thread that first owns 'mutex';
-    // read during attempts to acquire ownership of 'mutex' from any other thread:
-    QAtomicPointer<std::remove_pointer<Qt::HANDLE>::type> owner;
-
-    // only ever accessed from the thread that owns 'mutex':
-    uint count;
-
-    QMutex mutex;
-
-    bool lock(int timeout) QT_MUTEX_LOCK_NOEXCEPT;
-    void unlock() Q_DECL_NOTHROW;
-};
 
 /*
     \class QBasicMutex
@@ -185,9 +163,19 @@ public:
 
     \sa lock(), unlock()
 */
-QMutex::QMutex(RecursionMode mode)
+QMutex::QMutex(RecursionMode mode) Q_DECL_NOTHROW
+    : count(0), owner(nullptr)
 {
-    d_ptr.store(mode == Recursive ? new QRecursiveMutexPrivate : 0);
+    d_ptr.store(nullptr);
+    recursive = (mode == Recursive);
+    Q_UNUSED(unused);
+
+#if !defined(QT_NO_DEBUG) || defined(QT_FORCE_ASSERTS)
+    // enable assertions for tracking the owner
+    tracking = true;
+#else
+    Q_UNUSED(tracking);
+#endif
 }
 
 /*!
@@ -198,7 +186,7 @@ QMutex::QMutex(RecursionMode mode)
 QMutex::~QMutex()
 {
     QMutexData *d = d_ptr.load();
-    if (isRecursive()) {
+    if (Q_UNLIKELY(d)) {
 #ifndef QT_ALWAYS_USE_FUTEX
         if (d != dummyLocked() && static_cast<QMutexPrivate *>(d)->possiblyUnlocked.load()
             && tryLock()) {
@@ -224,13 +212,7 @@ QMutex::~QMutex()
 */
 void QMutex::lock() QT_MUTEX_LOCK_NOEXCEPT
 {
-    QMutexData *current;
-    if (fastTryLock(current))
-        return;
-    if (QT_PREPEND_NAMESPACE(isRecursive)(current))
-        static_cast<QRecursiveMutexPrivate *>(current)->lock(-1);
-    else
-        lockInternal();
+    tryLock(-1);
 }
 
 /*! \fn bool QMutex::tryLock(int timeout)
@@ -256,15 +238,34 @@ void QMutex::lock() QT_MUTEX_LOCK_NOEXCEPT
 
     \sa lock(), unlock()
 */
+Q_NEVER_INLINE
 bool QMutex::tryLock(int timeout) QT_MUTEX_LOCK_NOEXCEPT
 {
-    QMutexData *current;
-    if (fastTryLock(current))
-        return true;
-    if (QT_PREPEND_NAMESPACE(isRecursive)(current))
-        return static_cast<QRecursiveMutexPrivate *>(current)->lock(timeout);
-    else
-        return lockInternal(timeout);
+    Qt::HANDLE self;
+    if (QMutexData::trackingOwner(this) || isRecursive())
+        self = QThread::currentThreadId();
+    if (isRecursive()) {
+        if (owner.load() == self) {
+            ++count;
+            Q_ASSERT_X(count != 0, "QMutex", "Overflow in recursion counter");
+            return true;
+        }
+    }
+
+    bool success = true;
+    if (!fastTryLock()) {
+        if (timeout < 0)
+            lockInternal();
+        else
+            success = lockInternal(timeout);
+    }
+
+    if (success && (QMutexData::trackingOwner(this) || isRecursive())) {
+        Q_ASSERT_X(count == 0, "QMutex", "Internal inconsistency in recursion counter");
+        ++count;
+        owner.store(self);
+    }
+    return success;
 }
 
 /*! \fn bool QMutex::try_lock()
@@ -331,18 +332,24 @@ bool QMutex::tryLock(int timeout) QT_MUTEX_LOCK_NOEXCEPT
 */
 void QMutex::unlock() Q_DECL_NOTHROW
 {
-    QMutexData *current;
-    if (fastTryUnlock(current))
-        return;
-    if (QT_PREPEND_NAMESPACE(isRecursive)(current))
-        static_cast<QRecursiveMutexPrivate *>(current)->unlock();
-    else
-        unlockInternal();
+    if (QMutexData::trackingOwner(this) || isRecursive()) {
+        Q_ASSERT_X(owner.load() == QThread::currentThreadId(), "QMutex::unlock", "Unlocking from wrong thread");
+        Q_ASSERT_X(count != 0, "QMutex::unlock", "Mutex was not locked");
+        Q_ASSERT_X(isRecursive() || count == 1, "QMutex::unlock", "Internal inconsistency in recursion counter");
+
+        if (--count != 0)
+            return;     // not the last unlock
+        owner.store(nullptr);
+    }
+
+    if (futexAvailable())
+        return unlockFutex(d_ptr);
+    QBasicMutex::unlock();
 }
 
 bool QBasicMutex::isRecursive() Q_DECL_NOTHROW
 {
-    return QT_PREPEND_NAMESPACE(isRecursive)(d_ptr.loadAcquire());
+    return recursive;
 }
 
 /*!
@@ -353,7 +360,7 @@ bool QBasicMutex::isRecursive() Q_DECL_NOTHROW
 */
 bool QBasicMutex::isRecursive() const Q_DECL_NOTHROW
 {
-    return QT_PREPEND_NAMESPACE(isRecursive)(d_ptr.loadAcquire());
+    return recursive;
 }
 
 /*!
@@ -488,8 +495,6 @@ void QBasicMutex::lockInternal() QT_MUTEX_LOCK_NOEXCEPT
  */
 bool QBasicMutex::lockInternal(int timeout) QT_MUTEX_LOCK_NOEXCEPT
 {
-    Q_ASSERT(!isRecursive());
-
     if (futexAvailable()) {
         QElapsedTimer elapsedTimer;
         elapsedTimer.start();
@@ -609,7 +614,6 @@ void QBasicMutex::unlockInternal() Q_DECL_NOTHROW
     QMutexData *copy = d_ptr.loadAcquire();
     Q_ASSERT(copy); //we must be locked
     Q_ASSERT(copy != dummyLocked()); // testAndSetRelease(dummyLocked(), 0) failed
-    Q_ASSERT(!isRecursive());
 
     if (futexAvailable())
         return unlockFutex(d_ptr);
@@ -670,7 +674,6 @@ QMutexPrivate *QMutexPrivate::allocate()
     QMutexPrivate *d = &(*freelist())[i];
     d->id = i;
     Q_ASSERT(d->refCount.load() == 0);
-    Q_ASSERT(!d->recursive);
     Q_ASSERT(!d->possiblyUnlocked.load());
     Q_ASSERT(d->waiters.load() == 0);
     d->refCount.store(1);
@@ -679,7 +682,6 @@ QMutexPrivate *QMutexPrivate::allocate()
 
 void QMutexPrivate::release()
 {
-    Q_ASSERT(!recursive);
     Q_ASSERT(refCount.load() == 0);
     Q_ASSERT(!possiblyUnlocked.load());
     Q_ASSERT(waiters.load() == 0);
@@ -701,42 +703,6 @@ void QMutexPrivate::derefWaiters(int value) Q_DECL_NOTHROW
     } while (!waiters.testAndSetRelaxed(old_waiters, new_waiters));
 }
 #endif
-
-/*!
-   \internal
- */
-inline bool QRecursiveMutexPrivate::lock(int timeout) QT_MUTEX_LOCK_NOEXCEPT
-{
-    Qt::HANDLE self = QThread::currentThreadId();
-    if (owner.load() == self) {
-        ++count;
-        Q_ASSERT_X(count != 0, "QMutex::lock", "Overflow in recursion counter");
-        return true;
-    }
-    bool success = true;
-    if (timeout == -1) {
-        mutex.QBasicMutex::lock();
-    } else {
-        success = mutex.tryLock(timeout);
-    }
-
-    if (success)
-        owner.store(self);
-    return success;
-}
-
-/*!
-   \internal
- */
-inline void QRecursiveMutexPrivate::unlock() Q_DECL_NOTHROW
-{
-    if (count > 0) {
-        count--;
-    } else {
-        owner.store(0);
-        mutex.QBasicMutex::unlock();
-    }
-}
 
 QT_END_NAMESPACE
 

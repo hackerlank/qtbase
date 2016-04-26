@@ -42,6 +42,7 @@
 
 #include <QtCore/qglobal.h>
 #include <QtCore/qatomic.h>
+#include <QtCore/qnamespace.h>
 #include <new>
 
 #if QT_HAS_INCLUDE(<chrono>)
@@ -108,10 +109,18 @@ private:
     bool lockInternal(int timeout) QT_MUTEX_LOCK_NOEXCEPT;
     void unlockInternal() Q_DECL_NOTHROW;
 
-    QBasicAtomicPointer<QMutexData> d_ptr;
     static inline QMutexData *dummyLocked() {
         return reinterpret_cast<QMutexData *>(quintptr(1));
     }
+
+    QBasicAtomicPointer<QMutexData> d_ptr;
+    bool recursive;
+    bool tracking;
+
+    // tail padding:
+    // on 32-bit platforms, there are 2 bytes of tail padding, which we reserve here
+    // on 64-bit platforms, there are 6 bytes, of which we use 2 and leave 4 for QMutex
+    char unused[2];
 
     friend class QMutex;
     friend class QMutexData;
@@ -121,7 +130,7 @@ class Q_CORE_EXPORT QMutex : public QBasicMutex
 {
 public:
     enum RecursionMode { NonRecursive, Recursive };
-    explicit QMutex(RecursionMode mode = NonRecursive);
+    explicit QMutex(RecursionMode mode = NonRecursive) Q_DECL_NOTHROW;
     ~QMutex();
 
     // BasicLockable concept
@@ -158,6 +167,14 @@ public:
 private:
     Q_DISABLE_COPY(QMutex)
     friend class QMutexLocker;
+
+    // only ever accessed from the thread that owns 'mutex'
+    // (stored in the tail padding of QBasicMutex on 64-bit platforms using the IA-64 C++ ABI):
+    uint count;
+
+    // written to by the thread that first owns 'mutex';
+    // read during attempts to acquire ownership of 'mutex' from any other thread:
+    QAtomicPointer<void> owner;
     friend class ::tst_QMutex;
 
 #if QT_HAS_INCLUDE(<chrono>)

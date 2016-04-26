@@ -181,9 +181,6 @@ bool lockFutex(QBasicAtomicPointer<QMutexData> &d_ptr, int timeout, QElapsedTime
 
 static void unlockFutex(QBasicAtomicPointer<QMutexData> &d_ptr) Q_DECL_NOTHROW
 {
-    Q_ASSERT(!isRecursive());
-    Q_ASSERT(!isRecursive());
-    Q_ASSERT(!isRecursive());
     d_ptr.storeRelease(0);
     _q_futex(&d_ptr, FUTEX_WAKE, 1, 0);
 }

@@ -78,9 +78,7 @@ QT_BEGIN_NAMESPACE
 class QMutexData
 {
 public:
-    bool recursive;
-    QMutexData(QMutex::RecursionMode mode = QMutex::NonRecursive)
-        : recursive(mode == QMutex::Recursive) {}
+    static bool trackingOwner(const QBasicMutex *m);
 };
 
 #if !defined(QT_ALWAYS_USE_FUTEX)

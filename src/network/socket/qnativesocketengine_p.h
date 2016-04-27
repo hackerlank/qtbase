@@ -199,11 +199,11 @@ public:
     int option(SocketOption option) const Q_DECL_OVERRIDE;
     bool setOption(SocketOption option, int value) Q_DECL_OVERRIDE;
 
-    bool waitForRead(int msecs = 30000, bool *timedOut = 0) Q_DECL_OVERRIDE;
-    bool waitForWrite(int msecs = 30000, bool *timedOut = 0) Q_DECL_OVERRIDE;
+    bool waitForRead(QDeadlineTimer timer = QDeadlineTimer(30000)) override;
+    bool waitForWrite(QDeadlineTimer timer = QDeadlineTimer(30000)) override;
     bool waitForReadOrWrite(bool *readyToRead, bool *readyToWrite,
                             bool checkRead, bool checkWrite,
-                            int msecs = 30000, bool *timedOut = 0) Q_DECL_OVERRIDE;
+                            QDeadlineTimer timer = QDeadlineTimer(30000)) override;
 
     bool isReadNotificationEnabled() const Q_DECL_OVERRIDE;
     void setReadNotificationEnabled(bool enable) Q_DECL_OVERRIDE;
@@ -304,8 +304,8 @@ public:
                               const QNativeSocketEngine::FileDescriptorBundle &fileDescriptors);
     qint64 nativeRead(char *data, qint64 maxLength);
     qint64 nativeWrite(const char *data, qint64 length);
-    int nativeSelect(int timeout, bool selectForRead) const;
-    int nativeSelect(int timeout, bool checkRead, bool checkWrite,
+    int nativeSelect(QDeadlineTimer deadline, bool selectForRead) const;
+    int nativeSelect(QDeadlineTimer deadline, bool checkRead, bool checkWrite,
                      bool *selectForRead, bool *selectForWrite) const;
 
     void nativeClose();

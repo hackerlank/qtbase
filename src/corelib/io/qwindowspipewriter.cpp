@@ -74,7 +74,7 @@ QWindowsPipeWriter::~QWindowsPipeWriter()
     stop();
 }
 
-bool QWindowsPipeWriter::waitForWrite(int msecs)
+bool QWindowsPipeWriter::waitForWrite(QDeadlineTimer deadline)
 {
     if (bytesWrittenPending) {
         emitPendingBytesWrittenValue();
@@ -84,7 +84,7 @@ bool QWindowsPipeWriter::waitForWrite(int msecs)
     if (!writeSequenceStarted)
         return false;
 
-    if (!waitForNotification(msecs))
+    if (!waitForNotification(deadline))
         return false;
 
     if (bytesWrittenPending) {
@@ -162,21 +162,16 @@ void QWindowsPipeWriter::notified(DWORD errorCode, DWORD numberOfBytesWritten)
     }
 }
 
-bool QWindowsPipeWriter::waitForNotification(int timeout)
+bool QWindowsPipeWriter::waitForNotification(QDeadlineTimer deadline)
 {
-    QElapsedTimer t;
-    t.start();
     notifiedCalled = false;
-    int msecs = timeout;
-    while (SleepEx(msecs == -1 ? INFINITE : msecs, TRUE) == WAIT_IO_COMPLETION) {
+    do {
+        qint64 msecs = deadline.remainingTime();
+        if (SleepEx(msecs == -1 ? INFINITE : msecs, TRUE) != WAIT_IO_COMPLETION)
+            break;
         if (notifiedCalled)
             return true;
-
-        // Some other I/O completion routine was called. Wait some more.
-        msecs = qt_subtract_from_timeout(timeout, t.elapsed());
-        if (!msecs)
-            break;
-    }
+    } while (!deadline.hasExpired());
     return notifiedCalled;
 }
 
@@ -215,7 +210,7 @@ void QWindowsPipeWriter::stop()
                               handle);
             }
         }
-        waitForNotification(-1);
+        waitForNotification(QDeadlineTimer::Forever);
     }
 }
 

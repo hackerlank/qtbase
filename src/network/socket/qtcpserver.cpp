@@ -514,14 +514,17 @@ bool QTcpServer::waitForNewConnection(int msec, bool *timedOut)
     if (d->state != QAbstractSocket::ListeningState)
         return false;
 
-    if (!d->socketEngine->waitForRead(msec, timedOut)) {
+    QDeadlineTimer deadline(msec);
+    if (!d->socketEngine->waitForRead(deadline)) {
         d->serverSocketError = d->socketEngine->error();
         d->serverSocketErrorString = d->socketEngine->errorString();
+        if (timedOut)
+            *timedOut = deadline.hasExpired();
         return false;
     }
 
-    if (timedOut && *timedOut)
-        return false;
+    if (timedOut)
+        *timedOut = false;
 
     d->readNotification();
 

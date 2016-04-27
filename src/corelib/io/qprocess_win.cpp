@@ -613,7 +613,7 @@ void QProcessPrivate::killProcess()
         TerminateProcess(pid->hProcess, 0xf291);
 }
 
-bool QProcessPrivate::waitForStarted(int)
+bool QProcessPrivate::waitForStarted(QDeadlineTimer)
 {
     if (processStarted())
         return true;
@@ -635,11 +635,11 @@ bool QProcessPrivate::drainOutputPipes()
         bool readyReadEmitted = false;
         bool readOperationActive = false;
         if (stdoutChannel.reader) {
-            readyReadEmitted |= stdoutChannel.reader->waitForReadyRead(0);
+            readyReadEmitted |= stdoutChannel.reader->waitForReadyRead(QDeadlineTimer());
             readOperationActive = stdoutChannel.reader && stdoutChannel.reader->isReadOperationActive();
         }
         if (stderrChannel.reader) {
-            readyReadEmitted |= stderrChannel.reader->waitForReadyRead(0);
+            readyReadEmitted |= stderrChannel.reader->waitForReadyRead(QDeadlineTimer());
             readOperationActive |= stderrChannel.reader && stderrChannel.reader->isReadOperationActive();
         }
         someReadyReadEmitted |= readyReadEmitted;
@@ -651,18 +651,18 @@ bool QProcessPrivate::drainOutputPipes()
     return someReadyReadEmitted;
 }
 
-bool QProcessPrivate::waitForReadyRead(int msecs)
+bool QProcessPrivate::waitForReadyRead(QDeadlineTimer deadline)
 {
-    QIncrementalSleepTimer timer(msecs);
+    QIncrementalSleepTimer timer(deadline);
 
     forever {
         if (!writeBuffer.isEmpty() && !_q_canWrite())
             return false;
-        if (stdinChannel.writer && stdinChannel.writer->waitForWrite(0))
+        if (stdinChannel.writer && stdinChannel.writer->waitForWrite(QDeadlineTimer()))
             timer.resetIncrements();
 
-        if ((stdoutChannel.reader && stdoutChannel.reader->waitForReadyRead(0))
-            || (stderrChannel.reader && stderrChannel.reader->waitForReadyRead(0)))
+        if ((stdoutChannel.reader && stdoutChannel.reader->waitForReadyRead(QDeadlineTimer()))
+            || (stderrChannel.reader && stderrChannel.reader->waitForReadyRead(QDeadlineTimer())))
             return true;
 
         if (!pid)
@@ -683,9 +683,9 @@ bool QProcessPrivate::waitForReadyRead(int msecs)
     return false;
 }
 
-bool QProcessPrivate::waitForBytesWritten(int msecs)
+bool QProcessPrivate::waitForBytesWritten(QDeadlineTimer deadline)
 {
-    QIncrementalSleepTimer timer(msecs);
+    QIncrementalSleepTimer timer(deadline);
 
     forever {
         bool pendingDataInPipe = stdinChannel.writer && stdinChannel.writer->bytesToWrite();
@@ -710,7 +710,7 @@ bool QProcessPrivate::waitForBytesWritten(int msecs)
         // and the stdinChannel.writer is now dead, that means _q_canWrite()
         // destroyed the writer after it successfully wrote the last
         // batch.
-        if (!stdinChannel.writer || stdinChannel.writer->waitForWrite(0))
+        if (!stdinChannel.writer || stdinChannel.writer->waitForWrite(QDeadlineTimer()))
             return true;
 
         // If we wouldn't write anything, check if we can read stdout.
@@ -747,22 +747,22 @@ bool QProcessPrivate::waitForBytesWritten(int msecs)
     return false;
 }
 
-bool QProcessPrivate::waitForFinished(int msecs)
+bool QProcessPrivate::waitForFinished(QDeadlineTimer deadline)
 {
 #if defined QPROCESS_DEBUG
     qDebug("QProcessPrivate::waitForFinished(%d)", msecs);
 #endif
 
-    QIncrementalSleepTimer timer(msecs);
+    QIncrementalSleepTimer timer(deadline);
 
     forever {
         if (!writeBuffer.isEmpty() && !_q_canWrite())
             return false;
-        if (stdinChannel.writer && stdinChannel.writer->waitForWrite(0))
+        if (stdinChannel.writer && stdinChannel.writer->waitForWrite(QDeadlineTimer()))
             timer.resetIncrements();
-        if (stdoutChannel.reader && stdoutChannel.reader->waitForReadyRead(0))
+        if (stdoutChannel.reader && stdoutChannel.reader->waitForReadyRead(QDeadlineTimer()))
             timer.resetIncrements();
-        if (stderrChannel.reader && stderrChannel.reader->waitForReadyRead(0))
+        if (stderrChannel.reader && stderrChannel.reader->waitForReadyRead(QDeadlineTimer()))
             timer.resetIncrements();
 
         if (!pid) {
@@ -800,7 +800,7 @@ void QProcessPrivate::findExitCode()
 void QProcessPrivate::flushPipeWriter()
 {
     if (stdinChannel.writer && stdinChannel.writer->bytesToWrite() > 0)
-        stdinChannel.writer->waitForWrite(ULONG_MAX);
+        stdinChannel.writer->waitForWrite(QDeadlineTimer::Forever);
 }
 
 qint64 QProcessPrivate::pipeWriterBytesToWrite() const

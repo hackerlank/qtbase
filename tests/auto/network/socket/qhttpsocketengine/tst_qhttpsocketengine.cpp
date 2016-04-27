@@ -282,14 +282,14 @@ void tst_QHttpSocketEngine::simpleConnectToIMAP()
 
     QVERIFY(!socketDevice.connectToHost(QtNetworkSettings::serverIP(), 143));
     QCOMPARE(socketDevice.state(), QAbstractSocket::ConnectingState);
-    QVERIFY(socketDevice.waitForWrite());
+    QVERIFY(socketDevice.waitForWrite(QDeadlineTimer(30000)));
     QCOMPARE(socketDevice.state(), QAbstractSocket::ConnectedState);
     QCOMPARE(socketDevice.peerAddress(), QtNetworkSettings::serverIP());
     QVERIFY(!socketDevice.localAddress().isNull());
     QVERIFY(socketDevice.localPort() > 0);
 
     // Wait for the greeting
-    QVERIFY(socketDevice.waitForRead());
+    QVERIFY(socketDevice.waitForRead(QDeadlineTimer(30000)));
 
     // Read the greeting
     qint64 available = socketDevice.bytesAvailable();
@@ -308,7 +308,7 @@ void tst_QHttpSocketEngine::simpleConnectToIMAP()
                               array2.size()) == array2.size());
 
     // Wait for the response
-    QVERIFY(socketDevice.waitForRead());
+    QVERIFY(socketDevice.waitForRead(QDeadlineTimer(30000)));
 
     available = socketDevice.bytesAvailable();
     QVERIFY(available > 0);
@@ -319,7 +319,7 @@ void tst_QHttpSocketEngine::simpleConnectToIMAP()
     QCOMPARE(array.constData(), "* BYE LOGOUT received\r\nXXXX OK Completed\r\n");
 
     // Wait for the response
-    QVERIFY(socketDevice.waitForRead());
+    QVERIFY(socketDevice.waitForRead(QDeadlineTimer(30000)));
     char c;
     QCOMPARE(socketDevice.read(&c, sizeof(c)), (qint64) -1);
     QCOMPARE(socketDevice.error(), QAbstractSocket::RemoteHostClosedError);
@@ -340,7 +340,7 @@ void tst_QHttpSocketEngine::simpleErrorsAndStates()
         QCOMPARE(socketDevice.state(), QAbstractSocket::UnconnectedState);
         QVERIFY(!socketDevice.connectToHost(QHostAddress(QtNetworkSettings::serverName()), 8088));
         QCOMPARE(socketDevice.state(), QAbstractSocket::ConnectingState);
-        if (socketDevice.waitForWrite(30000)) {
+        if (socketDevice.waitForWrite(QDeadlineTimer(30000))) {
             QVERIFY(socketDevice.state() == QAbstractSocket::ConnectedState ||
                     socketDevice.state() == QAbstractSocket::UnconnectedState);
         } else {
@@ -668,12 +668,12 @@ void tst_QHttpSocketEngine::passwordAuth()
 
     QVERIFY(!socketDevice.connectToHost(QtNetworkSettings::serverIP(), 143));
     QCOMPARE(socketDevice.state(), QAbstractSocket::ConnectingState);
-    QVERIFY(socketDevice.waitForWrite());
+    QVERIFY(socketDevice.waitForWrite(QDeadlineTimer(30000)));
     QCOMPARE(socketDevice.state(), QAbstractSocket::ConnectedState);
     QCOMPARE(socketDevice.peerAddress(), QtNetworkSettings::serverIP());
 
     // Wait for the greeting
-    QVERIFY(socketDevice.waitForRead());
+    QVERIFY(socketDevice.waitForRead(QDeadlineTimer(30000)));
 
     // Read the greeting
     qint64 available = socketDevice.bytesAvailable();
@@ -692,7 +692,7 @@ void tst_QHttpSocketEngine::passwordAuth()
                               array2.size()) == array2.size());
 
     // Wait for the response
-    QVERIFY(socketDevice.waitForRead());
+    QVERIFY(socketDevice.waitForRead(QDeadlineTimer(30000)));
 
     available = socketDevice.bytesAvailable();
     QVERIFY(available > 0);
@@ -703,7 +703,7 @@ void tst_QHttpSocketEngine::passwordAuth()
     QCOMPARE(array.constData(), "* BYE LOGOUT received\r\nXXXX OK Completed\r\n");
 
     // Wait for the response
-    QVERIFY(socketDevice.waitForRead());
+    QVERIFY(socketDevice.waitForRead(QDeadlineTimer(30000)));
     char c;
     QVERIFY(socketDevice.read(&c, sizeof(c)) == -1);
     QCOMPARE(socketDevice.error(), QAbstractSocket::RemoteHostClosedError);

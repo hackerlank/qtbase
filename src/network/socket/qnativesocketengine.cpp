@@ -1047,20 +1047,15 @@ void QNativeSocketEngine::close()
     is to create a QSocketNotifier, passing the socket descriptor
     returned by socketDescriptor() to its constructor.
 */
-bool QNativeSocketEngine::waitForRead(int msecs, bool *timedOut)
+bool QNativeSocketEngine::waitForRead(QDeadlineTimer deadline)
 {
     Q_D(const QNativeSocketEngine);
     Q_CHECK_VALID_SOCKETLAYER(QNativeSocketEngine::waitForRead(), false);
     Q_CHECK_NOT_STATE(QNativeSocketEngine::waitForRead(),
                       QAbstractSocket::UnconnectedState, false);
 
-    if (timedOut)
-        *timedOut = false;
-
-    int ret = d->nativeSelect(msecs, true);
+    int ret = d->nativeSelect(deadline, true);
     if (ret == 0) {
-        if (timedOut)
-            *timedOut = true;
         d->setError(QAbstractSocket::SocketTimeoutError,
             QNativeSocketEnginePrivate::TimeOutErrorString);
         d->hasSetSocketError = false; // A timeout error is temporary in waitFor functions
@@ -1087,17 +1082,14 @@ bool QNativeSocketEngine::waitForRead(int msecs, bool *timedOut)
     is to create a QSocketNotifier, passing the socket descriptor
     returned by socketDescriptor() to its constructor.
 */
-bool QNativeSocketEngine::waitForWrite(int msecs, bool *timedOut)
+bool QNativeSocketEngine::waitForWrite(QDeadlineTimer deadline)
 {
     Q_D(QNativeSocketEngine);
     Q_CHECK_VALID_SOCKETLAYER(QNativeSocketEngine::waitForWrite(), false);
     Q_CHECK_NOT_STATE(QNativeSocketEngine::waitForWrite(),
                       QAbstractSocket::UnconnectedState, false);
 
-    if (timedOut)
-        *timedOut = false;
-
-    int ret = d->nativeSelect(msecs, false);
+    int ret = d->nativeSelect(deadline, false);
     // On Windows, the socket is in connected state if a call to
     // select(writable) is successful. In this case we should not
     // issue a second call to WSAConnect()
@@ -1130,8 +1122,6 @@ bool QNativeSocketEngine::waitForWrite(int msecs, bool *timedOut)
 #endif
 
     if (ret == 0) {
-        if (timedOut)
-            *timedOut = true;
         d->setError(QAbstractSocket::SocketTimeoutError,
                     QNativeSocketEnginePrivate::TimeOutErrorString);
         d->hasSetSocketError = false; // A timeout error is temporary in waitFor functions
@@ -1145,14 +1135,14 @@ bool QNativeSocketEngine::waitForWrite(int msecs, bool *timedOut)
 
 bool QNativeSocketEngine::waitForReadOrWrite(bool *readyToRead, bool *readyToWrite,
                                       bool checkRead, bool checkWrite,
-                                      int msecs, bool *timedOut)
+                                      QDeadlineTimer deadline)
 {
     Q_D(QNativeSocketEngine);
     Q_CHECK_VALID_SOCKETLAYER(QNativeSocketEngine::waitForWrite(), false);
     Q_CHECK_NOT_STATE(QNativeSocketEngine::waitForReadOrWrite(),
                       QAbstractSocket::UnconnectedState, false);
 
-    int ret = d->nativeSelect(msecs, checkRead, checkWrite, readyToRead, readyToWrite);
+    int ret = d->nativeSelect(deadline, checkRead, checkWrite, readyToRead, readyToWrite);
     // On Windows, the socket is in connected state if a call to
     // select(writable) is successful. In this case we should not
     // issue a second call to WSAConnect()
@@ -1184,8 +1174,6 @@ bool QNativeSocketEngine::waitForReadOrWrite(bool *readyToRead, bool *readyToWri
     }
 #endif
     if (ret == 0) {
-        if (timedOut)
-            *timedOut = true;
         d->setError(QAbstractSocket::SocketTimeoutError,
                     QNativeSocketEnginePrivate::TimeOutErrorString);
         d->hasSetSocketError = false; // A timeout error is temporary in waitFor functions

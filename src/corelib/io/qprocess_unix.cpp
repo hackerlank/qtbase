@@ -127,7 +127,7 @@ struct QProcessPoller
 {
     QProcessPoller(const QProcessPrivate &proc);
 
-    int poll(int timeout);
+    int poll(QDeadlineTimer deadline);
 
     pollfd &stdinPipe() { return pfds[0]; }
     pollfd &stdoutPipe() { return pfds[1]; }
@@ -158,10 +158,10 @@ QProcessPoller::QProcessPoller(const QProcessPrivate &proc)
         childStartedPipe().fd = proc.childStartedPipe[0];
 }
 
-int QProcessPoller::poll(int timeout)
+int QProcessPoller::poll(QDeadlineTimer deadline)
 {
     const nfds_t nfds = (childStartedPipe().fd == -1) ? 4 : 5;
-    return qt_safe_poll(pfds, nfds, QDeadlineTimer(timeout));
+    return qt_safe_poll(pfds, nfds, deadline);
 }
 } // anonymous namespace
 
@@ -729,7 +729,7 @@ void QProcessPrivate::killProcess()
         ::kill(pid_t(pid), SIGKILL);
 }
 
-bool QProcessPrivate::waitForStarted(int msecs)
+bool QProcessPrivate::waitForStarted(QDeadlineTimer deadline)
 {
 #if defined (QPROCESS_DEBUG)
     qDebug("QProcessPrivate::waitForStarted(%d) waiting for child to start (fd = %d)", msecs,
@@ -738,7 +738,7 @@ bool QProcessPrivate::waitForStarted(int msecs)
 
     pollfd pfd = qt_make_pollfd(childStartedPipe[0], POLLIN);
 
-    if (qt_safe_poll(&pfd, 1, QDeadlineTimer(msecs)) == 0) {
+    if (qt_safe_poll(&pfd, 1, deadline) == 0) {
         setError(QProcess::Timedout);
 #if defined (QPROCESS_DEBUG)
         qDebug("QProcessPrivate::waitForStarted(%d) == false (timed out)", msecs);
@@ -753,20 +753,16 @@ bool QProcessPrivate::waitForStarted(int msecs)
     return startedEmitted;
 }
 
-bool QProcessPrivate::waitForReadyRead(int msecs)
+bool QProcessPrivate::waitForReadyRead(QDeadlineTimer deadline)
 {
 #if defined (QPROCESS_DEBUG)
     qDebug("QProcessPrivate::waitForReadyRead(%d)", msecs);
 #endif
 
-    QElapsedTimer stopWatch;
-    stopWatch.start();
-
     forever {
         QProcessPoller poller(*this);
 
-        int timeout = qt_subtract_from_timeout(msecs, stopWatch.elapsed());
-        int ret = poller.poll(timeout);
+        int ret = poller.poll(deadline);
 
         if (ret < 0) {
             break;
@@ -806,20 +802,16 @@ bool QProcessPrivate::waitForReadyRead(int msecs)
     return false;
 }
 
-bool QProcessPrivate::waitForBytesWritten(int msecs)
+bool QProcessPrivate::waitForBytesWritten(QDeadlineTimer deadline)
 {
 #if defined (QPROCESS_DEBUG)
     qDebug("QProcessPrivate::waitForBytesWritten(%d)", msecs);
 #endif
 
-    QElapsedTimer stopWatch;
-    stopWatch.start();
-
     while (!writeBuffer.isEmpty()) {
         QProcessPoller poller(*this);
 
-        int timeout = qt_subtract_from_timeout(msecs, stopWatch.elapsed());
-        int ret = poller.poll(timeout);
+        int ret = poller.poll(deadline);
 
         if (ret < 0) {
             break;
@@ -853,20 +845,16 @@ bool QProcessPrivate::waitForBytesWritten(int msecs)
     return false;
 }
 
-bool QProcessPrivate::waitForFinished(int msecs)
+bool QProcessPrivate::waitForFinished(QDeadlineTimer deadline)
 {
 #if defined (QPROCESS_DEBUG)
     qDebug("QProcessPrivate::waitForFinished(%d)", msecs);
 #endif
 
-    QElapsedTimer stopWatch;
-    stopWatch.start();
-
     forever {
         QProcessPoller poller(*this);
 
-        int timeout = qt_subtract_from_timeout(msecs, stopWatch.elapsed());
-        int ret = poller.poll(timeout);
+        int ret = poller.poll(deadline);
 
         if (ret < 0) {
             break;

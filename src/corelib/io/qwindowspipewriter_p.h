@@ -52,7 +52,7 @@
 //
 
 #include <QtCore/private/qglobal_p.h>
-#include <qelapsedtimer.h>
+#include <qdeadlinetimer.h>
 #include <qobject.h>
 #include <qbytearray.h>
 #include <qt_windows.h>
@@ -66,13 +66,12 @@ class QIncrementalSleepTimer
 {
 
 public:
-    QIncrementalSleepTimer(int msecs)
-        : totalTimeOut(msecs)
-        , nextSleep(qMin(SLEEPMIN, totalTimeOut))
+    QIncrementalSleepTimer(QDeadlineTimer &deadline)
+        : deadline(deadline),
+          nextSleep(qMin<qint64>(SLEEPMIN, deadline.remainingTime()))
     {
-        if (totalTimeOut == -1)
+        if (deadline.isForever())
             nextSleep = SLEEPMIN;
-        timer.start();
     }
 
     int nextSleepTime()
@@ -84,16 +83,15 @@ public:
 
     int timeLeft() const
     {
-        if (totalTimeOut == -1)
+        qint64 left = deadline.remainingTime();
+        if (quint64(left) > INT_MAX)    // catches -1 as well as overflow
             return SLEEPMAX;
-        return qMax(int(totalTimeOut - timer.elapsed()), 0);
+        return int(left);
     }
 
     bool hasTimedOut() const
     {
-        if (totalTimeOut == -1)
-            return false;
-        return timer.elapsed() >= totalTimeOut;
+        return deadline.hasExpired();
     }
 
     void resetIncrements()
@@ -102,8 +100,7 @@ public:
     }
 
 private:
-    QElapsedTimer timer;
-    int totalTimeOut;
+    QDeadlineTimer &deadline;
     int nextSleep;
 };
 
@@ -116,7 +113,7 @@ public:
 
     bool write(const QByteArray &ba);
     void stop();
-    bool waitForWrite(int msecs);
+    bool waitForWrite(QDeadlineTimer deadline);
     bool isWriteOperationActive() const { return writeSequenceStarted; }
     qint64 bytesToWrite() const;
 
@@ -129,7 +126,7 @@ private:
     static void CALLBACK writeFileCompleted(DWORD errorCode, DWORD numberOfBytesTransfered,
                                             OVERLAPPED *overlappedBase);
     void notified(DWORD errorCode, DWORD numberOfBytesWritten);
-    bool waitForNotification(int timeout);
+    bool waitForNotification(QDeadlineTimer deadline);
     void emitPendingBytesWrittenValue();
 
     class Overlapped : public OVERLAPPED

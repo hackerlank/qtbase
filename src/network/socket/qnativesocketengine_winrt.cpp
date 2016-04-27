@@ -896,19 +896,14 @@ bool QNativeSocketEngine::setOption(QAbstractSocketEngine::SocketOption option, 
     return d->setOption(option, value);
 }
 
-bool QNativeSocketEngine::waitForRead(int msecs, bool *timedOut)
+bool QNativeSocketEngine::waitForRead(QDeadlineTimer deadline)
 {
     Q_D(QNativeSocketEngine);
     Q_CHECK_VALID_SOCKETLAYER(QNativeSocketEngine::waitForRead(), false);
     Q_CHECK_NOT_STATE(QNativeSocketEngine::waitForRead(),
                       QAbstractSocket::UnconnectedState, false);
 
-    if (timedOut)
-        *timedOut = false;
-
-    QElapsedTimer timer;
-    timer.start();
-    while (msecs > timer.elapsed()) {
+    while (!deadline.hasExpired()) {
         // Servers with active connections are ready for reading
         if (!d->currentConnections.isEmpty())
             return true;
@@ -919,21 +914,17 @@ bool QNativeSocketEngine::waitForRead(int msecs, bool *timedOut)
             return true;
 
         // Nothing to do, wait for more events
-        d->eventLoop.processEvents();
+        d->eventLoop.processEvents(QEventLoop::AllEvents, deadline.remainingTime());
     }
 
     d->setError(QAbstractSocket::SocketTimeoutError,
                 QNativeSocketEnginePrivate::TimeOutErrorString);
 
-    if (timedOut)
-        *timedOut = true;
     return false;
 }
 
-bool QNativeSocketEngine::waitForWrite(int msecs, bool *timedOut)
+bool QNativeSocketEngine::waitForWrite(QDeadlineTimer)
 {
-    Q_UNUSED(msecs);
-    Q_UNUSED(timedOut);
     Q_D(QNativeSocketEngine);
     if (d->socketState == QAbstractSocket::ConnectingState) {
         HRESULT hr = QWinRTFunctions::await(d->connectOp, QWinRTFunctions::ProcessMainThreadEvents);
@@ -945,14 +936,12 @@ bool QNativeSocketEngine::waitForWrite(int msecs, bool *timedOut)
     return false;
 }
 
-bool QNativeSocketEngine::waitForReadOrWrite(bool *readyToRead, bool *readyToWrite, bool checkRead, bool checkWrite, int msecs, bool *timedOut)
+bool QNativeSocketEngine::waitForReadOrWrite(bool *readyToRead, bool *readyToWrite, bool checkRead, bool checkWrite, QDeadlineTimer)
 {
     Q_UNUSED(readyToRead);
     Q_UNUSED(readyToWrite);
     Q_UNUSED(checkRead);
     Q_UNUSED(checkWrite);
-    Q_UNUSED(msecs);
-    Q_UNUSED(timedOut);
     return false;
 }
 

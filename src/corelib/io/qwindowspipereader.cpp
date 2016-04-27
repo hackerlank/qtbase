@@ -102,7 +102,7 @@ void QWindowsPipeReader::stop()
                               handle);
             }
         }
-        waitForNotification(-1);
+        waitForNotification(QDeadlineTimer::Forever);
     }
 }
 
@@ -282,21 +282,16 @@ DWORD QWindowsPipeReader::checkPipeState()
     return 0;
 }
 
-bool QWindowsPipeReader::waitForNotification(int timeout)
+bool QWindowsPipeReader::waitForNotification(QDeadlineTimer deadline)
 {
-    QElapsedTimer t;
-    t.start();
     notifiedCalled = false;
-    int msecs = timeout;
-    while (SleepEx(msecs == -1 ? INFINITE : msecs, TRUE) == WAIT_IO_COMPLETION) {
+    do {
+        qint64 msecs = deadline.remainingTime();
+        if (SleepEx(msecs == -1 ? INFINITE : msecs, TRUE) != WAIT_IO_COMPLETION)
+            break;
         if (notifiedCalled)
             return true;
-
-        // Some other I/O completion routine was called. Wait some more.
-        msecs = qt_subtract_from_timeout(timeout, t.elapsed());
-        if (!msecs)
-            break;
-    }
+    } while (!deadline.hasExpired());
     return notifiedCalled;
 }
 
@@ -315,7 +310,7 @@ void QWindowsPipeReader::emitPendingReadyRead()
     Returns \c true, if we've emitted the readyRead signal (non-recursive case)
     or readyRead will be emitted by the event loop (recursive case).
  */
-bool QWindowsPipeReader::waitForReadyRead(int msecs)
+bool QWindowsPipeReader::waitForReadyRead(QDeadlineTimer deadline)
 {
     if (!readSequenceStarted)
         return false;
@@ -326,7 +321,7 @@ bool QWindowsPipeReader::waitForReadyRead(int msecs)
         return true;
     }
 
-    if (!waitForNotification(msecs))
+    if (!waitForNotification(deadline))
         return false;
 
     if (readyReadPending) {
@@ -341,17 +336,16 @@ bool QWindowsPipeReader::waitForReadyRead(int msecs)
 /*!
     Waits until the pipe is closed.
  */
-bool QWindowsPipeReader::waitForPipeClosed(int msecs)
+bool QWindowsPipeReader::waitForPipeClosed(QDeadlineTimer deadline)
 {
     const int sleepTime = 10;
-    QElapsedTimer stopWatch;
-    stopWatch.start();
+    deadline -= sleepTime;
     forever {
-        waitForReadyRead(0);
+        waitForReadyRead(QDeadlineTimer());
         checkPipeState();
         if (pipeBroken)
             return true;
-        if (stopWatch.hasExpired(msecs - sleepTime))
+        if (deadline.hasExpired())
             return false;
         Sleep(sleepTime);
     }

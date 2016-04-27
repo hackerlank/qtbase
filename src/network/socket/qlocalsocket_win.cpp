@@ -310,7 +310,7 @@ bool QLocalSocket::flush()
     Q_D(QLocalSocket);
     bool written = false;
     if (d->pipeWriter) {
-        while (d->pipeWriter->waitForWrite(0))
+        while (d->pipeWriter->waitForWrite(QDeadlineTimer()))
             written = true;
     }
     return written;
@@ -407,7 +407,7 @@ bool QLocalSocket::waitForDisconnected(int msecs)
         qWarning("QLocalSocket::waitForDisconnected isn't supported for write only pipes.");
         return false;
     }
-    if (d->pipeReader->waitForPipeClosed(msecs)) {
+    if (d->pipeReader->waitForPipeClosed(QDeadlineTimer(msecs))) {
         d->_q_pipeClosed();
         return true;
     }
@@ -433,7 +433,7 @@ bool QLocalSocket::waitForReadyRead(int msecs)
         return false;
     }
 
-    bool result = d->pipeReader->waitForReadyRead(msecs);
+    bool result = d->pipeReader->waitForReadyRead(QDeadlineTimer(msecs));
 
     // We just noticed that the pipe is gone.
     if (d->pipeReader->isPipeClosed())
@@ -452,7 +452,7 @@ bool QLocalSocket::waitForBytesWritten(int msecs)
     // written. This will succeed if either the pipe writer has
     // already written the data, or if it manages to write data
     // within the given timeout.
-    return d->pipeWriter->waitForWrite(msecs);
+    return d->pipeWriter->waitForWrite(QDeadlineTimer(msecs));
 }
 
 QT_END_NAMESPACE

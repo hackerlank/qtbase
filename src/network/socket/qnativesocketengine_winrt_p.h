@@ -122,11 +122,11 @@ public:
     int option(SocketOption option) const;
     bool setOption(SocketOption option, int value);
 
-    bool waitForRead(int msecs = 30000, bool *timedOut = 0);
-    bool waitForWrite(int msecs = 30000, bool *timedOut = 0);
+    bool waitForRead(QDeadlineTimer timer = QDeadlineTimer(30000));
+    bool waitForWrite(QDeadlineTimer timer = QDeadlineTimer(30000));
     bool waitForReadOrWrite(bool *readyToRead, bool *readyToWrite,
                             bool checkRead, bool checkWrite,
-                            int msecs = 30000, bool *timedOut = 0);
+                            QDeadlineTimer timer = QDeadlineTimer(30000));
 
     bool isReadNotificationEnabled() const;
     void setReadNotificationEnabled(bool enable);

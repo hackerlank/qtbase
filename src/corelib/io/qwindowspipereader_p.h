@@ -51,6 +51,7 @@
 // We mean it.
 //
 
+#include <qdeadlinetimer.h>
 #include <qobject.h>
 #include <private/qringbuffer_p.h>
 
@@ -76,8 +77,8 @@ public:
     qint64 bytesAvailable() const;
     qint64 read(char *data, qint64 maxlen);
     bool canReadLine() const;
-    bool waitForReadyRead(int msecs);
-    bool waitForPipeClosed(int msecs);
+    bool waitForReadyRead(QDeadlineTimer deadline);
+    bool waitForPipeClosed(QDeadlineTimer deadline);
 
     bool isReadOperationActive() const { return readSequenceStarted; }
 
@@ -92,7 +93,7 @@ private:
                                            OVERLAPPED *overlappedBase);
     void notified(DWORD errorCode, DWORD numberOfBytesRead);
     DWORD checkPipeState();
-    bool waitForNotification(int timeout);
+    bool waitForNotification(QDeadlineTimer deadline);
     void emitPendingReadyRead();
 
     class Overlapped : public OVERLAPPED

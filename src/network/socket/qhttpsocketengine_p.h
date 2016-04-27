@@ -124,11 +124,11 @@ public:
     int option(SocketOption option) const Q_DECL_OVERRIDE;
     bool setOption(SocketOption option, int value) Q_DECL_OVERRIDE;
 
-    bool waitForRead(int msecs = 30000, bool *timedOut = 0) Q_DECL_OVERRIDE;
-    bool waitForWrite(int msecs = 30000, bool *timedOut = 0) Q_DECL_OVERRIDE;
+    bool waitForRead(QDeadlineTimer deadline) Q_DECL_OVERRIDE;
+    bool waitForWrite(QDeadlineTimer deadline) Q_DECL_OVERRIDE;
     bool waitForReadOrWrite(bool *readyToRead, bool *readyToWrite,
                             bool checkRead, bool checkWrite,
-                            int msecs = 30000, bool *timedOut = 0) Q_DECL_OVERRIDE;
+                            QDeadlineTimer deadline) Q_DECL_OVERRIDE;
 
     bool isReadNotificationEnabled() const Q_DECL_OVERRIDE;
     void setReadNotificationEnabled(bool enable) Q_DECL_OVERRIDE;

@@ -55,6 +55,7 @@
 #include <QtNetwork/private/qtnetworkglobal_p.h>
 #include "QtNetwork/qhostaddress.h"
 #include "QtNetwork/qabstractsocket.h"
+#include "QtCore/qdeadlinetimer.h"
 #include "private/qobject_p.h"
 #include "private/qnetworkdatagram_p.h"
 
@@ -162,11 +163,11 @@ public:
     virtual int option(SocketOption option) const = 0;
     virtual bool setOption(SocketOption option, int value) = 0;
 
-    virtual bool waitForRead(int msecs = 30000, bool *timedOut = 0) = 0;
-    virtual bool waitForWrite(int msecs = 30000, bool *timedOut = 0) = 0;
+    virtual bool waitForRead(QDeadlineTimer deadline) = 0;
+    virtual bool waitForWrite(QDeadlineTimer deadline) = 0;
     virtual bool waitForReadOrWrite(bool *readyToRead, bool *readyToWrite,
                             bool checkRead, bool checkWrite,
-                            int msecs = 30000, bool *timedOut = 0) = 0;
+                            QDeadlineTimer deadline) = 0;
 
     QAbstractSocket::SocketError error() const;
     QString errorString() const;

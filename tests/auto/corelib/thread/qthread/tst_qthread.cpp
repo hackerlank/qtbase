@@ -1059,14 +1059,16 @@ void tst_QThread::wait2()
     thread.start();
     timer.start();
     QVERIFY(!thread.wait(Waiting_Thread::WaitTime));
-    qint64 elapsed = timer.elapsed(); // On Windows, we sometimes get (WaitTime - 1).
-    QVERIFY2(elapsed >= Waiting_Thread::WaitTime - 1, qPrintable(QString::fromLatin1("elapsed: %1").arg(elapsed)));
+    qint64 elapsed = timer.elapsed();
+    // On Windows, we sometimes get (WaitTime - 1).
+    // On Linux with the coarse timer, up to 4 ms error
+    QVERIFY2(elapsed >= Waiting_Thread::WaitTime - 10, qPrintable(QString::fromLatin1("elapsed: %1").arg(elapsed)));
 
     timer.start();
     thread.cond1.wakeOne();
     QVERIFY(thread.wait(/*Waiting_Thread::WaitTime * 1.4*/));
     elapsed = timer.elapsed();
-    QVERIFY2(elapsed - Waiting_Thread::WaitTime >= -1, qPrintable(QString::fromLatin1("elapsed: %1").arg(elapsed)));
+    QVERIFY2(elapsed - Waiting_Thread::WaitTime >= -10, qPrintable(QString::fromLatin1("elapsed: %1").arg(elapsed)));
 }
 
 

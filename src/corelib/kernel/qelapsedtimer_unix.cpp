@@ -150,6 +150,24 @@ static int unixCheckClockType()
 #endif
 }
 
+static clock_t coarseMonotonicClock()
+{
+#ifdef CLOCK_MONOTONIC_COARSE
+    timespec ts;
+    if (clock_getres(CLOCK_MONOTONIC_COARSE, &ts) != -1)
+        return CLOCK_MONOTONIC_COARSE;
+#endif
+    return unixCheckClockType();
+}
+
+static clock_t clockForTimerType(int timerType)
+{
+    if (timerType == Qt::PreciseTimer)
+        return unixCheckClockType();
+    static const clock_t coarse = coarseMonotonicClock();
+    return coarse;
+}
+
 bool QElapsedTimer::isMonotonic() Q_DECL_NOTHROW
 {
     return clockType() == MonotonicClock;
@@ -160,19 +178,19 @@ QElapsedTimer::ClockType QElapsedTimer::clockType() Q_DECL_NOTHROW
     return unixCheckClockType() == CLOCK_REALTIME ? SystemTime : MonotonicClock;
 }
 
-static inline void do_gettime(qint64 *sec, qint64 *frac)
+static inline void do_gettime(qint64 *sec, qint64 *frac, clock_t clock = unixCheckClockType())
 {
     timespec ts;
-    qt_clock_gettime(unixCheckClockType(), &ts);
+    qt_clock_gettime(clock, &ts);
     *sec = ts.tv_sec;
     *frac = ts.tv_nsec;
 }
 
 // used in qcore_unix.cpp and qeventdispatcher_unix.cpp
-struct timespec qt_gettime() Q_DECL_NOTHROW
+struct timespec qt_gettime(Qt::TimerType timerType) Q_DECL_NOTHROW
 {
     qint64 sec, frac;
-    do_gettime(&sec, &frac);
+    do_gettime(&sec, &frac, clockForTimerType(timerType));
 
     timespec tv;
     tv.tv_sec = sec;
@@ -255,7 +273,7 @@ QDeadlineTimer QDeadlineTimer::current(Qt::TimerType timerType) Q_DECL_NOTHROW
     Q_STATIC_ASSERT(QDeadlineTimerNanosecondsInT2);
     QDeadlineTimer result;
     qint64 cursec, curnsec;
-    do_gettime(&cursec, &curnsec);
+    do_gettime(&cursec, &curnsec, clockForTimerType(timerType));
     result.t1 = cursec;
     result.t2 = curnsec;
     result.type = timerType;

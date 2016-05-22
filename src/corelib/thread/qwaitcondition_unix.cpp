@@ -104,7 +104,7 @@ void qt_abstime_for_timeout(timespec *ts, int timeout)
     ts->tv_sec = tv.tv_sec;
     ts->tv_nsec = tv.tv_usec * 1000;
 #else
-    *ts = qt_gettime();
+    *ts = qt_gettime(timerForTimeout(timeout));
 #endif
 
     ts->tv_sec += timeout / 1000;

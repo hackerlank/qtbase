@@ -58,12 +58,19 @@ QBasicAtomicInt status  = Q_BASIC_ATOMIC_INITIALIZER(0);
 # define QT_HAVE_PPOLL
 #endif
 
+static Qt::TimerType timerForTimeout(struct timespec ts)
+{
+    if (ts.tv_sec == 0)
+        return timerForTimeout(ts.tv_nsec);
+    return Qt::CoarseTimer;
+}
+
 static inline bool time_update(struct timespec *tv, const struct timespec &start,
                                const struct timespec &timeout)
 {
     // clock source is (hopefully) monotonic, so we can recalculate how much timeout is left;
     // if it isn't monotonic, we'll simply hope that it hasn't jumped, because we have no alternative
-    struct timespec now = qt_gettime();
+    struct timespec now = qt_gettime(timerForTimeout(start));
     *tv = timeout + start - now;
     return tv->tv_sec >= 0;
 }
@@ -107,7 +114,7 @@ int qt_safe_poll(struct pollfd *fds, nfds_t nfds, const struct timespec *timeout
         return ret;
     }
 
-    timespec start = qt_gettime();
+    timespec start = qt_gettime(timerForTimeout(*timeout_ts));
     timespec timeout = *timeout_ts;
 
     // loop and recalculate the timeout as needed

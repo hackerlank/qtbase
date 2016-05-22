@@ -87,7 +87,7 @@ static qint64 absoluteToMSecs(qint64 cpuTime)
     return absoluteToNSecs(cpuTime) / 1000000;
 }
 
-timespec qt_gettime() Q_DECL_NOTHROW
+timespec qt_gettime(Qt::TimerType) Q_DECL_NOTHROW
 {
     timespec tv;
 

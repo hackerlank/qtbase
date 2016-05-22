@@ -369,8 +369,12 @@ static inline pid_t qt_safe_waitpid(pid_t pid, int *status, int options)
 #  define _POSIX_MONOTONIC_CLOCK -1
 #endif
 
-// in qelapsedtimer_mac.cpp or qtimestamp_unix.cpp
-timespec qt_gettime() Q_DECL_NOTHROW;
+// same as QTimer::defaultTypeFor(int msecs)
+static Q_DECL_CONSTEXPR inline Qt::TimerType timerForTimeout(int msecs) Q_DECL_NOTHROW
+{ return msecs >= 2000 ? Qt::CoarseTimer : Qt::PreciseTimer; }
+
+// in qelapsedtimer_mac.cpp or qelapsedtimer_unix.cpp
+timespec qt_gettime(Qt::TimerType timerType) Q_DECL_NOTHROW;
 void qt_nanosleep(timespec amount);
 
 Q_CORE_EXPORT int qt_safe_poll(struct pollfd *fds, nfds_t nfds, const struct timespec *timeout_ts);

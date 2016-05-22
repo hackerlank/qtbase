@@ -67,7 +67,7 @@ QTimerInfoList::QTimerInfoList()
 #if (_POSIX_MONOTONIC_CLOCK-0 <= 0) && !defined(Q_OS_MAC) && !defined(Q_OS_NACL)
     if (!QElapsedTimer::isMonotonic()) {
         // not using monotonic timers, initialize the timeChanged() machinery
-        previousTime = qt_gettime();
+        previousTime = qt_gettime(Qt::CoarseTimer);
 
         tms unused;
         previousTicks = times(&unused);
@@ -88,7 +88,16 @@ QTimerInfoList::QTimerInfoList()
 
 timespec QTimerInfoList::updateCurrentTime()
 {
-    return (currentTime = qt_gettime());
+    // Find first waiting timer not already active
+    QTimerInfo *t = 0;
+    for (QTimerInfoList::const_iterator it = constBegin(); it != constEnd(); ++it) {
+        if (!(*it)->activateRef) {
+            t = *it;
+            break;
+        }
+    }
+
+    return (currentTime = qt_gettime(t ? t->timerType : Qt::CoarseTimer));
 }
 
 #if ((_POSIX_MONOTONIC_CLOCK-0 <= 0) && !defined(Q_OS_MAC) && !defined(Q_OS_INTEGRITY)) || defined(QT_BOOTSTRAPPED)

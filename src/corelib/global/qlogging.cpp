@@ -49,6 +49,7 @@
 #include "qloggingcategory.h"
 #ifndef QT_BOOTSTRAPPED
 #include "qelapsedtimer.h"
+#include "qdeadlinetimer.h"
 #include "qdatetime.h"
 #include "qcoreapplication.h"
 #include "qthread.h"
@@ -1436,9 +1437,7 @@ QString qFormatLogMessage(QtMsgType type, const QMessageLogContext &context, con
             } else if (timeFormat ==  QLatin1String("boot")) {
                 // just print the milliseconds since the elapsed timer reference
                 // like the Linux kernel does
-                QElapsedTimer now;
-                now.start();
-                uint ms = now.msecsSinceReference();
+                uint ms = QDeadlineTimer::current().deadline();
                 message.append(QString::asprintf("%6d.%03d", uint(ms / 1000), uint(ms % 1000)));
             } else if (timeFormat.isEmpty()) {
                     message.append(QDateTime::currentDateTime().toString(Qt::ISODate));

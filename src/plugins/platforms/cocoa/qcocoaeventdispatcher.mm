@@ -141,10 +141,11 @@ void QCocoaEventDispatcherPrivate::maybeStartCFRunLoopTimer()
         CFTimeInterval oneyear = CFTimeInterval(3600. * 24. * 365.);
 
         // Q: when should the CFRunLoopTimer fire for the first time?
-        struct timespec tv;
-        if (timerInfoList.timerWait(tv)) {
+        QDeadlineTimer deadline = timerInfoList.nextDeadline();
+        if (!deadline.isForever()) {
             // A: when we have timers to fire, of course
-            interval = qMax(tv.tv_sec + tv.tv_nsec / 1000000000., 0.0000001);
+            qint64 nsecs = qMax(deadline.remainingTimeNSecs(), Q_INT64_C(1000));     // at least 1µs
+            interval = nsecs / (1000*1000*1000.0);
         } else {
             // this shouldn't really happen, but in case it does, set the timer to fire a some point in the distant future
             interval = oneyear;
@@ -164,10 +165,11 @@ void QCocoaEventDispatcherPrivate::maybeStartCFRunLoopTimer()
         CFTimeInterval interval;
 
         // Q: when should the timer first next?
-        struct timespec tv;
-        if (timerInfoList.timerWait(tv)) {
+        QDeadlineTimer deadline = timerInfoList.nextDeadline();
+        if (!deadline.isForever()) {
             // A: when we have timers to fire, of course
-            interval = qMax(tv.tv_sec + tv.tv_nsec / 1000000000., 0.0000001);
+            qint64 nsecs = qMax(deadline.remainingTimeNSecs(), Q_INT64_C(1000));     // at least 1µs
+            interval = nsecs / (1000*1000*1000.0);
         } else {
             // no timers can fire, but we cannot stop the CFRunLoopTimer, set the timer to fire at some
             // point in the distant future (the timer interval is one year)

@@ -56,6 +56,7 @@
 // #define QTIMERINFO_DEBUG
 
 #include "qabstracteventdispatcher.h"
+#include "qdeadlinetimer.h"
 
 #include <sys/time.h> // struct timeval
 
@@ -66,7 +67,7 @@ struct QTimerInfo {
     int id;           // - timer identifier
     int interval;     // - timer interval in milliseconds
     Qt::TimerType timerType; // - timer type
-    timespec timeout;  // - when to actually fire
+    QDeadlineTimer deadline; // - when to actually fire (type may be different)
     QObject *obj;     // - object to receive event
     QTimerInfo **activateRef; // - ref from activateTimers
 
@@ -85,10 +86,9 @@ class Q_CORE_EXPORT QTimerInfoList : public QList<QTimerInfo*>
 public:
     QTimerInfoList();
 
-    timespec currentTime;
-    timespec updateCurrentTime();
+    QDeadlineTimer currentTime();
 
-    bool timerWait(timespec &);
+    QDeadlineTimer nextDeadline() const;
     void timerInsert(QTimerInfo *);
 
     int timerRemainingTime(int timerId);

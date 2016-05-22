@@ -481,12 +481,7 @@ bool QEventDispatcherUNIX::processEvents(QEventLoop::ProcessEventsFlags flags)
 
     QDeadlineTimer deadline;
     if (canWait)
-        deadline = QDeadlineTimer::Forever;
-    if (canWait && include_timers) {
-        timespec wait_tm = { 0, 0 };
-        if (d->timerList.timerWait(wait_tm))
-            deadline.setPreciseDeadline(wait_tm.tv_sec, wait_tm.tv_nsec);
-    }
+        deadline = include_timers ? d->timerList.nextDeadline() : QDeadlineTimer::Forever;
 
     d->pollfds.clear();
     d->pollfds.reserve(1 + (include_notifiers ? d->socketNotifiers.size() : 0));

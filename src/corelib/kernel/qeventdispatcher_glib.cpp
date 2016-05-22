@@ -128,9 +128,8 @@ struct GTimerSource
 
 static gboolean timerSourcePrepareHelper(GTimerSource *src, gint *timeout)
 {
-    timespec tv = { 0l, 0l };
-    if (!(src->processEventsFlags & QEventLoop::X11ExcludeTimers) && src->timerList.timerWait(tv))
-        *timeout = (tv.tv_sec * 1000) + ((tv.tv_nsec + 999999) / 1000 / 1000);
+    if (!(src->processEventsFlags & QEventLoop::X11ExcludeTimers))
+        *timeout = src->timerList.nextDeadline().remainingTime();
     else
         *timeout = -1;
 
@@ -143,7 +142,7 @@ static gboolean timerSourceCheckHelper(GTimerSource *src)
         || (src->processEventsFlags & QEventLoop::X11ExcludeTimers))
         return false;
 
-    if (src->timerList.updateCurrentTime() < src->timerList.constFirst()->timeout)
+    if (src->timerList.currentTime() < src->timerList.constFirst()->deadline)
         return false;
 
     return true;

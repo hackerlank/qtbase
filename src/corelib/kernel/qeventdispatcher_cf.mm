@@ -585,23 +585,17 @@ int QEventDispatcherCoreFoundation::remainingTime(int timerId)
     return m_timerInfoList.timerRemainingTime(timerId);
 }
 
-static double timespecToSeconds(const timespec &spec)
-{
-    static double nanosecondsPerSecond = 1.0 * 1000 * 1000 * 1000;
-    return spec.tv_sec + (spec.tv_nsec / nanosecondsPerSecond);
-}
-
 void QEventDispatcherCoreFoundation::updateTimers()
 {
     if (m_timerInfoList.size() > 0) {
         // We have Qt timers registered, so create or reschedule CF timer to match
 
-        timespec tv = { -1, -1 };
-        CFAbsoluteTime timeToFire = m_timerInfoList.timerWait(tv) ?
+        QDeadlineTimer deadline = m_timerInfoList.nextDeadline();
+        CFAbsoluteTime timeToFire = kCFTimeIntervalDistantFuture;
+        if (!deadline.isForever()) {
             // We have a timer ready to fire right now, or some time in the future
-            CFAbsoluteTimeGetCurrent() + timespecToSeconds(tv)
-            // We have timers, but they are all currently blocked by callbacks
-            : kCFTimeIntervalDistantFuture;
+            timeToFire = CFAbsoluteTimeGetCurrent() + deadline.remainingTimeNSecs() / (1000*1000*1000.0);
+        }
 
         if (!m_runLoopTimer) {
             m_runLoopTimer = CFRunLoopTimerCreateWithHandler(kCFAllocatorDefault,
@@ -617,9 +611,9 @@ void QEventDispatcherCoreFoundation::updateTimers()
             qEventDispatcherDebug() << "Re-scheduled CFRunLoopTimer " << m_runLoopTimer;
         }
 
-        m_overdueTimerScheduled = !timespecToSeconds(tv);
+        m_overdueTimerScheduled = deadline.hasExpired();
 
-        qEventDispatcherDebug() << "Next timeout in " << tv << " seconds";
+        qEventDispatcherDebug() << "Next timeout in " << deadline.remainingTime() << " ms";
 
     } else {
         // No Qt timers are registered, so make sure we're not running any CF timers

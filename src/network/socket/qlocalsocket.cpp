@@ -176,6 +176,16 @@ QT_BEGIN_NAMESPACE
     \fn bool QLocalSocket::waitForBytesWritten(int msecs)
     \reimp
 */
+bool QLocalSocket::waitForBytesWritten(int msec)
+{
+    return waitForBytesWritten(QDeadlineTimer(msec));
+}
+
+bool QLocalSocket::waitForBytesWritten(QDeadlineTimer deadline)
+{
+    Q_D(QLocalSocket);
+    return d->waitForBytesWritten(deadline);
+}
 
 /*!
     \fn bool QLocalSocket::flush()
@@ -271,6 +281,16 @@ QT_BEGIN_NAMESPACE
 
     \sa connectToServer(), connected()
 */
+bool QLocalSocket::waitForConnected(int msec)
+{
+    return waitForConnected(QDeadlineTimer(msec));
+}
+
+bool QLocalSocket::waitForConnected(QDeadlineTimer deadline)
+{
+    Q_D(QLocalSocket);
+    return d->waitForOpened(deadline);
+}
 
 /*!
     \fn bool QLocalSocket::waitForDisconnected(int msecs)
@@ -290,6 +310,16 @@ QT_BEGIN_NAMESPACE
 
     \sa disconnectFromServer(), close()
 */
+bool QLocalSocket::waitForDisconnected(int msec)
+{
+    return waitForDisconnected(QDeadlineTimer(msec));
+}
+
+bool QLocalSocket::waitForDisconnected(QDeadlineTimer deadline)
+{
+    Q_D(QLocalSocket);
+    return d->waitForClosed(deadline);
+}
 
 /*!
     \fn bool QLocalSocket::waitForReadyRead(int msecs)
@@ -305,6 +335,16 @@ QT_BEGIN_NAMESPACE
 
     \sa waitForBytesWritten()
 */
+bool QLocalSocket::waitForReadyRead(int msec)
+{
+    return waitForReadyRead(QDeadlineTimer(msec));
+}
+
+bool QLocalSocket::waitForReadyRead(QDeadlineTimer deadline)
+{
+    Q_D(QLocalSocket);
+    return d->waitForReadyRead(deadline);
+}
 
 /*!
     \fn void QLocalSocket::disconnected()

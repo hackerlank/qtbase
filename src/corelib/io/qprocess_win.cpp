@@ -653,6 +653,13 @@ bool QProcessPrivate::drainOutputPipes()
 
 bool QProcessPrivate::waitForReadyRead(QDeadlineTimer deadline)
 {
+    if (processState == QProcess::NotRunning)
+        return false;
+    if (currentReadChannel == QProcess::StandardOutput && stdoutChannel.closed)
+        return false;
+    if (currentReadChannel == QProcess::StandardError && stderrChannel.closed)
+        return false;
+
     QIncrementalSleepTimer timer(deadline);
 
     forever {
@@ -685,6 +692,15 @@ bool QProcessPrivate::waitForReadyRead(QDeadlineTimer deadline)
 
 bool QProcessPrivate::waitForBytesWritten(QDeadlineTimer deadline)
 {
+    if (processState == QProcess::NotRunning)
+        return false;
+
+    if (processState == QProcess::Starting) {
+        bool started = waitForStarted(deadline);
+        if (!started)
+            return false;
+    }
+
     QIncrementalSleepTimer timer(deadline);
 
     forever {
@@ -752,6 +768,15 @@ bool QProcessPrivate::waitForFinished(QDeadlineTimer deadline)
 #if defined QPROCESS_DEBUG
     qDebug("QProcessPrivate::waitForFinished(%d)", msecs);
 #endif
+
+    if (processState == QProcess::NotRunning)
+        return false;
+
+    if (processState == QProcess::Starting) {
+        bool started = waitForStarted(deadline);
+        if (!started)
+            return false;
+    }
 
     QIncrementalSleepTimer timer(deadline);
 

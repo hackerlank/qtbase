@@ -61,6 +61,10 @@
 #include "private/qobject_p.h"
 #endif
 
+#if !defined(Q_CC_GNU) || defined(__GXX_RTTI)
+#  include <typeinfo>
+#endif
+
 QT_BEGIN_NAMESPACE
 
 #ifndef QIODEVICE_BUFFERSIZE
@@ -68,6 +72,17 @@ QT_BEGIN_NAMESPACE
 #endif
 
 Q_CORE_EXPORT int qt_subtract_from_timeout(int timeout, int elapsed);
+
+static inline Q_DECL_UNUSED const void *validityFor(QIODevice *ptr)
+{
+#if defined(Q_CC_GNU) && !defined(__GXX_RTTI)
+    // Use the meta object
+    return ptr->metaObject();
+#else
+    // use the type_info
+    return &typeid(*ptr);
+#endif
+}
 
 class Q_CORE_EXPORT QIODevicePrivate
 #ifndef QT_NO_QOBJECT
@@ -79,6 +94,9 @@ class Q_CORE_EXPORT QIODevicePrivate
 public:
     QIODevicePrivate();
     virtual ~QIODevicePrivate();
+
+    QIODeviceExtraFunctions *extra;
+    const void *extraValidity;
 
     QIODevice::OpenMode openMode;
     QString errorString;

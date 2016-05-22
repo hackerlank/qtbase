@@ -234,7 +234,7 @@ template<> Q_INLINE_TEMPLATE void QSharedDataPointer<QProcessEnvironmentPrivate>
     d = x;
 }
 
-class QProcessPrivate : public QIODevicePrivate
+class QProcessPrivate : public QIODevicePrivate, public QIODeviceExtraFunctions
 {
 public:
     Q_DECLARE_PUBLIC(QProcess)
@@ -374,9 +374,11 @@ public:
     bool crashed;
 
     bool waitForStarted(QDeadlineTimer);
-    bool waitForReadyRead(QDeadlineTimer);
-    bool waitForBytesWritten(QDeadlineTimer deadline);
+    bool waitForOpened(QDeadlineTimer deadline) override final { return waitForStarted(deadline); }
+    bool waitForReadyRead(QDeadlineTimer) override final;
+    bool waitForBytesWritten(QDeadlineTimer deadline) override final;
     bool waitForFinished(QDeadlineTimer);
+    bool waitForClosed(QDeadlineTimer deadline) override final { return waitForFinished(deadline); }
 
     qint64 bytesAvailableInChannel(const Channel *channel) const;
     qint64 readFromChannel(const Channel *channel, char *data, qint64 maxlen);

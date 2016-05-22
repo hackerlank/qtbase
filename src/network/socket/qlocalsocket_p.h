@@ -111,13 +111,18 @@ public:
 };
 #endif //#if !defined(Q_OS_WIN) || defined(QT_LOCALSOCKET_TCP)
 
-class QLocalSocketPrivate : public QIODevicePrivate
+class QLocalSocketPrivate : public QIODevicePrivate, public QIODeviceExtraFunctions
 {
     Q_DECLARE_PUBLIC(QLocalSocket)
 
 public:
     QLocalSocketPrivate();
     void init();
+
+    bool waitForOpened(QDeadlineTimer deadline) override final;
+    bool waitForReadyRead(QDeadlineTimer) override final;
+    bool waitForBytesWritten(QDeadlineTimer deadline) override final;
+    bool waitForClosed(QDeadlineTimer deadline) override final;
 
 #if defined(QT_LOCALSOCKET_TCP)
     QLocalUnixSocket* tcpSocket;

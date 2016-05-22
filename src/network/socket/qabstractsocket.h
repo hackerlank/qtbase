@@ -189,9 +189,13 @@ public:
 
     // for synchronous access
     virtual bool waitForConnected(int msecs = 30000);
+    bool waitForConnected(QDeadlineTimer deadline);
     bool waitForReadyRead(int msecs = 30000) Q_DECL_OVERRIDE;
+    bool waitForReadyRead(QDeadlineTimer deadline); // non-virtual
     bool waitForBytesWritten(int msecs = 30000) Q_DECL_OVERRIDE;
+    bool waitForBytesWritten(QDeadlineTimer deadline); // non-virtual
     virtual bool waitForDisconnected(int msecs = 30000);
+    bool waitForDisconnected(QDeadlineTimer deadline);
 
 #ifndef QT_NO_NETWORKPROXY
     void setProxy(const QNetworkProxy &networkProxy);

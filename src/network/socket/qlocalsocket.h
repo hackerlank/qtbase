@@ -110,10 +110,15 @@ public:
     qintptr socketDescriptor() const;
 
     LocalSocketState state() const;
+
     bool waitForBytesWritten(int msecs = 30000) Q_DECL_OVERRIDE;
+    bool waitForBytesWritten(QDeadlineTimer deadline); // non-virtual
     bool waitForConnected(int msecs = 30000);
+    bool waitForConnected(QDeadlineTimer deadline);
     bool waitForDisconnected(int msecs = 30000);
+    bool waitForDisconnected(QDeadlineTimer deadline);
     bool waitForReadyRead(int msecs = 30000) Q_DECL_OVERRIDE;
+    bool waitForReadyRead(QDeadlineTimer deadline); // non-virtual
 
 Q_SIGNALS:
     void connected();

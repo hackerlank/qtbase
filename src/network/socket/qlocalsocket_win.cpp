@@ -390,25 +390,24 @@ void QLocalSocket::setReadBufferSize(qint64 size)
     d->pipeReader->setMaxReadBufferSize(size);
 }
 
-bool QLocalSocket::waitForConnected(int msecs)
+bool QLocalSocketPrivate::waitForOpened(QDeadlineTimer deadline)
 {
-    Q_UNUSED(msecs);
-    return (state() == ConnectedState);
+    Q_UNUSED(deadline);
+    return (state == QLocalSocket::ConnectedState);
 }
 
-bool QLocalSocket::waitForDisconnected(int msecs)
+bool QLocalSocketPrivate::waitForClosed(QDeadlineTimer deadline)
 {
-    Q_D(QLocalSocket);
-    if (state() == UnconnectedState) {
+    if (state == QLocalSocket::UnconnectedState) {
         qWarning("QLocalSocket::waitForDisconnected() is not allowed in UnconnectedState");
         return false;
     }
-    if (!openMode().testFlag(QIODevice::ReadOnly)) {
+    if (!openMode.testFlag(QIODevice::ReadOnly)) {
         qWarning("QLocalSocket::waitForDisconnected isn't supported for write only pipes.");
         return false;
     }
-    if (d->pipeReader->waitForPipeClosed(QDeadlineTimer(msecs))) {
-        d->_q_pipeClosed();
+    if (pipeReader->waitForPipeClosed(deadline)) {
+        _q_pipeClosed();
         return true;
     }
     return false;
@@ -420,39 +419,36 @@ bool QLocalSocket::isValid() const
     return d->handle != INVALID_HANDLE_VALUE;
 }
 
-bool QLocalSocket::waitForReadyRead(int msecs)
+bool QLocalSocketPrivate::waitForReadyRead(QDeadlineTimer deadline)
 {
-    Q_D(QLocalSocket);
-
-    if (d->state != QLocalSocket::ConnectedState)
+    if (state != QLocalSocket::ConnectedState)
         return false;
 
     // We already know that the pipe is gone, but did not enter the event loop yet.
-    if (d->pipeReader->isPipeClosed()) {
-        d->_q_pipeClosed();
+    if (pipeReader->isPipeClosed()) {
+        _q_pipeClosed();
         return false;
     }
 
-    bool result = d->pipeReader->waitForReadyRead(QDeadlineTimer(msecs));
+    bool result = pipeReader->waitForReadyRead(deadline);
 
     // We just noticed that the pipe is gone.
-    if (d->pipeReader->isPipeClosed())
-        d->_q_pipeClosed();
+    if (pipeReader->isPipeClosed())
+        _q_pipeClosed();
 
     return result;
 }
 
-bool QLocalSocket::waitForBytesWritten(int msecs)
+bool QLocalSocketPrivate::waitForBytesWritten(QDeadlineTimer deadline)
 {
-    Q_D(const QLocalSocket);
-    if (!d->pipeWriter)
+    if (!pipeWriter)
         return false;
 
     // Wait for the pipe writer to acknowledge that it has
     // written. This will succeed if either the pipe writer has
     // already written the data, or if it manages to write data
     // within the given timeout.
-    return d->pipeWriter->waitForWrite(QDeadlineTimer(msecs));
+    return pipeWriter->waitForWrite(deadline);
 }
 
 QT_END_NAMESPACE

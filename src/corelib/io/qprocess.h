@@ -224,9 +224,13 @@ public:
     qint64 processId() const;
 
     bool waitForStarted(int msecs = 30000);
+    bool waitForStarted(QDeadlineTimer deadline);
     bool waitForReadyRead(int msecs = 30000) Q_DECL_OVERRIDE;
+    bool waitForReadyRead(QDeadlineTimer deadline); // non-virtual
     bool waitForBytesWritten(int msecs = 30000) Q_DECL_OVERRIDE;
+    bool waitForBytesWritten(QDeadlineTimer deadline); // non-virtual
     bool waitForFinished(int msecs = 30000);
+    bool waitForFinished(QDeadlineTimer deadline);
 
     QByteArray readAllStandardOutput();
     QByteArray readAllStandardError();

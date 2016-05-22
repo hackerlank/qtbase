@@ -736,6 +736,9 @@ bool QProcessPrivate::waitForStarted(QDeadlineTimer deadline)
            childStartedPipe[0]);
 #endif
 
+    if (processState != QProcess::Starting)
+        return processState == QProcess::Running;
+
     pollfd pfd = qt_make_pollfd(childStartedPipe[0], POLLIN);
 
     if (qt_safe_poll(&pfd, 1, deadline) == 0) {
@@ -758,6 +761,13 @@ bool QProcessPrivate::waitForReadyRead(QDeadlineTimer deadline)
 #if defined (QPROCESS_DEBUG)
     qDebug("QProcessPrivate::waitForReadyRead(%d)", msecs);
 #endif
+
+    if (processState == QProcess::NotRunning)
+        return false;
+    if (currentReadChannel == QProcess::StandardOutput && stdoutChannel.closed)
+        return false;
+    if (currentReadChannel == QProcess::StandardError && stderrChannel.closed)
+        return false;
 
     forever {
         QProcessPoller poller(*this);
@@ -808,6 +818,15 @@ bool QProcessPrivate::waitForBytesWritten(QDeadlineTimer deadline)
     qDebug("QProcessPrivate::waitForBytesWritten(%d)", msecs);
 #endif
 
+    if (processState == QProcess::NotRunning)
+        return false;
+
+    if (processState == QProcess::Starting) {
+        bool started = waitForStarted(deadline);
+        if (!started)
+            return false;
+    }
+
     while (!writeBuffer.isEmpty()) {
         QProcessPoller poller(*this);
 
@@ -850,6 +869,15 @@ bool QProcessPrivate::waitForFinished(QDeadlineTimer deadline)
 #if defined (QPROCESS_DEBUG)
     qDebug("QProcessPrivate::waitForFinished(%d)", msecs);
 #endif
+
+    if (processState == QProcess::NotRunning)
+        return false;
+
+    if (processState == QProcess::Starting) {
+        bool started = waitForStarted(deadline);
+        if (!started)
+            return false;
+    }
 
     forever {
         QProcessPoller poller(*this);

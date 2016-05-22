@@ -76,6 +76,7 @@ public:
     bool setSocketDescriptor(qintptr socketDescriptor);
 
     bool waitForNewConnection(int msec = 0, bool *timedOut = Q_NULLPTR);
+    bool waitForNewConnection(QDeadlineTimer deadline, bool *timedOut = Q_NULLPTR);
     virtual bool hasPendingConnections() const;
     virtual QTcpSocket *nextPendingConnection();
 

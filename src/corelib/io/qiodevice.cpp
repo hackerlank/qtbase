@@ -154,9 +154,16 @@ static void checkWarnMessage(const QIODevice *device, const char *function, cons
 
 /*!
     \internal
+*/
+QIODeviceExtraFunctions::~QIODeviceExtraFunctions()
+{}
+
+/*!
+    \internal
  */
 QIODevicePrivate::QIODevicePrivate()
-    : openMode(QIODevice::NotOpen),
+    : extra(nullptr), extraValidity(nullptr),
+      openMode(QIODevice::NotOpen),
       pos(0), devicePos(0),
       readChannelCount(0),
       writeChannelCount(0),
@@ -485,6 +492,18 @@ QIODevice::~QIODevice()
 #if defined QIODEVICE_DEBUG
     printf("%p QIODevice::~QIODevice()\n", this);
 #endif
+}
+
+/*!
+    \since 5.8
+
+    Sets the extra QIODevice functions table to \a ef.
+ */
+void QIODevice::setExtraFunctions(QIODeviceExtraFunctions *ef)
+{
+    Q_D(QIODevice);
+    d->extra = ef;
+    d->extraValidity = validityFor(this);
 }
 
 /*!
@@ -1898,6 +1917,16 @@ bool QIODevice::waitForReadyRead(int msecs)
     return false;
 }
 
+#ifndef QT_BOOTSTRAPPED
+bool QIODevice::waitForReadyRead(QDeadlineTimer deadline)
+{
+    Q_D(QIODevice);
+    if (d->extra && d->extraValidity == validityFor(this))
+        return d->extra->waitForReadyRead(deadline);
+    return waitForReadyRead(deadline.remainingTime());
+}
+#endif
+
 /*!
     For buffered devices, this function waits until a payload of
     buffered written data has been written to the device and the
@@ -1929,6 +1958,16 @@ bool QIODevice::waitForBytesWritten(int msecs)
     Q_UNUSED(msecs);
     return false;
 }
+
+#ifndef QT_BOOTSTRAPPED
+bool QIODevice::waitForBytesWritten(QDeadlineTimer deadline)
+{
+    Q_D(QIODevice);
+    if (d->extra && d->extraValidity == validityFor(this))
+        return d->extra->waitForBytesWritten(deadline);
+    return waitForBytesWritten(deadline.remainingTime());
+}
+#endif
 
 /*!
     Sets the human readable description of the last device error that

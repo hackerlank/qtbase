@@ -510,11 +510,16 @@ QHostAddress QTcpServer::serverAddress() const
 */
 bool QTcpServer::waitForNewConnection(int msec, bool *timedOut)
 {
+    QDeadlineTimer deadline(msec);
+    return waitForNewConnection(deadline, timedOut);
+}
+
+bool QTcpServer::waitForNewConnection(QDeadlineTimer deadline, bool *timedOut)
+{
     Q_D(QTcpServer);
     if (d->state != QAbstractSocket::ListeningState)
         return false;
 
-    QDeadlineTimer deadline(msec);
     if (!d->socketEngine->waitForRead(deadline)) {
         d->serverSocketError = d->socketEngine->error();
         d->serverSocketErrorString = d->socketEngine->errorString();

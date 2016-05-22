@@ -441,10 +441,9 @@ void QLocalSocket::close()
     QIODevice::close();
 }
 
-bool QLocalSocket::waitForBytesWritten(int msecs)
+bool QLocalSocketPrivate::waitForBytesWritten(QDeadlineTimer deadline)
 {
-    Q_D(QLocalSocket);
-    return d->unixSocket.waitForBytesWritten(msecs);
+    return unixSocket.waitForBytesWritten(deadline);
 }
 
 bool QLocalSocket::flush()
@@ -510,48 +509,40 @@ void QLocalSocket::setReadBufferSize(qint64 size)
     d->unixSocket.setReadBufferSize(size);
 }
 
-bool QLocalSocket::waitForConnected(int msec)
+bool QLocalSocketPrivate::waitForOpened(QDeadlineTimer deadline)
 {
-    Q_D(QLocalSocket);
+    if (state != QLocalSocket::ConnectingState)
+        return (state == QLocalSocket::ConnectedState);
 
-    if (state() != ConnectingState)
-        return (state() == ConnectedState);
-
-    QElapsedTimer timer;
-    timer.start();
-
-    pollfd pfd = qt_make_pollfd(d->connectingSocket, POLLIN);
+    pollfd pfd = qt_make_pollfd(connectingSocket, POLLIN);
 
     do {
-        const int timeout = (msec > 0) ? qMax(msec - timer.elapsed(), Q_INT64_C(0)) : msec;
-        const int result = qt_safe_poll(&pfd, 1, QDeadlineTimer(timeout));
+        const int result = qt_safe_poll(&pfd, 1, deadline);
 
         if (result == -1)
-            d->errorOccurred(QLocalSocket::UnknownSocketError,
+            errorOccurred(QLocalSocket::UnknownSocketError,
                              QLatin1String("QLocalSocket::waitForConnected"));
         else if (result > 0)
-            d->_q_connectToSocket();
-    } while (state() == ConnectingState && !timer.hasExpired(msec));
+            _q_connectToSocket();
+    } while (state == QLocalSocket::ConnectingState && !deadline.hasExpired());
 
-    return (state() == ConnectedState);
+    return state == QLocalSocket::ConnectedState;
 }
 
-bool QLocalSocket::waitForDisconnected(int msecs)
+bool QLocalSocketPrivate::waitForClosed(QDeadlineTimer deadline)
 {
-    Q_D(QLocalSocket);
-    if (state() == UnconnectedState) {
+    if (state == QLocalSocket::UnconnectedState) {
         qWarning("QLocalSocket::waitForDisconnected() is not allowed in UnconnectedState");
         return false;
     }
-    return (d->unixSocket.waitForDisconnected(msecs));
+    return unixSocket.waitForDisconnected(deadline);
 }
 
-bool QLocalSocket::waitForReadyRead(int msecs)
+bool QLocalSocketPrivate::waitForReadyRead(QDeadlineTimer deadline)
 {
-    Q_D(QLocalSocket);
-    if (state() == QLocalSocket::UnconnectedState)
+    if (state == QLocalSocket::UnconnectedState)
         return false;
-    return (d->unixSocket.waitForReadyRead(msecs));
+    return unixSocket.waitForReadyRead(deadline);
 }
 
 QT_END_NAMESPACE

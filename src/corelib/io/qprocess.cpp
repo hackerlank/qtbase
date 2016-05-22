@@ -1240,6 +1240,7 @@ QProcess::QProcess(QObject *parent)
 #if defined QPROCESS_DEBUG
     qDebug("QProcess::QProcess(%p)", parent);
 #endif
+    setExtraFunctions(d_func());
 }
 
 /*!
@@ -1843,10 +1844,13 @@ QProcessEnvironment QProcess::processEnvironment() const
 bool QProcess::waitForStarted(int msecs)
 {
     Q_D(QProcess);
-    if (d->processState == QProcess::Starting)
-        return d->waitForStarted(QDeadlineTimer(msecs));
+    return d->waitForStarted(QDeadlineTimer(msecs));
+}
 
-    return d->processState == QProcess::Running;
+bool QProcess::waitForStarted(QDeadlineTimer deadline)
+{
+    Q_D(QProcess);
+    return d->waitForStarted(deadline);
 }
 
 /*! \reimp
@@ -1854,14 +1858,15 @@ bool QProcess::waitForStarted(int msecs)
 bool QProcess::waitForReadyRead(int msecs)
 {
     Q_D(QProcess);
-
-    if (d->processState == QProcess::NotRunning)
-        return false;
-    if (d->currentReadChannel == QProcess::StandardOutput && d->stdoutChannel.closed)
-        return false;
-    if (d->currentReadChannel == QProcess::StandardError && d->stderrChannel.closed)
-        return false;
     return d->waitForReadyRead(QDeadlineTimer(msecs));
+}
+
+/*! \internal non-virtual
+ */
+bool QProcess::waitForReadyRead(QDeadlineTimer deadline)
+{
+    Q_D(QProcess);
+    return d->waitForReadyRead(deadline);
 }
 
 /*! \reimp
@@ -1869,16 +1874,15 @@ bool QProcess::waitForReadyRead(int msecs)
 bool QProcess::waitForBytesWritten(int msecs)
 {
     Q_D(QProcess);
-    if (d->processState == QProcess::NotRunning)
-        return false;
-
     QDeadlineTimer deadline(msecs);
-    if (d->processState == QProcess::Starting) {
-        bool started = d->waitForStarted(deadline);
-        if (!started)
-            return false;
-    }
+    return d->waitForBytesWritten(deadline);
+}
 
+/*! \internal non-virtual
+ */
+bool QProcess::waitForBytesWritten(QDeadlineTimer deadline)
+{
+    Q_D(QProcess);
     return d->waitForBytesWritten(deadline);
 }
 
@@ -1904,16 +1908,13 @@ bool QProcess::waitForBytesWritten(int msecs)
 bool QProcess::waitForFinished(int msecs)
 {
     Q_D(QProcess);
-    if (d->processState == QProcess::NotRunning)
-        return false;
-
     QDeadlineTimer deadline(msecs);
-    if (d->processState == QProcess::Starting) {
-        bool started = d->waitForStarted(deadline);
-        if (!started)
-            return false;
-    }
+    return d->waitForFinished(deadline);
+}
 
+bool QProcess::waitForFinished(QDeadlineTimer deadline)
+{
+    Q_D(QProcess);
     return d->waitForFinished(deadline);
 }
 

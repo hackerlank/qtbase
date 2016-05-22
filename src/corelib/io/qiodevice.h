@@ -41,6 +41,7 @@
 #define QIODEVICE_H
 
 #include <QtCore/qglobal.h>
+#include <QtCore/qdeadlinetimer.h>
 #ifndef QT_NO_QOBJECT
 #include <QtCore/qobject.h>
 #else
@@ -55,8 +56,8 @@
 
 QT_BEGIN_NAMESPACE
 
-
 class QByteArray;
+class QIODeviceExtraFunctions;
 class QIODevicePrivate;
 
 class Q_CORE_EXPORT QIODevice
@@ -139,6 +140,8 @@ public:
 
     virtual bool waitForReadyRead(int msecs);
     virtual bool waitForBytesWritten(int msecs);
+    bool waitForReadyRead(QDeadlineTimer deadline);
+    bool waitForBytesWritten(QDeadlineTimer deadline);
 
     void ungetChar(char c);
     bool putChar(char c);
@@ -165,6 +168,7 @@ protected:
     virtual qint64 readData(char *data, qint64 maxlen) = 0;
     virtual qint64 readLineData(char *data, qint64 maxlen);
     virtual qint64 writeData(const char *data, qint64 len) = 0;
+    void setExtraFunctions(QIODeviceExtraFunctions *ef);
 
     void setOpenMode(OpenMode openMode);
 
@@ -177,6 +181,19 @@ protected:
 private:
     Q_DECLARE_PRIVATE(QIODevice)
     Q_DISABLE_COPY(QIODevice)
+};
+
+class Q_CORE_EXPORT QIODeviceExtraFunctions
+{
+protected:
+    QIODeviceExtraFunctions() {}
+    virtual ~QIODeviceExtraFunctions();
+
+public:
+    virtual bool waitForOpened(QDeadlineTimer deadline) = 0;    // waitForConnected, waitForStarted
+    virtual bool waitForReadyRead(QDeadlineTimer deadline) = 0;
+    virtual bool waitForBytesWritten(QDeadlineTimer deadline) = 0;
+    virtual bool waitForClosed(QDeadlineTimer deadline) = 0;    // waitForDisconnected, waitForFinished
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(QIODevice::OpenMode)

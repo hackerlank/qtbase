@@ -64,7 +64,7 @@ QT_BEGIN_NAMESPACE
 
 class QHostInfo;
 
-class QAbstractSocketPrivate : public QIODevicePrivate, public QAbstractSocketEngineReceiver
+class QAbstractSocketPrivate : public QIODevicePrivate, public QAbstractSocketEngineReceiver, public QIODeviceExtraFunctions
 {
     Q_DECLARE_PUBLIC(QAbstractSocket)
 public:
@@ -83,6 +83,12 @@ public:
         q->proxyAuthenticationRequired(proxy, authenticator);
     }
 #endif
+
+    // from QIODeviceExtraFunctions (can't be final because QSslSocket needs to override them)
+    bool waitForOpened(QDeadlineTimer deadline);            // waitForConnected
+    bool waitForReadyRead(QDeadlineTimer deadline);
+    bool waitForBytesWritten(QDeadlineTimer deadline);
+    bool waitForClosed(QDeadlineTimer deadline);            // waitForDisconnected
 
     virtual bool bind(const QHostAddress &address, quint16 port, QAbstractSocket::BindMode mode);
 

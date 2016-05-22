@@ -161,7 +161,7 @@ QProcessPoller::QProcessPoller(const QProcessPrivate &proc)
 int QProcessPoller::poll(int timeout)
 {
     const nfds_t nfds = (childStartedPipe().fd == -1) ? 4 : 5;
-    return qt_poll_msecs(pfds, nfds, timeout);
+    return qt_safe_poll(pfds, nfds, QDeadlineTimer(timeout));
 }
 } // anonymous namespace
 
@@ -738,7 +738,7 @@ bool QProcessPrivate::waitForStarted(int msecs)
 
     pollfd pfd = qt_make_pollfd(childStartedPipe[0], POLLIN);
 
-    if (qt_poll_msecs(&pfd, 1, msecs) == 0) {
+    if (qt_safe_poll(&pfd, 1, QDeadlineTimer(msecs)) == 0) {
         setError(QProcess::Timedout);
 #if defined (QPROCESS_DEBUG)
         qDebug("QProcessPrivate::waitForStarted(%d) == false (timed out)", msecs);

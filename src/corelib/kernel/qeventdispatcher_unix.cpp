@@ -479,11 +479,14 @@ bool QEventDispatcherUNIX::processEvents(QEventLoop::ProcessEventsFlags flags)
     if (d->interrupt.load())
         return false;
 
-    timespec *tm = nullptr;
-    timespec wait_tm = { 0, 0 };
-
-    if (!canWait || (include_timers && d->timerList.timerWait(wait_tm)))
-        tm = &wait_tm;
+    QDeadlineTimer deadline;
+    if (canWait)
+        deadline = QDeadlineTimer::Forever;
+    if (canWait && include_timers) {
+        timespec wait_tm = { 0, 0 };
+        if (d->timerList.timerWait(wait_tm))
+            deadline.setPreciseDeadline(wait_tm.tv_sec, wait_tm.tv_nsec);
+    }
 
     d->pollfds.clear();
     d->pollfds.reserve(1 + (include_notifiers ? d->socketNotifiers.size() : 0));
@@ -497,7 +500,7 @@ bool QEventDispatcherUNIX::processEvents(QEventLoop::ProcessEventsFlags flags)
 
     int nevents = 0;
 
-    switch (qt_safe_poll(d->pollfds.data(), d->pollfds.size(), tm)) {
+    switch (qt_safe_poll(d->pollfds.data(), d->pollfds.size(), deadline)) {
     case -1:
         perror("qt_safe_poll");
         break;

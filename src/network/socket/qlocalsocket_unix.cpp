@@ -524,7 +524,7 @@ bool QLocalSocket::waitForConnected(int msec)
 
     do {
         const int timeout = (msec > 0) ? qMax(msec - timer.elapsed(), Q_INT64_C(0)) : msec;
-        const int result = qt_poll_msecs(&pfd, 1, timeout);
+        const int result = qt_safe_poll(&pfd, 1, QDeadlineTimer(timeout));
 
         if (result == -1)
             d->errorOccurred(QLocalSocket::UnknownSocketError,

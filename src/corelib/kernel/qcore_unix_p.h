@@ -55,6 +55,7 @@
 #include <QtCore/private/qglobal_p.h>
 #include "qplatformdefs.h"
 #include "qatomic.h"
+#include "qdeadlinetimer.h"
 #include "qhash.h"
 
 #ifndef Q_OS_UNIX
@@ -377,20 +378,7 @@ static Q_DECL_CONSTEXPR inline Qt::TimerType timerForTimeout(int msecs) Q_DECL_N
 timespec qt_gettime(Qt::TimerType timerType) Q_DECL_NOTHROW;
 void qt_nanosleep(timespec amount);
 
-Q_CORE_EXPORT int qt_safe_poll(struct pollfd *fds, nfds_t nfds, const struct timespec *timeout_ts);
-
-static inline int qt_poll_msecs(struct pollfd *fds, nfds_t nfds, int timeout)
-{
-    timespec ts, *pts = Q_NULLPTR;
-
-    if (timeout >= 0) {
-        ts.tv_sec = timeout / 1000;
-        ts.tv_nsec = (timeout % 1000) * 1000 * 1000;
-        pts = &ts;
-    }
-
-    return qt_safe_poll(fds, nfds, pts);
-}
+Q_CORE_EXPORT int qt_safe_poll(struct pollfd *fds, nfds_t nfds, QDeadlineTimer deadline);
 
 static inline struct pollfd qt_make_pollfd(int fd, short events)
 {

@@ -58,42 +58,28 @@ QBasicAtomicInt status  = Q_BASIC_ATOMIC_INITIALIZER(0);
 # define QT_HAVE_PPOLL
 #endif
 
-static Qt::TimerType timerForTimeout(struct timespec ts)
-{
-    if (ts.tv_sec == 0)
-        return timerForTimeout(ts.tv_nsec);
-    return Qt::CoarseTimer;
-}
-
-static inline bool time_update(struct timespec *tv, const struct timespec &start,
-                               const struct timespec &timeout)
-{
-    // clock source is (hopefully) monotonic, so we can recalculate how much timeout is left;
-    // if it isn't monotonic, we'll simply hope that it hasn't jumped, because we have no alternative
-    struct timespec now = qt_gettime(timerForTimeout(start));
-    *tv = timeout + start - now;
-    return tv->tv_sec >= 0;
-}
-
-#if !defined(QT_HAVE_PPOLL) && defined(QT_HAVE_POLL)
-static inline int timespecToMillisecs(const struct timespec *ts)
-{
-    return (ts == NULL) ? -1 :
-           (ts->tv_sec * 1000) + (ts->tv_nsec / 1000000);
-}
-#endif
-
 // defined in qpoll.cpp
 int qt_poll(struct pollfd *fds, nfds_t nfds, const struct timespec *timeout_ts);
 
-static inline int qt_ppoll(struct pollfd *fds, nfds_t nfds, const struct timespec *timeout_ts)
+static inline int qt_ppoll(struct pollfd *fds, nfds_t nfds, QDeadlineTimer deadline)
 {
-#if defined(QT_HAVE_PPOLL)
-    return ::ppoll(fds, nfds, timeout_ts, Q_NULLPTR);
-#elif defined(QT_HAVE_POLL)
-    return ::poll(fds, nfds, timespecToMillisecs(timeout_ts));
+#if defined(QT_HAVE_PPOLL) || !defined(QT_HAVE_POLL)
+    qint64 nsec = deadline.remainingTimeNSecs();
+    struct timespec *pts = nullptr;
+    struct timespec ts;
+    if (nsec != -1) {
+        pts = &ts;
+        ts.tv_sec = nsec / (1000 * 1000 * 1000);
+        ts.tv_nsec = (nsec - ts.tv_sec * 1000 * 1000 * 1000);
+    }
+
+#   ifdef QT_HAVE_PPOLL
+    return ::ppoll(fds, nfds, pts, nullptr);
+#  else
+    return qt_poll(fds, nfds, pts);
+#  endif
 #else
-    return qt_poll(fds, nfds, timeout_ts);
+    return ::poll(fds, nfds, deadline.remainingTime());
 #endif
 }
 
@@ -105,31 +91,11 @@ static inline int qt_ppoll(struct pollfd *fds, nfds_t nfds, const struct timespe
     using select(2) where necessary. In that case, returns -1 and sets errno
     to EINVAL if passed any descriptor greater than or equal to FD_SETSIZE.
 */
-int qt_safe_poll(struct pollfd *fds, nfds_t nfds, const struct timespec *timeout_ts)
+int qt_safe_poll(struct pollfd *fds, nfds_t nfds, QDeadlineTimer deadline)
 {
-    if (!timeout_ts) {
-        // no timeout -> block forever
-        int ret;
-        EINTR_LOOP(ret, qt_ppoll(fds, nfds, Q_NULLPTR));
-        return ret;
-    }
-
-    timespec start = qt_gettime(timerForTimeout(*timeout_ts));
-    timespec timeout = *timeout_ts;
-
-    // loop and recalculate the timeout as needed
-    forever {
-        const int ret = qt_ppoll(fds, nfds, &timeout);
-        if (ret != -1 || errno != EINTR)
-            return ret;
-
-        // recalculate the timeout
-        if (!time_update(&timeout, start, *timeout_ts)) {
-            // timeout during update
-            // or clock reset, fake timeout error
-            return 0;
-        }
-    }
+    int ret;
+    EINTR_LOOP(ret, qt_ppoll(fds, nfds, deadline));
+    return ret;
 }
 
 QT_END_NAMESPACE

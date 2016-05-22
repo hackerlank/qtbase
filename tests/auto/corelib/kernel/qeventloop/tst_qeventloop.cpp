@@ -426,7 +426,7 @@ public slots:
 
         if (dataSent) {
             pollfd pfd = qt_make_pollfd(socket->socketDescriptor(), POLLIN);
-            dataReadable = (1 == qt_safe_poll(&pfd, 1, nullptr));
+            dataReadable = (1 == qt_safe_poll(&pfd, 1, QDeadlineTimer::Forever));
         }
 
         if (!dataReadable) {

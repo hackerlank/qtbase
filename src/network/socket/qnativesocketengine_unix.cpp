@@ -1436,7 +1436,7 @@ int QNativeSocketEnginePrivate::nativeSelect(int timeout, bool checkRead, bool c
     if (checkWrite)
         pfd.events |= POLLOUT;
 
-    const int ret = qt_poll_msecs(&pfd, 1, timeout);
+    const int ret = qt_safe_poll(&pfd, 1, QDeadlineTimer(timeout));
 
     if (ret <= 0)
         return ret;

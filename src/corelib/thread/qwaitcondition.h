@@ -49,6 +49,7 @@ QT_BEGIN_NAMESPACE
 
 #ifndef QT_NO_THREAD
 
+class QDeadlineTimer;
 class QWaitConditionPrivate;
 class QMutex;
 class QReadWriteLock;
@@ -60,7 +61,9 @@ public:
     ~QWaitCondition();
 
     bool wait(QMutex *lockedMutex, unsigned long time = ULONG_MAX);
+    bool wait(QMutex *lockedMutex, QDeadlineTimer deadline);
     bool wait(QReadWriteLock *lockedReadWriteLock, unsigned long time = ULONG_MAX);
+    bool wait(QReadWriteLock *lockedReadWriteLock, QDeadlineTimer deadline);
 
     void wakeOne();
     void wakeAll();

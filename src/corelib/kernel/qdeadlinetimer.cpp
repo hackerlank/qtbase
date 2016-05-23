@@ -33,7 +33,6 @@
 
 #include "qdeadlinetimer.h"
 #include "qdeadlinetimer_p.h"
-#include <qpair.h>
 
 QT_BEGIN_NAMESPACE
 

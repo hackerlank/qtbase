@@ -216,6 +216,7 @@ public:
     QHash<QByteArray, QByteArray> knownGadgets;
     QMap<QString, QJsonArray> metaArgs;
 
+    void reset();
     void parse();
     void generate(FILE *out);
 

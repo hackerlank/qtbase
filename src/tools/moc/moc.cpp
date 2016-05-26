@@ -534,6 +534,14 @@ bool Moc::parseMaybeFunction(const ClassDef *cdef, FunctionDef *def)
 }
 
 
+void Moc::reset()
+{
+    // Standard Lirary nonsense: why can't it have a .clear() method like Qt containers?
+    currentFilenames = std::stack<QByteArray, QByteArrayList>();
+    symbols.clear();
+    index = 0;
+}
+
 void Moc::parse()
 {
     QVector<NamespaceDef> namespaceList;

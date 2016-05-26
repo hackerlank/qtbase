@@ -12,6 +12,10 @@
 QMAKE_DIR_REPLACE_SANE += DESTDIR
 CONFIG -= debug_and_release_target
 
+# Don't use one big moc output file in static builds:
+# we don't want all of it pulled in when any of it is needed
+static: CONFIG -= moc_combine
+
 contains(QT_CONFIG, c++11): CONFIG += c++11 strict_c++
 contains(QT_CONFIG, c++14): CONFIG += c++14
 contains(QT_CONFIG, c++1z): CONFIG += c++1z

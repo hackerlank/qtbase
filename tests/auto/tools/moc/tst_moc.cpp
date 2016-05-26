@@ -628,6 +628,7 @@ private slots:
     void gadgetHierarchy();
     void optionsFileError_data();
     void optionsFileError();
+    void combinedParsing();
 
 signals:
     void sigWithUnsignedArg(unsigned foo);
@@ -2013,14 +2014,14 @@ void tst_Moc::warnings_data()
         << QStringList()
         << 1
         << QString("IGNORE_ALL_STDOUT")
-        << QString(":2: Error: '#' is not followed by a macro parameter");
+        << QString("standard input:2: Error: '#' is not followed by a macro parameter");
 
     QTest::newRow("QTBUG-46210: crash on invalid macro invocation")
         << QByteArray("#define Foo(a, b, c) a b c #a #b #c a##b##c\n Foo(45);")
         << QStringList()
         << 1
         << QString("IGNORE_ALL_STDOUT")
-        << QString(":2: Error: Macro invoked with too few parameters for a use of '#'");
+        << QString("standard input:2: Error: Macro invoked with too few parameters for a use of '#'");
 }
 
 void tst_Moc::warnings()
@@ -3611,6 +3612,29 @@ void tst_Moc::optionsFileError()
     const QByteArray err = p.readAllStandardError();
     QVERIFY(err.contains("moc: "));
     QVERIFY(!err.contains("QCommandLineParser"));
+#endif
+}
+
+void tst_Moc::combinedParsing()
+{
+#ifdef MOC_CROSS_COMPILED
+    QSKIP("Not tested when cross-compiled");
+#endif
+#if !defined(QT_NO_PROCESS)
+    QProcess proc;
+
+    QStringList args;
+    args << "-DFOO" << "--combine";
+    args << m_sourceDirectory + QLatin1String("/plugin_metadata.h");
+    args << m_sourceDirectory + QLatin1String("/macro-on-cmdline.h");
+
+    proc.start(m_moc, args);
+    QVERIFY(proc.waitForFinished());
+    QCOMPARE(proc.exitCode(), 0);
+    QCOMPARE(proc.readAllStandardError(), QByteArray());
+    QByteArray mocOut = proc.readAllStandardOutput();
+    QVERIFY(mocOut.contains("TestPluginMetaData::metaObject()"));
+    QVERIFY(mocOut.contains("Test::metaObject()"));
 #endif
 }
 

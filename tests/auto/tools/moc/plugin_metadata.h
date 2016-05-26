@@ -37,4 +37,8 @@ class TestPluginMetaData : public QObject
     Q_PLUGIN_METADATA(IID "test.meta.tags")
 };
 
+// Make sure we don't interfere with macros from the command-line
+// when parsing multiple sources (see macro-on-cmdline.h)
+#undef FOO
+
 #endif

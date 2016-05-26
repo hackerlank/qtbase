@@ -63,15 +63,23 @@ defineReplace(mocCmdBase) {
 #moc headers
 moc_header.CONFIG = moc_verify
 moc_header.dependency_type = TYPE_C
-moc_header.commands = ${QMAKE_FUNC_mocCmdBase} ${QMAKE_FILE_IN} -o ${QMAKE_FILE_OUT}
-moc_header.output = $$MOC_DIR/$${QMAKE_H_MOD_MOC}${QMAKE_FILE_BASE}$${first(QMAKE_EXT_CPP)}
 moc_header.input = HEADERS
 moc_header.variable_out = SOURCES
-moc_header.name = MOC ${QMAKE_FILE_IN}
 moc_header.depends += $$WIN_INCLUDETEMP $$moc_predefs.output
 silent:moc_header.commands = @echo moc ${QMAKE_FILE_IN} && $$moc_header.commands
 QMAKE_EXTRA_COMPILERS += moc_header
 INCREDIBUILD_XGE += moc_header
+moc_combine {
+    moc_header.CONFIG += combine
+    moc_header.commands = ${QMAKE_FUNC_mocCmdBase} --combine -o ${QMAKE_FILE_OUT} ${QMAKE_FILE_IN}
+    moc_header.output = $$MOC_DIR/combined_moc.cpp
+    moc_header.name = MOC headers
+    unset(in)
+} else {
+    moc_header.commands = ${QMAKE_FUNC_mocCmdBase} ${QMAKE_FILE_IN} -o ${QMAKE_FILE_OUT}
+    moc_header.output = $$MOC_DIR/$${QMAKE_H_MOD_MOC}${QMAKE_FILE_BASE}$${first(QMAKE_EXT_CPP)}
+    moc_header.name = MOC ${QMAKE_FILE_IN}
+}
 
 #moc sources
 moc_source.CONFIG = no_link moc_verify

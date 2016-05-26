@@ -189,7 +189,6 @@ int runMoc(int argc, char **argv)
     pp.macros["__attribute__"] = dummyVariadicFunctionMacro;
     pp.macros["__declspec"] = dummyVariadicFunctionMacro;
 
-    QString filename;
     QString output;
     QFile in;
     FILE *out = 0;
@@ -282,6 +281,10 @@ int runMoc(int argc, char **argv)
     ignoreConflictsOption.setDescription(QStringLiteral("Ignore all options that conflict with compilers, like -pthread conflicting with moc's -p option."));
     parser.addOption(ignoreConflictsOption);
 
+    QCommandLineOption combineOption(QStringLiteral("combine"));
+    combineOption.setDescription(QStringLiteral("Combine all the source input files into one output."));
+    parser.addOption(combineOption);
+
     parser.addPositionalArgument(QStringLiteral("[header-file]"),
             QStringLiteral("Header file to read from, otherwise stdin."));
     parser.addPositionalArgument(QStringLiteral("[@option-file]"),
@@ -293,12 +296,10 @@ int runMoc(int argc, char **argv)
 
     parser.process(arguments);
 
-    const QStringList files = parser.positionalArguments();
-    if (files.count() > 1) {
+    QStringList files = parser.positionalArguments();
+    if (files.count() > 1 && !parser.isSet(combineOption)) {
         error(qPrintable(QStringLiteral("Too many input files specified: '") + files.join(QStringLiteral("' '")) + QLatin1Char('\'')));
         parser.showHelp(1);
-    } else if (!files.isEmpty()) {
-        filename = files.first();
     }
 
     const bool ignoreConflictingOptions = parser.isSet(ignoreConflictsOption);
@@ -390,37 +391,6 @@ int runMoc(int argc, char **argv)
     if (parser.isSet(noWarningsOption) || noNotesCompatValues.contains(QStringLiteral("w")))
         moc.displayWarnings = moc.displayNotes = false;
 
-    if (autoInclude) {
-        int spos = filename.lastIndexOf(QDir::separator());
-        int ppos = filename.lastIndexOf(QLatin1Char('.'));
-        // spos >= -1 && ppos > spos => ppos >= 0
-        moc.noInclude = (ppos > spos && filename.at(ppos + 1).toLower() != QLatin1Char('h'));
-    }
-    if (defaultInclude) {
-        if (moc.includePath.isEmpty()) {
-            if (filename.size()) {
-                if (output.size())
-                    moc.includeFiles.append(combinePath(filename, output));
-                else
-                    moc.includeFiles.append(QFile::encodeName(filename));
-            }
-        } else {
-            moc.includeFiles.append(combinePath(filename, filename));
-        }
-    }
-
-    if (filename.isEmpty()) {
-        filename = QStringLiteral("standard input");
-        in.open(stdin, QIODevice::ReadOnly);
-    } else {
-        in.setFileName(filename);
-        if (!in.open(QIODevice::ReadOnly)) {
-            fprintf(stderr, "moc: %s: No such file\n", qPrintable(filename));
-            return 1;
-        }
-        moc.filename = filename.toLocal8Bit();
-    }
-
     const auto metadata = parser.values(metadataOption);
     for (const QString &md : metadata) {
         int split = md.indexOf(QLatin1Char('='));
@@ -440,10 +410,7 @@ int runMoc(int argc, char **argv)
         }
     }
 
-    moc.currentFilenames.push(filename.toLocal8Bit());
-    moc.includes = pp.includes;
-
-    // 1. preprocess
+    // 1a. preprocess --include options
     const auto includeFiles = parser.values(includeOption);
     for (const QString &includeName : includeFiles) {
         QByteArray rawName = pp.resolveInclude(QFile::encodeName(includeName), moc.filename);
@@ -454,11 +421,59 @@ int runMoc(int argc, char **argv)
             moc.symbols += Symbol(0, MOC_INCLUDE_END, rawName);
         }
     }
-    moc.symbols += pp.preprocessed(moc.filename, &in);
+    pp.symbols = std::move(moc.symbols);
 
-    if (!pp.preprocessOnly) {
-        // 2. parse
-        moc.parse();
+    const QString stdinName = QStringLiteral("-");
+    if (files.isEmpty())
+        files.append(stdinName);
+    for (auto filename : qAsConst(files)) {
+        if (filename == stdinName) {
+            filename = QStringLiteral("standard input");
+            in.open(stdin, QIODevice::ReadOnly);
+        } else {
+            in.setFileName(filename);
+            if (!in.open(QIODevice::ReadOnly)) {
+                fprintf(stderr, "moc: %s: No such file\n", qPrintable(filename));
+                return 1;
+            }
+
+            if (autoInclude) {
+                int spos = filename.lastIndexOf(QDir::separator());
+                int ppos = filename.lastIndexOf(QLatin1Char('.'));
+                // spos >= -1 && ppos > spos => ppos >= 0
+                moc.noInclude = (ppos > spos && filename.at(ppos + 1).toLower() != QLatin1Char('h'));
+            }
+            if (defaultInclude) {
+                if (moc.includePath.isEmpty()) {
+                    if (filename.size()) {
+                        if (output.size())
+                            moc.includeFiles.append(combinePath(filename, output));
+                        else
+                            moc.includeFiles.append(QFile::encodeName(filename));
+                    }
+                } else {
+                    moc.includeFiles.append(combinePath(filename, filename));
+                }
+            }
+        }
+
+        moc.reset();
+        moc.filename = filename.toLocal8Bit();
+        moc.currentFilenames.push(filename.toLocal8Bit());
+        moc.includes = pp.includes;
+        moc.symbols = pp.symbols;
+
+        // 1b. preprocess main source
+        Preprocessor pp2 = pp;
+        moc.symbols += pp2.preprocessed(moc.filename, &in);
+        in.close();
+
+        if (!pp.preprocessOnly) {
+            // 2. parse
+            moc.parse();
+        } else {
+            pp.symbols = moc.symbols;
+        }
     }
 
     // 3. and output meta object code
@@ -479,7 +494,7 @@ int runMoc(int argc, char **argv)
     }
 
     if (pp.preprocessOnly) {
-        fprintf(out, "%s\n", composePreprocessorOutput(moc.symbols).constData());
+        fprintf(out, "%s\n", composePreprocessorOutput(pp.symbols).constData());
     } else {
         if (moc.classList.isEmpty())
             moc.note("No relevant classes found. No output generated.");

@@ -69,7 +69,6 @@ protected:
 private:
     Q_DISABLE_COPY(QParallelAnimationGroup)
     Q_DECLARE_PRIVATE(QParallelAnimationGroup)
-    Q_PRIVATE_SLOT(d_func(), void _q_uncontrolledAnimationFinished())
 };
 
 #endif //QT_NO_ANIMATION

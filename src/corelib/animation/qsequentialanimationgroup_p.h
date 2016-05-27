@@ -102,7 +102,7 @@ public:
     void advanceForwards(const AnimationIndex &newAnimationIndex);
 
     // private slot
-    void _q_uncontrolledAnimationFinished();
+    void _q_uncontrolledAnimationFinished() override;
 };
 
 QT_END_NAMESPACE

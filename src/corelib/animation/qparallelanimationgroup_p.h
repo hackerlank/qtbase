@@ -81,7 +81,7 @@ public:
     void animationRemoved(int index, QAbstractAnimation *) Q_DECL_OVERRIDE;
 
     // private slot
-    void _q_uncontrolledAnimationFinished();
+    void _q_uncontrolledAnimationFinished() override;
 };
 
 QT_END_NAMESPACE

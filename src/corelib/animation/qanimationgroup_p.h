@@ -75,16 +75,26 @@ public:
 
     void disconnectUncontrolledAnimation(QAbstractAnimation *anim)
     {
-        //0 for the signal here because we might be called from the animation destructor
-        QObject::disconnect(anim, 0, q_func(), SLOT(_q_uncontrolledAnimationFinished()));
+        auto it = uncontrolledAnimationConnections.find(anim);
+        if (it == uncontrolledAnimationConnections.end())
+            return;
+        QObject::disconnect(it.value());
+        uncontrolledAnimationConnections.erase(it);
     }
 
     void connectUncontrolledAnimation(QAbstractAnimation *anim)
     {
-        QObject::connect(anim, SIGNAL(finished()), q_func(), SLOT(_q_uncontrolledAnimationFinished()));
+        QMetaObject::Connection &conn = uncontrolledAnimationConnections[anim];
+        if (conn)
+            return;
+        conn = QObjectPrivate::connect(anim, &QAbstractAnimation::finished,
+                                       this, &QAnimationGroupPrivate::_q_uncontrolledAnimationFinished);
     }
 
+    virtual void _q_uncontrolledAnimationFinished() {}
+
     QList<QAbstractAnimation *> animations;
+    QHash<QAbstractAnimation *, QMetaObject::Connection> uncontrolledAnimationConnections;
 };
 
 QT_END_NAMESPACE

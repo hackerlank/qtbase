@@ -227,18 +227,16 @@ bool QProcessPrivate::openChannel(Channel &channel)
                 channel.notifier = new QSocketNotifier(channel.pipe[1],
                                                        QSocketNotifier::Write, q);
                 channel.notifier->setEnabled(false);
-                QObject::connect(channel.notifier, SIGNAL(activated(int)),
-                                 q, SLOT(_q_canWrite()));
+                QObjectPrivate::connect(channel.notifier, &QSocketNotifier::activated,
+                                        this, &QProcessPrivate::_q_canWrite);
             } else {
                 channel.notifier = new QSocketNotifier(channel.pipe[0],
                                                        QSocketNotifier::Read, q);
-                const char *receiver;
+                auto receiver = &QProcessPrivate::_q_canReadStandardError;
                 if (&channel == &stdoutChannel)
-                    receiver = SLOT(_q_canReadStandardOutput());
-                else
-                    receiver = SLOT(_q_canReadStandardError());
-                QObject::connect(channel.notifier, SIGNAL(activated(int)),
-                                 q, receiver);
+                    receiver = &QProcessPrivate::_q_canReadStandardOutput;
+                QObjectPrivate::connect(channel.notifier, &QSocketNotifier::activated,
+                                        this, receiver);
             }
         }
 
@@ -384,8 +382,8 @@ void QProcessPrivate::startProcess()
     if (threadData->hasEventDispatcher()) {
         startupSocketNotifier = new QSocketNotifier(childStartedPipe[0],
                                                     QSocketNotifier::Read, q);
-        QObject::connect(startupSocketNotifier, SIGNAL(activated(int)),
-                         q, SLOT(_q_startupNotification()));
+        QObjectPrivate::connect(startupSocketNotifier, &QSocketNotifier::activated,
+                                this, &QProcessPrivate::_q_startupNotification);
     }
 
     // Start the process (platform dependent)
@@ -543,8 +541,8 @@ void QProcessPrivate::startProcess()
 
     if (threadData->eventDispatcher) {
         deathNotifier = new QSocketNotifier(forkfd, QSocketNotifier::Read, q);
-        QObject::connect(deathNotifier, SIGNAL(activated(int)),
-                         q, SLOT(_q_processDied()));
+        QObjectPrivate::connect(deathNotifier, &QSocketNotifier::activated,
+                                this, &QProcessPrivate::_q_processDied);
     }
 }
 

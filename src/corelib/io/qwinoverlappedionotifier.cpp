@@ -273,7 +273,8 @@ QWinOverlappedIoNotifier::QWinOverlappedIoNotifier(QObject *parent)
 
     d->hSemaphore = CreateSemaphore(NULL, 0, 255, NULL);
     d->hResultsMutex = CreateMutex(NULL, FALSE, NULL);
-    connect(this, SIGNAL(_q_notify()), this, SLOT(_q_notified()), Qt::QueuedConnection);
+    QObjectPrivate::connect(this, &QWinOverlappedIoNotifier::_q_notify,
+                            d, &QWinOverlappedIoNotifierPrivate::_q_notified, Qt::QueuedConnection);
 }
 
 QWinOverlappedIoNotifier::~QWinOverlappedIoNotifier()
@@ -424,5 +425,3 @@ OVERLAPPED *QWinOverlappedIoNotifierPrivate::dispatchNextIoResult()
 }
 
 QT_END_NAMESPACE
-
-#include "moc_qwinoverlappedionotifier_p.cpp"

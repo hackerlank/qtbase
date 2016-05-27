@@ -94,14 +94,10 @@ void QFileSystemWatcherPrivate::init()
     Q_Q(QFileSystemWatcher);
     native = createNativeEngine(q);
     if (native) {
-        QObject::connect(native,
-                         SIGNAL(fileChanged(QString,bool)),
-                         q,
-                         SLOT(_q_fileChanged(QString,bool)));
-        QObject::connect(native,
-                         SIGNAL(directoryChanged(QString,bool)),
-                         q,
-                         SLOT(_q_directoryChanged(QString,bool)));
+        QObjectPrivate::connect(native, &QFileSystemWatcherEngine::fileChanged,
+                                this, &QFileSystemWatcherPrivate::_q_fileChanged);
+        QObjectPrivate::connect(native, &QFileSystemWatcherEngine::directoryChanged,
+                                this, &QFileSystemWatcherPrivate::_q_directoryChanged);
     }
 }
 
@@ -112,14 +108,10 @@ void QFileSystemWatcherPrivate::initPollerEngine()
 
     Q_Q(QFileSystemWatcher);
     poller = new QPollingFileSystemWatcherEngine(q); // that was a mouthful
-    QObject::connect(poller,
-                     SIGNAL(fileChanged(QString,bool)),
-                     q,
-                     SLOT(_q_fileChanged(QString,bool)));
-    QObject::connect(poller,
-                     SIGNAL(directoryChanged(QString,bool)),
-                     q,
-                     SLOT(_q_directoryChanged(QString,bool)));
+    QObjectPrivate::connect(poller, &QFileSystemWatcherEngine::fileChanged,
+                            this, &QFileSystemWatcherPrivate::_q_fileChanged);
+    QObjectPrivate::connect(poller, &QFileSystemWatcherEngine::directoryChanged,
+                            this, &QFileSystemWatcherPrivate::_q_directoryChanged);
 }
 
 void QFileSystemWatcherPrivate::_q_fileChanged(const QString &path, bool removed)

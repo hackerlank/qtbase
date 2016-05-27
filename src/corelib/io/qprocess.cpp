@@ -2600,7 +2600,5 @@ QString QProcess::nullDevice()
 
 QT_END_NAMESPACE
 
-#include "moc_qprocess.cpp"
-
 #endif // QT_NO_PROCESS
 

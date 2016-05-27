@@ -290,11 +290,6 @@ private:
     Q_DECLARE_PRIVATE(QProcess)
     Q_DISABLE_COPY(QProcess)
 
-    Q_PRIVATE_SLOT(d_func(), bool _q_canReadStandardOutput())
-    Q_PRIVATE_SLOT(d_func(), bool _q_canReadStandardError())
-    Q_PRIVATE_SLOT(d_func(), bool _q_canWrite())
-    Q_PRIVATE_SLOT(d_func(), bool _q_startupNotification())
-    Q_PRIVATE_SLOT(d_func(), bool _q_processDied())
     friend class QProcessManager;
 };
 

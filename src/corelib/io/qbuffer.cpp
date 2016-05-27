@@ -39,6 +39,7 @@
 
 #include "qbuffer.h"
 #include <QtCore/qmetaobject.h>
+#include <QtCore/qtimer.h>
 #include "private/qiodevice_p.h"
 
 QT_BEGIN_NAMESPACE
@@ -64,25 +65,11 @@ public:
     virtual QByteArray peek(qint64 maxSize) Q_DECL_OVERRIDE;
 
 #ifndef QT_NO_QOBJECT
-    // private slots
-    void _q_emitSignals();
-
     qint64 writtenSinceLastEmit;
     int signalConnectionCount;
     bool signalsEmitted;
 #endif
 };
-
-#ifndef QT_NO_QOBJECT
-void QBufferPrivate::_q_emitSignals()
-{
-    Q_Q(QBuffer);
-    emit q->bytesWritten(writtenSinceLastEmit);
-    writtenSinceLastEmit = 0;
-    emit q->readyRead();
-    signalsEmitted = false;
-}
-#endif
 
 qint64 QBufferPrivate::peek(char *data, qint64 maxSize)
 {
@@ -437,7 +424,13 @@ qint64 QBuffer::writeData(const char *data, qint64 len)
     d->writtenSinceLastEmit += len;
     if (d->signalConnectionCount && !d->signalsEmitted && !signalsBlocked()) {
         d->signalsEmitted = true;
-        QMetaObject::invokeMethod(this, "_q_emitSignals", Qt::QueuedConnection);
+        QTimer::singleShot(0, this, [this] {
+            Q_D(QBuffer);
+            emit this->bytesWritten(d->writtenSinceLastEmit);
+            d->writtenSinceLastEmit = 0;
+            emit this->readyRead();
+            d->signalsEmitted = false;
+        });
     }
 #endif
     return len;
@@ -474,8 +467,3 @@ void QBuffer::disconnectNotify(const QMetaMethod &signal)
 #endif
 
 QT_END_NAMESPACE
-
-#ifndef QT_NO_QOBJECT
-# include "moc_qbuffer.cpp"
-#endif
-

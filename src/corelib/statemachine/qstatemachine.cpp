@@ -1550,7 +1550,8 @@ void QStateMachinePrivate::_q_animationFinished()
     Q_Q(QStateMachine);
     QAbstractAnimation *anim = qobject_cast<QAbstractAnimation*>(q->sender());
     Q_ASSERT(anim != 0);
-    QObject::disconnect(anim, SIGNAL(finished()), q, SLOT(_q_animationFinished()));
+    QObjectPrivate::disconnect(anim, &QAbstractAnimation::finished,
+                               this, &QStateMachinePrivate::_q_animationFinished);
     if (resetAnimationEndValues.contains(anim)) {
         qobject_cast<QVariantAnimation*>(anim)->setEndValue(QVariant()); // ### generalize
         resetAnimationEndValues.remove(anim);
@@ -1600,11 +1601,11 @@ QList<QAbstractAnimation *> QStateMachinePrivate::selectAnimations(const QList<Q
 void QStateMachinePrivate::terminateActiveAnimations(QAbstractState *state,
     const QHash<QAbstractState*, QVector<QPropertyAssignment> > &assignmentsForEnteredStates)
 {
-    Q_Q(QStateMachine);
     QList<QAbstractAnimation*> animations = animationsForState.take(state);
     for (int i = 0; i < animations.size(); ++i) {
         QAbstractAnimation *anim = animations.at(i);
-        QObject::disconnect(anim, SIGNAL(finished()), q, SLOT(_q_animationFinished()));
+        QObjectPrivate::disconnect(anim, &QAbstractAnimation::finished,
+                                   this, &QStateMachinePrivate::_q_animationFinished);
         stateForAnimation.remove(anim);
 
         // Stop the (top-level) animation.
@@ -1645,7 +1646,6 @@ void QStateMachinePrivate::initializeAnimations(QAbstractState *state, const QLi
                                                 const QList<QAbstractState*> &exitedStates_sorted,
                                                 QHash<QAbstractState*, QVector<QPropertyAssignment> > &assignmentsForEnteredStates)
 {
-    Q_Q(QStateMachine);
     if (!assignmentsForEnteredStates.contains(state))
         return;
     QVector<QPropertyAssignment> &assignments = assignmentsForEnteredStates[state];
@@ -1662,7 +1662,9 @@ void QStateMachinePrivate::initializeAnimations(QAbstractState *state, const QLi
                     stateForAnimation.insert(a, state);
                     animationsForState[state].append(a);
                     // ### connect to just the top-level animation?
-                    QObject::connect(a, SIGNAL(finished()), q, SLOT(_q_animationFinished()), Qt::UniqueConnection);
+                    QObjectPrivate::connect(anim, &QAbstractAnimation::finished,
+                                            this, &QStateMachinePrivate::_q_animationFinished,
+                                            Qt::UniqueConnection);
                 }
                 if ((globalRestorePolicy == QState::RestoreProperties)
                         && !hasRestorable(state, assn.object, assn.propertyName)) {
@@ -2027,7 +2029,7 @@ void QStateMachinePrivate::processEvents(EventProcessingMode processingMode)
         } // fallthrough -- processing must be done in the machine thread
     case QueuedProcessing:
         processingScheduled = true;
-        QMetaObject::invokeMethod(q, "_q_process", Qt::QueuedConnection);
+        QTimer::singleShot(0, q, [this] { _q_process(); });
         break;
     }
 }
@@ -2626,7 +2628,7 @@ void QStateMachine::start()
     switch (d->state) {
     case QStateMachinePrivate::NotRunning:
         d->state = QStateMachinePrivate::Starting;
-        QMetaObject::invokeMethod(this, "_q_start", Qt::QueuedConnection);
+        QTimer::singleShot(0, this, [d] { d->_q_start(); });
         break;
     case QStateMachinePrivate::Starting:
         break;
@@ -2759,10 +2761,7 @@ int QStateMachine::postDelayedEvent(QEvent *event, int delay)
         d->timerIdToDelayedEventId.insert(timerId, id);
     } else {
         Q_ASSERT(!inMachineThread);
-        QMetaObject::invokeMethod(this, "_q_startDelayedEventTimer",
-                                  Qt::QueuedConnection,
-                                  Q_ARG(int, id),
-                                  Q_ARG(int, delay));
+        QTimer::singleShot(0, this, [=] { d->_q_startDelayedEventTimer(id, delay); });
     }
     return id;
 }
@@ -2794,10 +2793,8 @@ bool QStateMachine::cancelDelayedEvent(int id)
             killTimer(e.timerId);
             d->delayedEventIdFreeList.release(id);
         } else {
-            QMetaObject::invokeMethod(this, "_q_killDelayedEventTimer",
-                                      Qt::QueuedConnection,
-                                      Q_ARG(int, id),
-                                      Q_ARG(int, e.timerId));
+            int timerId = e.timerId;
+            QTimer::singleShot(0, this, [=] { d->_q_killDelayedEventTimer(id, timerId); });
         }
     } else {
         // Cancellation will be detected in pending _q_startDelayedEventTimer() call

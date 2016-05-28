@@ -85,6 +85,7 @@ public:
         ParentChange = 21,                      // widget has been reparented
         ParentAboutToChange = 131,              // sent just before the parent change is done
         ThreadChange = 22,                      // object has changed threads
+        ReregisterTimers = 28,                  // after object changed threads, re-register timers
         WindowActivate = 24,                    // window was activated
         WindowDeactivate = 25,                  // window was deactivated
         ShowToParent = 26,                      // widget is shown to parent

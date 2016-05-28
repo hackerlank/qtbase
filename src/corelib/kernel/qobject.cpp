@@ -1239,6 +1239,13 @@ void QObject::setObjectName(const QString &name)
 
 bool QObject::event(QEvent *e)
 {
+    typedef QList<QAbstractEventDispatcher::TimerInfo> TimerList;
+    struct ReregisiterTimerEvent : public QEvent {
+        TimerList list;
+        ReregisiterTimerEvent(TimerList list) : QEvent(ReregisterTimers), list(list)
+        {}
+    };
+
     switch (e->type()) {
     case QEvent::Timer:
         timerEvent((QTimerEvent*)e);
@@ -1273,9 +1280,20 @@ bool QObject::event(QEvent *e)
             if (!timers.isEmpty()) {
                 // do not to release our timer ids back to the pool (since the timer ids are moving to a new thread).
                 eventDispatcher->unregisterTimers(this);
-                QMetaObject::invokeMethod(this, "_q_reregisterTimers", Qt::QueuedConnection,
-                                          Q_ARG(void*, (new QList<QAbstractEventDispatcher::TimerInfo>(timers))));
+                QCoreApplication::postEvent(this, new ReregisiterTimerEvent(timers));
             }
+        }
+        break;
+    }
+
+    case QEvent::ReregisterTimers: {
+        Q_D(QObject);
+        QThreadData *threadData = d->threadData;
+        QAbstractEventDispatcher *eventDispatcher = threadData->eventDispatcher.load();
+        auto ev = static_cast<ReregisiterTimerEvent *>(e);
+        for (int i = 0; i < ev->list.size(); ++i) {
+            const QAbstractEventDispatcher::TimerInfo &ti = ev->list.at(i);
+            eventDispatcher->registerTimer(ti.timerId, ti.interval, ti.timerType, this);
         }
         break;
     }
@@ -1572,19 +1590,6 @@ void QObjectPrivate::setThreadData_helper(QThreadData *currentData, QThreadData 
         child->d_func()->setThreadData_helper(currentData, targetData);
     }
 }
-
-void QObjectPrivate::_q_reregisterTimers(void *pointer)
-{
-    Q_Q(QObject);
-    QList<QAbstractEventDispatcher::TimerInfo> *timerList = reinterpret_cast<QList<QAbstractEventDispatcher::TimerInfo> *>(pointer);
-    QAbstractEventDispatcher *eventDispatcher = threadData->eventDispatcher.load();
-    for (int i = 0; i < timerList->size(); ++i) {
-        const QAbstractEventDispatcher::TimerInfo &ti = timerList->at(i);
-        eventDispatcher->registerTimer(ti.timerId, ti.interval, ti.timerType, q);
-    }
-    delete timerList;
-}
-
 
 //
 // The timer flag hasTimer is set when startTimer is called.

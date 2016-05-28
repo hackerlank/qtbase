@@ -173,13 +173,6 @@ protected:
 private:
     Q_DISABLE_COPY(QStateMachine)
     Q_DECLARE_PRIVATE(QStateMachine)
-    Q_PRIVATE_SLOT(d_func(), void _q_start())
-    Q_PRIVATE_SLOT(d_func(), void _q_process())
-#ifndef QT_NO_ANIMATION
-    Q_PRIVATE_SLOT(d_func(), void _q_animationFinished())
-#endif
-    Q_PRIVATE_SLOT(d_func(), void _q_startDelayedEventTimer(int, int))
-    Q_PRIVATE_SLOT(d_func(), void _q_killDelayedEventTimer(int, int))
 };
 
 QT_END_NAMESPACE

@@ -437,7 +437,6 @@ protected:
 
 private:
     Q_DISABLE_COPY(QObject)
-    Q_PRIVATE_SLOT(d_func(), void _q_reregisterTimers(void *))
 
 private:
     static QMetaObject::Connection connectImpl(const QObject *sender, void **signal,

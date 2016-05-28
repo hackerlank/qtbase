@@ -74,7 +74,15 @@ public:
     void _q_columnsAboutToBeRemoved(const QModelIndex &parent, int start, int end);
     void _q_rowsAboutToBeInserted(const QModelIndex &parent, int start, int end);
     void _q_columnsAboutToBeInserted(const QModelIndex &parent, int start, int end);
+    void _q_rowsAboutToBeMoved()
+    { _q_layoutAboutToBeChanged(); }
+    void _q_columnsAboutToBeMoved()
+    { _q_layoutAboutToBeChanged(); }
     void _q_layoutAboutToBeChanged(const QList<QPersistentModelIndex> &parents = QList<QPersistentModelIndex>(), QAbstractItemModel::LayoutChangeHint hint = QAbstractItemModel::NoLayoutChangeHint);
+    void _q_rowsMoved()
+    { _q_layoutChanged(); }
+    void _q_columnsMoved()
+    { _q_layoutChanged(); }
     void _q_layoutChanged(const QList<QPersistentModelIndex> &parents = QList<QPersistentModelIndex>(), QAbstractItemModel::LayoutChangeHint hint = QAbstractItemModel::NoLayoutChangeHint);
 
     inline void remove(QList<QItemSelectionRange> &r)

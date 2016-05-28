@@ -133,11 +133,13 @@ void QAbstractProxyModel::setSourceModel(QAbstractItemModel *sourceModel)
     Q_D(QAbstractProxyModel);
     if (sourceModel != d->model) {
         if (d->model)
-            disconnect(d->model, SIGNAL(destroyed()), this, SLOT(_q_sourceModelDestroyed()));
+            QObjectPrivate::disconnect(d->model, &QObject::destroyed,
+                                       d, &QAbstractProxyModelPrivate::_q_sourceModelDestroyed);
 
         if (sourceModel) {
             d->model = sourceModel;
-            connect(d->model, SIGNAL(destroyed()), this, SLOT(_q_sourceModelDestroyed()));
+            QObjectPrivate::connect(d->model, &QObject::destroyed,
+                                    d, &QAbstractProxyModelPrivate::_q_sourceModelDestroyed);
         } else {
             d->model = QAbstractItemModelPrivate::staticEmptyModel();
         }

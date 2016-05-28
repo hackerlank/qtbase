@@ -1738,7 +1738,7 @@ QSortFilterProxyModel::QSortFilterProxyModel(QObject *parent)
     d->filter_column = 0;
     d->filter_role = Qt::DisplayRole;
     d->dynamic_sortfilter = true;
-    connect(this, SIGNAL(modelReset()), this, SLOT(_q_clearMapping()));
+    QObjectPrivate::connect(this, &QAbstractItemModel::modelReset, d_func(), &QSortFilterProxyModelPrivate::_q_clearMapping);
 }
 
 /*!
@@ -1760,109 +1760,115 @@ void QSortFilterProxyModel::setSourceModel(QAbstractItemModel *sourceModel)
 
     beginResetModel();
 
-    disconnect(d->model, SIGNAL(dataChanged(QModelIndex,QModelIndex,QVector<int>)),
-               this, SLOT(_q_sourceDataChanged(QModelIndex,QModelIndex,QVector<int>)));
+    QObjectPrivate::disconnect(d->model, &QAbstractItemModel::dataChanged,
+                               d, &QSortFilterProxyModelPrivate::_q_sourceDataChanged);
 
-    disconnect(d->model, SIGNAL(headerDataChanged(Qt::Orientation,int,int)),
-               this, SLOT(_q_sourceHeaderDataChanged(Qt::Orientation,int,int)));
+    QObjectPrivate::disconnect(d->model, &QAbstractItemModel::headerDataChanged,
+                               d, &QSortFilterProxyModelPrivate::_q_sourceHeaderDataChanged);
 
-    disconnect(d->model, SIGNAL(rowsAboutToBeInserted(QModelIndex,int,int)),
-               this, SLOT(_q_sourceRowsAboutToBeInserted(QModelIndex,int,int)));
+    QObjectPrivate::disconnect(d->model, &QAbstractItemModel::rowsAboutToBeInserted,
+                               d, &QSortFilterProxyModelPrivate::_q_sourceRowsAboutToBeInserted);
 
-    disconnect(d->model, SIGNAL(rowsInserted(QModelIndex,int,int)),
-               this, SLOT(_q_sourceRowsInserted(QModelIndex,int,int)));
+    QObjectPrivate::disconnect(d->model, &QAbstractItemModel::rowsInserted,
+                               d, &QSortFilterProxyModelPrivate::_q_sourceRowsInserted);
 
-    disconnect(d->model, SIGNAL(columnsAboutToBeInserted(QModelIndex,int,int)),
-               this, SLOT(_q_sourceColumnsAboutToBeInserted(QModelIndex,int,int)));
+    QObjectPrivate::disconnect(d->model, &QAbstractItemModel::columnsAboutToBeInserted,
+                               d, &QSortFilterProxyModelPrivate::_q_sourceColumnsAboutToBeInserted);
 
-    disconnect(d->model, SIGNAL(columnsInserted(QModelIndex,int,int)),
-               this, SLOT(_q_sourceColumnsInserted(QModelIndex,int,int)));
+    QObjectPrivate::disconnect(d->model, &QAbstractItemModel::columnsInserted,
+                               d, &QSortFilterProxyModelPrivate::_q_sourceColumnsInserted);
 
-    disconnect(d->model, SIGNAL(rowsAboutToBeRemoved(QModelIndex,int,int)),
-               this, SLOT(_q_sourceRowsAboutToBeRemoved(QModelIndex,int,int)));
+    QObjectPrivate::disconnect(d->model, &QAbstractItemModel::rowsAboutToBeRemoved,
+                               d, &QSortFilterProxyModelPrivate::_q_sourceRowsAboutToBeRemoved);
 
-    disconnect(d->model, SIGNAL(rowsRemoved(QModelIndex,int,int)),
-               this, SLOT(_q_sourceRowsRemoved(QModelIndex,int,int)));
+    QObjectPrivate::disconnect(d->model, &QAbstractItemModel::rowsRemoved,
+                               d, &QSortFilterProxyModelPrivate::_q_sourceRowsRemoved);
 
-    disconnect(d->model, SIGNAL(columnsAboutToBeRemoved(QModelIndex,int,int)),
-               this, SLOT(_q_sourceColumnsAboutToBeRemoved(QModelIndex,int,int)));
+    QObjectPrivate::disconnect(d->model, &QAbstractItemModel::columnsAboutToBeRemoved,
+                               d, &QSortFilterProxyModelPrivate::_q_sourceColumnsAboutToBeRemoved);
 
-    disconnect(d->model, SIGNAL(columnsRemoved(QModelIndex,int,int)),
-               this, SLOT(_q_sourceColumnsRemoved(QModelIndex,int,int)));
+    QObjectPrivate::disconnect(d->model, &QAbstractItemModel::columnsRemoved,
+                               d, &QSortFilterProxyModelPrivate::_q_sourceColumnsRemoved);
 
-    disconnect(d->model, SIGNAL(rowsAboutToBeMoved(QModelIndex,int,int,QModelIndex,int)),
-               this, SLOT(_q_sourceRowsAboutToBeMoved(QModelIndex,int,int,QModelIndex,int)));
+    QObjectPrivate::disconnect(d->model, &QAbstractItemModel::rowsAboutToBeMoved,
+                               d, &QSortFilterProxyModelPrivate::_q_sourceRowsAboutToBeMoved);
 
-    disconnect(d->model, SIGNAL(rowsMoved(QModelIndex,int,int,QModelIndex,int)),
-               this, SLOT(_q_sourceRowsMoved(QModelIndex,int,int,QModelIndex,int)));
+    QObjectPrivate::disconnect(d->model, &QAbstractItemModel::rowsMoved,
+                               d, &QSortFilterProxyModelPrivate::_q_sourceRowsMoved);
 
-    disconnect(d->model, SIGNAL(columnsAboutToBeMoved(QModelIndex,int,int,QModelIndex,int)),
-               this, SLOT(_q_sourceColumnsAboutToBeMoved(QModelIndex,int,int,QModelIndex,int)));
+    QObjectPrivate::disconnect(d->model, &QAbstractItemModel::columnsAboutToBeMoved,
+                               d, &QSortFilterProxyModelPrivate::_q_sourceColumnsAboutToBeMoved);
 
-    disconnect(d->model, SIGNAL(columnsMoved(QModelIndex,int,int,QModelIndex,int)),
-               this, SLOT(_q_sourceColumnsMoved(QModelIndex,int,int,QModelIndex,int)));
+    QObjectPrivate::disconnect(d->model, &QAbstractItemModel::columnsMoved,
+                               d, &QSortFilterProxyModelPrivate::_q_sourceColumnsMoved);
 
-    disconnect(d->model, SIGNAL(layoutAboutToBeChanged(QList<QPersistentModelIndex>,QAbstractItemModel::LayoutChangeHint)),
-               this, SLOT(_q_sourceLayoutAboutToBeChanged(QList<QPersistentModelIndex>,QAbstractItemModel::LayoutChangeHint)));
+    QObjectPrivate::disconnect(d->model, &QAbstractItemModel::layoutAboutToBeChanged,
+                               d, &QSortFilterProxyModelPrivate::_q_sourceLayoutAboutToBeChanged);
 
-    disconnect(d->model, SIGNAL(layoutChanged(QList<QPersistentModelIndex>,QAbstractItemModel::LayoutChangeHint)),
-               this, SLOT(_q_sourceLayoutChanged(QList<QPersistentModelIndex>,QAbstractItemModel::LayoutChangeHint)));
+    QObjectPrivate::disconnect(d->model, &QAbstractItemModel::layoutChanged,
+                               d, &QSortFilterProxyModelPrivate::_q_sourceLayoutChanged);
 
-    disconnect(d->model, SIGNAL(modelAboutToBeReset()), this, SLOT(_q_sourceAboutToBeReset()));
-    disconnect(d->model, SIGNAL(modelReset()), this, SLOT(_q_sourceReset()));
+    QObjectPrivate::disconnect(d->model, &QAbstractItemModel::modelAboutToBeReset,
+                               d, &QSortFilterProxyModelPrivate::_q_sourceAboutToBeReset);
+
+    QObjectPrivate::disconnect(d->model, &QAbstractItemModel::modelReset,
+                               d, &QSortFilterProxyModelPrivate::_q_sourceReset);
 
     QAbstractProxyModel::setSourceModel(sourceModel);
 
-    connect(d->model, SIGNAL(dataChanged(QModelIndex,QModelIndex,QVector<int>)),
-            this, SLOT(_q_sourceDataChanged(QModelIndex,QModelIndex,QVector<int>)));
+    QObjectPrivate::connect(d->model, &QAbstractItemModel::dataChanged,
+                            d, &QSortFilterProxyModelPrivate::_q_sourceDataChanged);
 
-    connect(d->model, SIGNAL(headerDataChanged(Qt::Orientation,int,int)),
-            this, SLOT(_q_sourceHeaderDataChanged(Qt::Orientation,int,int)));
+    QObjectPrivate::connect(d->model, &QAbstractItemModel::headerDataChanged,
+                            d, &QSortFilterProxyModelPrivate::_q_sourceHeaderDataChanged);
 
-    connect(d->model, SIGNAL(rowsAboutToBeInserted(QModelIndex,int,int)),
-            this, SLOT(_q_sourceRowsAboutToBeInserted(QModelIndex,int,int)));
+    QObjectPrivate::connect(d->model, &QAbstractItemModel::rowsAboutToBeInserted,
+                            d, &QSortFilterProxyModelPrivate::_q_sourceRowsAboutToBeInserted);
 
-    connect(d->model, SIGNAL(rowsInserted(QModelIndex,int,int)),
-            this, SLOT(_q_sourceRowsInserted(QModelIndex,int,int)));
+    QObjectPrivate::connect(d->model, &QAbstractItemModel::rowsInserted,
+                            d, &QSortFilterProxyModelPrivate::_q_sourceRowsInserted);
 
-    connect(d->model, SIGNAL(columnsAboutToBeInserted(QModelIndex,int,int)),
-            this, SLOT(_q_sourceColumnsAboutToBeInserted(QModelIndex,int,int)));
+    QObjectPrivate::connect(d->model, &QAbstractItemModel::columnsAboutToBeInserted,
+                            d, &QSortFilterProxyModelPrivate::_q_sourceColumnsAboutToBeInserted);
 
-    connect(d->model, SIGNAL(columnsInserted(QModelIndex,int,int)),
-            this, SLOT(_q_sourceColumnsInserted(QModelIndex,int,int)));
+    QObjectPrivate::connect(d->model, &QAbstractItemModel::columnsInserted,
+                            d, &QSortFilterProxyModelPrivate::_q_sourceColumnsInserted);
 
-    connect(d->model, SIGNAL(rowsAboutToBeRemoved(QModelIndex,int,int)),
-            this, SLOT(_q_sourceRowsAboutToBeRemoved(QModelIndex,int,int)));
+    QObjectPrivate::connect(d->model, &QAbstractItemModel::rowsAboutToBeRemoved,
+                            d, &QSortFilterProxyModelPrivate::_q_sourceRowsAboutToBeRemoved);
 
-    connect(d->model, SIGNAL(rowsRemoved(QModelIndex,int,int)),
-            this, SLOT(_q_sourceRowsRemoved(QModelIndex,int,int)));
+    QObjectPrivate::connect(d->model, &QAbstractItemModel::rowsRemoved,
+                            d, &QSortFilterProxyModelPrivate::_q_sourceRowsRemoved);
 
-    connect(d->model, SIGNAL(columnsAboutToBeRemoved(QModelIndex,int,int)),
-            this, SLOT(_q_sourceColumnsAboutToBeRemoved(QModelIndex,int,int)));
+    QObjectPrivate::connect(d->model, &QAbstractItemModel::columnsAboutToBeRemoved,
+                            d, &QSortFilterProxyModelPrivate::_q_sourceColumnsAboutToBeRemoved);
 
-    connect(d->model, SIGNAL(columnsRemoved(QModelIndex,int,int)),
-            this, SLOT(_q_sourceColumnsRemoved(QModelIndex,int,int)));
+    QObjectPrivate::connect(d->model, &QAbstractItemModel::columnsRemoved,
+                            d, &QSortFilterProxyModelPrivate::_q_sourceColumnsRemoved);
 
-    connect(d->model, SIGNAL(rowsAboutToBeMoved(QModelIndex,int,int,QModelIndex,int)),
-            this, SLOT(_q_sourceRowsAboutToBeMoved(QModelIndex,int,int,QModelIndex,int)));
+    QObjectPrivate::connect(d->model, &QAbstractItemModel::rowsAboutToBeMoved,
+                            d, &QSortFilterProxyModelPrivate::_q_sourceRowsAboutToBeMoved);
 
-    connect(d->model, SIGNAL(rowsMoved(QModelIndex,int,int,QModelIndex,int)),
-            this, SLOT(_q_sourceRowsMoved(QModelIndex,int,int,QModelIndex,int)));
+    QObjectPrivate::connect(d->model, &QAbstractItemModel::rowsMoved,
+                            d, &QSortFilterProxyModelPrivate::_q_sourceRowsMoved);
 
-    connect(d->model, SIGNAL(columnsAboutToBeMoved(QModelIndex,int,int,QModelIndex,int)),
-            this, SLOT(_q_sourceColumnsAboutToBeMoved(QModelIndex,int,int,QModelIndex,int)));
+    QObjectPrivate::connect(d->model, &QAbstractItemModel::columnsAboutToBeMoved,
+                            d, &QSortFilterProxyModelPrivate::_q_sourceColumnsAboutToBeMoved);
 
-    connect(d->model, SIGNAL(columnsMoved(QModelIndex,int,int,QModelIndex,int)),
-            this, SLOT(_q_sourceColumnsMoved(QModelIndex,int,int,QModelIndex,int)));
+    QObjectPrivate::connect(d->model, &QAbstractItemModel::columnsMoved,
+                            d, &QSortFilterProxyModelPrivate::_q_sourceColumnsMoved);
 
-    connect(d->model, SIGNAL(layoutAboutToBeChanged(QList<QPersistentModelIndex>,QAbstractItemModel::LayoutChangeHint)),
-            this, SLOT(_q_sourceLayoutAboutToBeChanged(QList<QPersistentModelIndex>,QAbstractItemModel::LayoutChangeHint)));
+    QObjectPrivate::connect(d->model, &QAbstractItemModel::layoutAboutToBeChanged,
+                            d, &QSortFilterProxyModelPrivate::_q_sourceLayoutAboutToBeChanged);
 
-    connect(d->model, SIGNAL(layoutChanged(QList<QPersistentModelIndex>,QAbstractItemModel::LayoutChangeHint)),
-            this, SLOT(_q_sourceLayoutChanged(QList<QPersistentModelIndex>,QAbstractItemModel::LayoutChangeHint)));
+    QObjectPrivate::connect(d->model, &QAbstractItemModel::layoutChanged,
+                            d, &QSortFilterProxyModelPrivate::_q_sourceLayoutChanged);
 
-    connect(d->model, SIGNAL(modelAboutToBeReset()), this, SLOT(_q_sourceAboutToBeReset()));
-    connect(d->model, SIGNAL(modelReset()), this, SLOT(_q_sourceReset()));
+    QObjectPrivate::connect(d->model, &QAbstractItemModel::modelAboutToBeReset,
+                            d, &QSortFilterProxyModelPrivate::_q_sourceAboutToBeReset);
+
+    QObjectPrivate::connect(d->model, &QAbstractItemModel::modelReset,
+                            d, &QSortFilterProxyModelPrivate::_q_sourceReset);
 
     d->_q_clearMapping();
     endResetModel();

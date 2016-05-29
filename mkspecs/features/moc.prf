@@ -71,7 +71,9 @@ QMAKE_EXTRA_COMPILERS += moc_header
 INCREDIBUILD_XGE += moc_header
 moc_combine {
     moc_header.CONFIG += combine
-    moc_header.commands = ${QMAKE_FUNC_mocCmdBase} --combine -o ${QMAKE_FILE_OUT} ${QMAKE_FILE_IN}
+    moc_header.commands = ${QMAKE_FUNC_mocCmdBase} --combine
+    !isEmpty(PRECOMPILED_HEADER): moc_header.commands += --include $$PRECOMPILED_HEADER
+    moc_header.commands += -o ${QMAKE_FILE_OUT} ${QMAKE_FILE_IN}
     moc_header.output = $$MOC_DIR/combined_moc.cpp
     moc_header.name = MOC headers
     unset(in)

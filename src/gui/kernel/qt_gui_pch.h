@@ -56,6 +56,7 @@
 # undef _POSIX_
 #endif
 
+// QtCore:
 #include <qcoreapplication.h>
 #include <qlist.h>
 #include <qvariant.h>  // All moc genereated code has this include
@@ -65,6 +66,7 @@
 #include <qstringlist.h>
 #include <qtextcodec.h>
 
+#ifndef Q_MOC_RUN
 #include <qguiapplication.h>
 #include <qbitmap.h>
 #include <qcursor.h>
@@ -73,6 +75,7 @@
 #include <qpainter.h>
 #include <qpixmap.h>
 #include <qtimer.h>
+#endif
 
 #include <stdlib.h>
 

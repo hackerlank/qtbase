@@ -59,6 +59,7 @@
 # include <limits.h>
 # undef _POSIX_
 #endif
+#ifndef Q_MOC_RUN
 #include <qcoreapplication.h>
 #include <qlist.h>
 #include <qvariant.h>  /* All moc genereated code has this include */
@@ -67,4 +68,5 @@
 #include <qstring.h>
 #include <qstringlist.h>
 #include <qtextcodec.h>
+#endif
 #endif

@@ -64,19 +64,22 @@
 #include <qstring.h>
 #include <qstringlist.h>
 #include <qtextcodec.h>
+#include <qtimer.h>
 
-#include <qapplication.h>
 #include <qbitmap.h>
 #include <qcursor.h>
-#include <qdesktopwidget.h>
 #include <qevent.h>
 #include <qimage.h>
-#include <qlayout.h>
 #include <qpainter.h>
 #include <qpixmap.h>
+
+#ifndef Q_MOC_RUN
+#include <qapplication.h>
+#include <qdesktopwidget.h>
+#include <qlayout.h>
 #include <qstyle.h>
-#include <qtimer.h>
 #include <qwidget.h>
+#endif
 
 #include <stdlib.h>
 

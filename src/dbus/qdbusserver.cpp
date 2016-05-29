@@ -39,6 +39,7 @@
 ****************************************************************************/
 
 #include "qdbusserver.h"
+#include "qdbusserver_p.h"
 #include "qdbusconnection_p.h"
 #include "qdbusconnectionmanager_p.h"
 #include "qdbusutil_p.h"
@@ -60,7 +61,7 @@ QT_BEGIN_NAMESPACE
     \a parent.
 */
 QDBusServer::QDBusServer(const QString &address, QObject *parent)
-    : QObject(parent), d(0)
+    : QObject(*new QDBusServerPrivate, parent), d(0)
 {
     if (address.isEmpty())
         return;
@@ -73,8 +74,6 @@ QDBusServer::QDBusServer(const QString &address, QObject *parent)
         return;
 
     emit instance->serverRequested(address, this);
-    QObject::connect(d, SIGNAL(newServerConnection(QDBusConnectionPrivate*)),
-                     this, SLOT(_q_newConnection(QDBusConnectionPrivate*)), Qt::QueuedConnection);
 }
 
 /*!
@@ -83,7 +82,7 @@ QDBusServer::QDBusServer(const QString &address, QObject *parent)
     localhost (elsewhere).
 */
 QDBusServer::QDBusServer(QObject *parent)
-    : QObject(parent)
+    : QObject(*new QDBusServerPrivate, parent)
 {
 #ifdef Q_OS_UNIX
     // Use Unix sockets on Unix systems only
@@ -102,8 +101,6 @@ QDBusServer::QDBusServer(QObject *parent)
         return;
 
     emit instance->serverRequested(address, this);
-    QObject::connect(d, SIGNAL(newServerConnection(QDBusConnectionPrivate*)),
-                     this, SLOT(_q_newConnection(QDBusConnectionPrivate*)), Qt::QueuedConnection);
 }
 
 /*!

@@ -1,6 +1,5 @@
 /****************************************************************************
 **
-** Copyright (C) 2016 The Qt Company Ltd.
 ** Copyright (C) 2016 Intel Corporation.
 ** Contact: https://www.qt.io/licensing/
 **
@@ -37,49 +36,35 @@
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
-#ifndef QDBUSSERVER_H
-#define QDBUSSERVER_H
 
-#include <QtDBus/qtdbusglobal.h>
-#include <QtCore/qobject.h>
-#include <QtCore/qstring.h>
+#ifndef QDBUSSERVER_P_H
+#define QDBUSSERVER_P_H
 
-#ifndef QT_NO_DBUS
+//
+//  W A R N I N G
+//  -------------
+//
+// This file is not part of the public API.  This header file may
+// change from version to version without notice, or even be
+// removed.
+//
+// We mean it.
+//
+//
+
+#include "qdbusserver.h"
+#include "private/qobject_p.h"
 
 QT_BEGIN_NAMESPACE
 
-
-class QDBusConnectionPrivate;
-class QDBusError;
-class QDBusConnection;
-
-class QDBusServerPrivate;
-class Q_DBUS_EXPORT QDBusServer: public QObject
+class QDBusServerPrivate : public QObjectPrivate
 {
-    Q_OBJECT
 public:
-    explicit QDBusServer(const QString &address, QObject *parent = Q_NULLPTR);
-    explicit QDBusServer(QObject *parent = Q_NULLPTR);
-    virtual ~QDBusServer();
+    Q_DECLARE_PUBLIC(QDBusServer)
 
-    bool isConnected() const;
-    QDBusError lastError() const;
-    QString address() const;
-
-    void setAnonymousAuthenticationAllowed(bool value);
-    bool isAnonymousAuthenticationAllowed() const;
-
-Q_SIGNALS:
-    void newConnection(const QDBusConnection &connection);
-
-private:
-    Q_DISABLE_COPY(QDBusServer)
-    Q_DECLARE_PRIVATE(QDBusServer)
-    QDBusConnectionPrivate *d;
-    friend class QDBusConnectionPrivate;
+    void _q_newConnection(QDBusConnectionPrivate *newConnection);
 };
 
 QT_END_NAMESPACE
 
-#endif // QT_NO_DBUS
 #endif

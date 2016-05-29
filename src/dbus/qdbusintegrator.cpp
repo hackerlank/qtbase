@@ -60,6 +60,7 @@
 #include "qdbusabstractadaptor.h"
 #include "qdbusabstractadaptor_p.h"
 #include "qdbusserver.h"
+#include "qdbusserver_p.h"
 #include "qdbusutil_p.h"
 #include "qdbusvirtualobject.h"
 #include "qdbusmessage_p.h"
@@ -335,10 +336,11 @@ static void qDBusNewConnection(DBusServer *server, DBusConnection *connection, v
         o->moveToThread(serverConnection->serverObject->thread());
 }
 
-void QDBusConnectionPrivate::_q_newConnection(QDBusConnectionPrivate *newConnection)
+void QDBusServerPrivate::_q_newConnection(QDBusConnectionPrivate *newConnection)
 {
-    Q_ASSERT(mode == ServerMode);
-    emit serverObject->newConnection(QDBusConnectionPrivate::q(newConnection));
+    Q_Q(QDBusServer);
+    Q_ASSERT(q->d->mode == QDBusConnectionPrivate::ServerMode);
+    emit q->newConnection(QDBusConnectionPrivate::q(newConnection));
 }
 
 } // extern "C"
@@ -1705,6 +1707,9 @@ void QDBusConnectionPrivate::setServer(QDBusServer *object, DBusServer *s, const
     }
 
     server = s;
+    QObjectPrivate::connect(this, &QDBusConnectionPrivate::newServerConnection,
+                            serverObject->d_func(), &QDBusServerPrivate::_q_newConnection,
+                            Qt::QueuedConnection);
 
     dbus_bool_t data_allocated = q_dbus_server_allocate_data_slot(&server_slot);
     if (data_allocated && server_slot < 0)

@@ -133,9 +133,9 @@ void QDBusAbstractInterfacePrivate::initOwnerTracking()
 {
     if (!isValid || !connection.isConnected() || !connectionPrivate()->shouldWatchService(service))
         return;
-    QObject::connect(new QDBusServiceWatcher(service, connection, QDBusServiceWatcher::WatchForOwnerChange, q_func()),
-                     SIGNAL(serviceOwnerChanged(QString,QString,QString)),
-                     q_func(), SLOT(_q_serviceOwnerChanged(QString,QString,QString)));
+    QObjectPrivate::connect(new QDBusServiceWatcher(service, connection, QDBusServiceWatcher::WatchForOwnerChange, q_func()),
+                            &QDBusServiceWatcher::serviceOwnerChanged,
+                            this, &QDBusAbstractInterfacePrivate::_q_serviceOwnerChanged);
 }
 
 bool QDBusAbstractInterfacePrivate::canMakeCalls() const

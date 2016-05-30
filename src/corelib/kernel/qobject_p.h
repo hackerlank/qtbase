@@ -207,6 +207,11 @@ public:
     inline void connectNotify(const QMetaMethod &signal);
     inline void disconnectNotify(const QMetaMethod &signal);
 
+    // This type and this function are used in the connect() and disconnect() below.
+    // See below on QPrivateSlotObject for more information.
+    typedef decltype(&QObject::connectImpl) PrivateConnectionMarker;
+    static PrivateConnectionMarker privateConnectionMarker() { return &QObject::connectImpl; }
+
     template <typename Func1, typename Func2>
     static inline QMetaObject::Connection connect(const typename QtPrivate::FunctionPointer<Func1>::Object *sender, Func1 signal,
                                                   const typename QtPrivate::FunctionPointer<Func2>::Object *receiverPrivate, Func2 slot,
@@ -297,8 +302,33 @@ inline void QObjectPrivate::disconnectNotify(const QMetaMethod &signal)
 namespace QtPrivate {
 template<typename Func, typename Args, typename R> class QPrivateSlotObject : public QSlotObjectBase
 {
+public:
+    // The C++ Standard, in 5.10 [expr.eq] Equality Operators, bullet 3.4 says
+    // about comparing pointer to members:
+    //  (3.4) — If one refers to a member of class C1 and the other refers to a member of a different class C2, where
+    //          neither is a base class of the other, the result is unspecified.
+    //
+    // Since the normal use of PMFs in QObject::connect() is to connect members
+    // of QObject, we need a member of QObject as a sentinel that this is a
+    // private connection. We're using a private function of QObject, which
+    // means no one could ever connect to it under legitimate conditions. If
+    // and only if the sentinel matches do we compare the member of
+    // QObjectPrivate.
+
+    struct Magic {
+        QObjectPrivate::PrivateConnectionMarker magic;
+        Func actual;
+
+        Magic(Func f) : magic(QObjectPrivate::privateConnectionMarker()), actual(f)
+        {}
+        bool operator==(Func f) const
+        { return magic == QObjectPrivate::privateConnectionMarker() && actual == f; }
+    };
+
+private:
     typedef QtPrivate::FunctionPointer<Func> FuncType;
     Func function;
+
     static void impl(int which, QSlotObjectBase *this_, QObject *r, void **a, bool *ret)
     {
         switch (which) {
@@ -310,7 +340,7 @@ template<typename Func, typename Args, typename R> class QPrivateSlotObject : pu
                                                  static_cast<typename FuncType::Object *>(QObjectPrivate::get(r)), a);
                 break;
             case Compare:
-                *ret = *reinterpret_cast<Func *>(a) == static_cast<QPrivateSlotObject*>(this_)->function;
+                *ret = *reinterpret_cast<const Magic *>(a) == static_cast<QPrivateSlotObject*>(this_)->function;
                 break;
             case NumOperations: ;
         }
@@ -342,10 +372,13 @@ inline QMetaObject::Connection QObjectPrivate::connect(const typename QtPrivate:
     if (type == Qt::QueuedConnection || type == Qt::BlockingQueuedConnection)
         types = QtPrivate::ConnectionTypes<typename SignalType::Arguments>::types();
 
+    typedef QtPrivate::QPrivateSlotObject<Func2, typename QtPrivate::List_Left<typename SignalType::Arguments, SlotType::ArgumentCount>::Value,
+            typename SignalType::ReturnType> SlotObject;
+    typename SlotObject::Magic magicSlot = slot;
+
     return QObject::connectImpl(sender, reinterpret_cast<void **>(&signal),
-        receiverPrivate->q_ptr, reinterpret_cast<void **>(&slot),
-        new QtPrivate::QPrivateSlotObject<Func2, typename QtPrivate::List_Left<typename SignalType::Arguments, SlotType::ArgumentCount>::Value,
-                                        typename SignalType::ReturnType>(slot),
+        receiverPrivate->q_ptr, reinterpret_cast<void **>(&magicSlot),
+        new SlotObject(slot),
         type, types, &SignalType::Object::staticMetaObject);
 }
 
@@ -360,8 +393,13 @@ bool QObjectPrivate::disconnect(const typename QtPrivate::FunctionPointer< Func1
     //compilation error if the arguments does not match.
     Q_STATIC_ASSERT_X((QtPrivate::CheckCompatibleArguments<typename SignalType::Arguments, typename SlotType::Arguments>::value),
                       "Signal and slot arguments are not compatible.");
+
+    typedef QtPrivate::QPrivateSlotObject<Func2, typename QtPrivate::List_Left<typename SignalType::Arguments, SlotType::ArgumentCount>::Value,
+            typename SignalType::ReturnType> SlotObject;
+    typename SlotObject::Magic magicSlot = slot;
+
     return QObject::disconnectImpl(sender, reinterpret_cast<void **>(&signal),
-                          receiverPrivate->q_ptr, reinterpret_cast<void **>(&slot),
+                          receiverPrivate->q_ptr, reinterpret_cast<void **>(&magicSlot),
                           &SignalType::Object::staticMetaObject);
 }
 

@@ -132,6 +132,7 @@ private slots:
     void connectVirtualSlots();
     void connectSlotsVMIClass();  // VMI = Virtual or Multiple Inheritance
     void connectPrivateSlots();
+    void disconnectPrivateVirtualSlots();
     void connectFunctorArgDifference();
     void connectFunctorOverloads();
     void connectFunctorQueued();
@@ -5618,10 +5619,8 @@ void tst_QObject::connectVirtualSlots()
     QCOMPARE(obj.base_counter1, 0);
     QCOMPARE(obj.derived_counter1, 1);
 
-    /* the C++ standard say the comparison between pointer to virtual member function is unspecified
     QVERIFY( QObject::connect(&obj, &VirtualSlotsObjectBase::signal1, &obj, &VirtualSlotsObjectBase::slot1, Qt::UniqueConnection));
     QVERIFY(!QObject::connect(&obj, &VirtualSlotsObjectBase::signal1, &obj, &VirtualSlotsObject::slot1, Qt::UniqueConnection));
-    */
 }
 
 struct VirtualBase
@@ -5699,10 +5698,8 @@ void tst_QObject::connectSlotsVMIClass()
         QCOMPARE(obj.regular_call_count, 1);
         QCOMPARE(obj.virtual_base_count, 0);
 
-        /* the C++ standard say the comparison between pointer to virtual member function is unspecified
         QVERIFY( QObject::connect(&obj, &VirtualSlotsObjectBase::signal1, &obj, &VirtualSlotsObjectBase::slot1, Qt::UniqueConnection));
         QVERIFY(!QObject::connect(&obj, &VirtualSlotsObjectBase::signal1, &obj, &ObjectWithVirtualBase::slot1, Qt::UniqueConnection));
-        */
     }
 
     // test connecting a slot that is virtual from the virtual base
@@ -5733,6 +5730,8 @@ void tst_QObject::connectSlotsVMIClass()
 #ifndef QT_BUILD_INTERNAL
 void tst_QObject::connectPrivateSlots()
 {QSKIP("Needs QT_BUILD_INTERNAL");}
+void tst_QObject::disconnectPrivateVirtualSlots()
+{QSKIP("Needs QT_BUILD_INTERNAL");}
 #else
 class ConnectToPrivateSlotPrivate;
 
@@ -5741,6 +5740,9 @@ class ConnectToPrivateSlot :public QObject {
 public:
     ConnectToPrivateSlot();
     void test(SenderObject *obj1) ;
+
+    virtual void virtualSlot();
+
     Q_DECLARE_PRIVATE(ConnectToPrivateSlot)
 };
 
@@ -5758,6 +5760,22 @@ public:
         receivedCount++;
         receivedValue = v;
     };
+
+    // QObjectPrivate only has 2 virtuals as of Qt 5.7 (the destructor, so the
+    // following starts at the 3rd slot. QObject has 12 virtuals in Qt 5 (and
+    // can't get more), so our first public virtual is the 13th
+    virtual void f3() {}
+    virtual void f4() {}
+    virtual void f5() {}
+    virtual void f6() {}
+    virtual void f7() {}
+    virtual void f8() {}
+    virtual void f9() {}
+    virtual void f10() {}
+    virtual void f11() {}
+    virtual void f12() {}
+    virtual void f13() {}
+    virtual void f14() {}
 };
 
 ConnectToPrivateSlot::ConnectToPrivateSlot(): QObject(*new ConnectToPrivateSlotPrivate) {}
@@ -5784,6 +5802,11 @@ void ConnectToPrivateSlot::test(SenderObject* obj1) {
     QVERIFY(!QObjectPrivate::disconnect(obj1, &SenderObject::signal2, d, &ConnectToPrivateSlotPrivate::thisIsAPrivateSlot));
 }
 
+void ConnectToPrivateSlot::virtualSlot()
+{
+    ++d_func()->receivedCount;
+}
+
 void tst_QObject::connectPrivateSlots()
 {
     SenderObject sender;
@@ -5794,6 +5817,51 @@ void tst_QObject::connectPrivateSlots()
     sender.signal7(777, QLatin1String("check that deleting the object properly disconnected"));
     sender.signal1();
 }
+
+void tst_QObject::disconnectPrivateVirtualSlots()
+{
+#ifndef Q_CC_GNU
+    QSKIP("This test is only executed with the IA-64 C++ ABI");
+#else
+    typedef void (ConnectToPrivateSlot:: *PublicSlotType)();
+    typedef void (ConnectToPrivateSlotPrivate:: *PrivateSlotType)();
+    static const PrivateSlotType private_slots[] = {
+        &ConnectToPrivateSlotPrivate::f3, &ConnectToPrivateSlotPrivate::f4, &ConnectToPrivateSlotPrivate::f5,
+        &ConnectToPrivateSlotPrivate::f6, &ConnectToPrivateSlotPrivate::f7, &ConnectToPrivateSlotPrivate::f8,
+        &ConnectToPrivateSlotPrivate::f9, &ConnectToPrivateSlotPrivate::f10, &ConnectToPrivateSlotPrivate::f11,
+        &ConnectToPrivateSlotPrivate::f12, &ConnectToPrivateSlotPrivate::f13, &ConnectToPrivateSlotPrivate::f14
+    };
+    Q_STATIC_ASSERT(sizeof(PublicSlotType) == sizeof(PrivateSlotType));
+
+    PublicSlotType public_slot = &ConnectToPrivateSlot::virtualSlot;
+    PrivateSlotType private_slot = nullptr;
+    for (int i = sizeof(private_slots) / sizeof(private_slots[0]) - 1; i >= 0; --i) {
+        if (memcmp(&public_slot, &private_slots[i], sizeof(public_slot)) == 0) {
+            private_slot = private_slots[i];
+            break;
+        }
+    }
+
+    QVERIFY2(private_slot, "Could not find a virtual in the private with representation identical "
+                           "to a QObject virtual. Fix this test (check if QObjectPrivate has more "
+                           "than 12 virtuals now)");
+
+    SenderObject sender;
+    ConnectToPrivateSlot o;
+    o.d_func()->receivedCount = 0;
+
+    // connect the *public* virtual
+    QVERIFY(QObject::connect(&sender, &SenderObject::signal1, &o, public_slot));
+    sender.emitSignal1();
+    QCOMPARE(o.d_func()->receivedCount, 1);
+
+    // disconnect the *private* virtual
+    QVERIFY(!QObjectPrivate::disconnect(&sender, &SenderObject::signal1, o.d_func(), private_slot));
+    sender.emitSignal1();
+    QCOMPARE(o.d_func()->receivedCount, 2);
+#endif
+}
+
 #endif
 
 struct SlotFunctor

@@ -225,6 +225,8 @@ public:
     {
         typedef QtPrivate::FunctionPointer<Func1> SignalType;
         typedef QtPrivate::FunctionPointer<Func2> SlotType;
+        typedef typename SlotType::template ChangeClass<QObject>::Type StoredFunc2;
+        StoredFunc2 storedSlot = static_cast<StoredFunc2>(slot);
 
         Q_STATIC_ASSERT_X(QtPrivate::HasQ_OBJECT_Macro<typename SignalType::Object>::Value,
                           "No Q_OBJECT in the class with the signal");
@@ -242,7 +244,7 @@ public:
             types = QtPrivate::ConnectionTypes<typename SignalType::Arguments>::types();
 
         return connectImpl(sender, reinterpret_cast<void **>(&signal),
-                           receiver, reinterpret_cast<void **>(&slot),
+                           receiver, reinterpret_cast<void **>(&storedSlot),
                            new QtPrivate::QSlotObject<Func2, typename QtPrivate::List_Left<typename SignalType::Arguments, SlotType::ArgumentCount>::Value,
                                            typename SignalType::ReturnType>(slot),
                             type, types, &SignalType::Object::staticMetaObject);

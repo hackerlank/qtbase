@@ -41,6 +41,7 @@
 
 #ifndef QOBJECT_H
 #error Do not include qobject_impl.h directly
+#include <qobject.h>
 #endif
 
 #if 0
@@ -109,7 +110,8 @@ namespace QtPrivate {
     template<typename Func, typename Args, typename R> class QSlotObject : public QSlotObjectBase
     {
         typedef QtPrivate::FunctionPointer<Func> FuncType;
-        Func function;
+        typedef typename FuncType::template ChangeClass<QObject>::Type StoredFunc;
+        StoredFunc function;
         static void impl(int which, QSlotObjectBase *this_, QObject *r, void **a, bool *ret)
         {
             switch (which) {
@@ -120,13 +122,13 @@ namespace QtPrivate {
                 FuncType::template call<Args, R>(static_cast<QSlotObject*>(this_)->function, static_cast<typename FuncType::Object *>(r), a);
                 break;
             case Compare:
-                *ret = *reinterpret_cast<Func *>(a) == static_cast<QSlotObject*>(this_)->function;
+                *ret = *reinterpret_cast<StoredFunc *>(a) == static_cast<QSlotObject*>(this_)->function;
                 break;
             case NumOperations: ;
             }
         }
     public:
-        explicit QSlotObject(Func f) : QSlotObjectBase(&impl), function(f) {}
+        explicit QSlotObject(Func f) : QSlotObjectBase(&impl), function(static_cast<StoredFunc>(f)) {}
     };
     // implementation of QSlotObjectBase for which the slot is a static function
     // Args and R are the List of arguments and the returntype of the signal to which the slot is connected.

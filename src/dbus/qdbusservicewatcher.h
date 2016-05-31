@@ -86,7 +86,6 @@ Q_SIGNALS:
     void serviceOwnerChanged(const QString &service, const QString &oldOwner, const QString &newOwner);
 
 private:
-    Q_PRIVATE_SLOT(d_func(), void _q_serviceOwnerChanged(QString,QString,QString))
     Q_DISABLE_COPY(QDBusServiceWatcher)
     Q_DECLARE_PRIVATE(QDBusServiceWatcher)
 };

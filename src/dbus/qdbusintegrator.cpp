@@ -2620,26 +2620,25 @@ bool QDBusConnectionPrivate::shouldWatchService(const QString &service)
     calling this function to check whether the service needs to be watched at
     all. Failing to do so may add rules that are never activated.
 */
-void QDBusConnectionPrivate::watchService(const QString &service, QDBusServiceWatcher::WatchMode mode, QObject *obj, const char *member)
+QDBusConnection::Connection
+QDBusConnectionPrivate::watchService(const QString &service, QDBusServiceWatcher::WatchMode mode,
+                                     QObject *obj, WatchFunction f)
 {
-    QStringList matchArgs = matchArgsForService(service, mode);
-    connectSignal(QDBusUtil::dbusService(), QString(), QDBusUtil::dbusInterface(), QDBusUtil::nameOwnerChanged(),
-                  matchArgs, QString(), obj, member);
-}
+    typedef QtPrivate::FunctionPointer<WatchFunction> SlotType;
+    typedef QtPrivate::QPrivateSlotObject<WatchFunction, typename SlotType::Arguments,
+            typename SlotType::ReturnType> SlotObject;
 
-/*!
-    Removes a watch rule set up by QDBusConnectionPrivate::watchService(). The
-    arguments to this function must be the same as the ones for that function.
+    static const int functionTypes[] = {
+        QMetaType::QString, QMetaType::QString, QMetaType::QString, 0
+    };
+    enum { FunctionTypesCount = sizeof(functionTypes) / sizeof(functionTypes[0]) };
+    Q_STATIC_ASSERT(FunctionTypesCount == SlotType::ArgumentCount + 1);
 
-    Sets up a watch rule for service \a service for the change described by
-    mode \a mode. When the change happens, slot \a member in object \a obj will
-    be called.
-*/
-void QDBusConnectionPrivate::unwatchService(const QString &service, QDBusServiceWatcher::WatchMode mode, QObject *obj, const char *member)
-{
     QStringList matchArgs = matchArgsForService(service, mode);
-    disconnectSignal(QDBusUtil::dbusService(), QString(), QDBusUtil::dbusInterface(), QDBusUtil::nameOwnerChanged(),
-                     matchArgs, QString(), obj, member);
+    auto slotObj = new SlotObject(f);
+    return connectSignal(QDBusUtil::dbusService(), QString(), QDBusUtil::dbusInterface(),
+                         QDBusUtil::nameOwnerChanged(), matchArgs, obj, slotObj,
+                         functionTypes);
 }
 
 QString QDBusConnectionPrivate::getNameOwner(const QString& serviceName)

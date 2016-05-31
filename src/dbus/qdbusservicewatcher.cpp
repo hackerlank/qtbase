@@ -1,6 +1,7 @@
 /****************************************************************************
 **
 ** Copyright (C) 2016 The Qt Company Ltd.
+** Copyright (C) 2016 Intel Corporation.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the QtDBus module of the Qt Toolkit.
@@ -59,15 +60,15 @@ public:
     {
     }
 
-    QStringList servicesWatched;
+    QHash<QString, QDBusConnection::Connection> servicesWatched;
     QDBusConnection connection;
     QDBusServiceWatcher::WatchMode watchMode;
 
     void _q_serviceOwnerChanged(const QString &, const QString &, const QString &);
     void setConnection(const QStringList &services, const QDBusConnection &c, QDBusServiceWatcher::WatchMode watchMode);
 
-    void addService(const QString &service);
-    void removeService(const QString &service);
+    QDBusConnection::Connection addService(const QString &service);
+    void removeService(QDBusConnection::Connection conn);
 };
 
 void QDBusServiceWatcherPrivate::_q_serviceOwnerChanged(const QString &service, const QString &oldOwner, const QString &newOwner)
@@ -84,33 +85,33 @@ void QDBusServiceWatcherPrivate::setConnection(const QStringList &s, const QDBus
 {
     if (connection.isConnected()) {
         // remove older rules
-        for (const QString &s : qAsConst(servicesWatched))
-            removeService(s);
+        for (auto ptr : qAsConst(servicesWatched))
+            removeService(ptr);
     }
 
     connection = c;
     watchMode = wm;
-    servicesWatched = s;
+    servicesWatched.clear();
 
-    if (connection.isConnected()) {
-        // add new rules
-        for (const QString &s : qAsConst(servicesWatched))
-            addService(s);
-    }
+    // add new rules
+    for (const QString &service : s)
+        servicesWatched.insert(service, addService(service));
 }
 
-void QDBusServiceWatcherPrivate::addService(const QString &service)
+QDBusConnection::Connection QDBusServiceWatcherPrivate::addService(const QString &service)
 {
     QDBusConnectionPrivate *d = QDBusConnectionPrivate::d(connection);
+    auto watchFunction = static_cast<QDBusConnectionPrivate::WatchFunction>(&QDBusServiceWatcherPrivate::_q_serviceOwnerChanged);
     if (d && d->shouldWatchService(service))
-        d->watchService(service, watchMode, q_func(), SLOT(_q_serviceOwnerChanged(QString,QString,QString)));
+        return d->watchService(service, watchMode, q_func(), watchFunction);
+    return QDBusConnection::Connection();
 }
 
-void QDBusServiceWatcherPrivate::removeService(const QString &service)
+void QDBusServiceWatcherPrivate::removeService(QDBusConnection::Connection conn)
 {
     QDBusConnectionPrivate *d = QDBusConnectionPrivate::d(connection);
-    if (d && d->shouldWatchService(service))
-        d->unwatchService(service, watchMode, q_func(), SLOT(_q_serviceOwnerChanged(QString,QString,QString)));
+    if (conn && d)
+        d->disconnectSignal(conn);
 }
 
 /*!
@@ -255,7 +256,7 @@ QDBusServiceWatcher::~QDBusServiceWatcher()
 */
 QStringList QDBusServiceWatcher::watchedServices() const
 {
-    return d_func()->servicesWatched;
+    return d_func()->servicesWatched.keys();
 }
 
 /*!
@@ -269,8 +270,6 @@ QStringList QDBusServiceWatcher::watchedServices() const
 void QDBusServiceWatcher::setWatchedServices(const QStringList &services)
 {
     Q_D(QDBusServiceWatcher);
-    if (services == d->servicesWatched)
-        return;
     d->setConnection(services, d->connection, d->watchMode);
 }
 
@@ -284,8 +283,7 @@ void QDBusServiceWatcher::addWatchedService(const QString &newService)
     Q_D(QDBusServiceWatcher);
     if (d->servicesWatched.contains(newService))
         return;
-    d->addService(newService);
-    d->servicesWatched << newService;
+    d->servicesWatched.insert(newService, d->addService(newService));
 }
 
 /*!
@@ -299,8 +297,12 @@ void QDBusServiceWatcher::addWatchedService(const QString &newService)
 bool QDBusServiceWatcher::removeWatchedService(const QString &service)
 {
     Q_D(QDBusServiceWatcher);
-    d->removeService(service);
-    return d->servicesWatched.removeOne(service);
+    auto it = d->servicesWatched.find(service);
+    if (it == d->servicesWatched.end())
+        return false;
+    d->removeService(it.value());
+    d->servicesWatched.erase(it);
+    return true;
 }
 
 QDBusServiceWatcher::WatchMode QDBusServiceWatcher::watchMode() const
@@ -313,7 +315,7 @@ void QDBusServiceWatcher::setWatchMode(WatchMode mode)
     Q_D(QDBusServiceWatcher);
     if (mode == d->watchMode)
         return;
-    d->setConnection(d->servicesWatched, d->connection, mode);
+    d->setConnection(d->servicesWatched.keys(), d->connection, mode);
 }
 
 /*!
@@ -343,11 +345,9 @@ void QDBusServiceWatcher::setConnection(const QDBusConnection &connection)
     Q_D(QDBusServiceWatcher);
     if (connection.name() == d->connection.name())
         return;
-    d->setConnection(d->servicesWatched, connection, d->watchMode);
+    d->setConnection(d->servicesWatched.keys(), connection, d->watchMode);
 }
 
 QT_END_NAMESPACE
 
 #endif // QT_NO_DBUS
-
-#include "moc_qdbusservicewatcher.cpp"

@@ -75,13 +75,21 @@ class SignalReceiver : public QObject
 public:
     QString argumentReceived;
     int signalsReceived;
-    SignalReceiver() : signalsReceived(0) {}
+    static SignalReceiver *self;
+    SignalReceiver() : signalsReceived(0) { self = this; }
+    ~SignalReceiver() { self = nullptr; }
 
 public slots:
     void oneSlot(const QString &arg) { ++signalsReceived; argumentReceived = arg;}
     void oneSlot() { ++signalsReceived; }
     void exitLoop() { ++signalsReceived; QTestEventLoop::instance().exitLoop(); }
     void secondCallWithCallback();
+    static void staticSlot(const QString &arg)
+    {
+        if (!self) return;
+        ++self->signalsReceived;
+        self->argumentReceived = arg;
+    }
 };
 
 class tst_QDBusConnection: public QObject
@@ -126,6 +134,9 @@ private slots:
     void multipleInterfacesInQObject();
 
     void connectSignal();
+    void connectSignalPMF();
+    void connectSignalStaticFunction();
+    void connectSignalLambda();
     void slotsWithLessParameters();
     void nestedCallWithCallback();
 

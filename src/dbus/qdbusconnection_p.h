@@ -260,7 +260,7 @@ public:
     QDBusConnection::Connection
     connectSignal(const QString &service, const QString &path, const QString &interface,
                   const QString &name, const QStringList &argumentMatch,
-                  QObject *context, QtPrivate::QSlotObjectBase *slotObj,
+                  QObject *context, void **slot, QtPrivate::QSlotObjectBase *slotObj,
                   const int *types);
     bool disconnectSignal(const QDBusConnection::Connection &c);
     void registerObject(const ObjectTreeNode *node);
@@ -318,7 +318,7 @@ public slots:
     void socketWrite(int);
     void objectDestroyed(QObject *o);
     void relaySignal(QObject *obj, const QMetaObject *, int signalId, const QVariantList &args);
-    bool addSignalHook(const QString &key, const SignalHook &hook);
+    bool addSignalHook(const QString &key, const SignalHook &hook, void **slot);
     bool removeSignalHook(const QString &key, const SignalHook &hook);
     bool removeSignalHookByTarget(const QtPrivate::QSlotObjectBase *slotObj);
 
@@ -332,7 +332,8 @@ signals:
     void dispatchStatusChanged();
     void spyHooksFinished(const QDBusMessage &msg);
     void messageNeedsSending(QDBusPendingCallPrivate *pcall, void *msg, int timeout = -1);
-    bool signalNeedsConnecting(const QString &key, const QDBusConnectionPrivate::SignalHook &hook);
+    bool signalNeedsConnecting(const QString &key, const QDBusConnectionPrivate::SignalHook &hook,
+                               void **slot = nullptr);
     bool signalNeedsDisconnecting(const QString &key, const QDBusConnectionPrivate::SignalHook &hook);
     bool signalNeedsDisconnectingByTarget(const QtPrivate::QSlotObjectBase *slotObj);
     void serviceOwnerChanged(const QString &name, const QString &oldOwner, const QString &newOwner);

@@ -55,6 +55,8 @@ void MyObjectWithoutInterface::method(const QDBusMessage &msg)
     //qDebug() << msg;
 }
 
+SignalReceiver *SignalReceiver::self = nullptr;
+
 int tst_QDBusConnection::hookCallCount;
 tst_QDBusConnection::tst_QDBusConnection()
 {
@@ -126,8 +128,8 @@ void tst_QDBusConnection::sendSignalToName()
 
     QDBusConnection con = QDBusConnection::sessionBus();
 
-    con.connect(con.baseService(), "/org/kde/selftest", "org.kde.selftest", "ping", &spy,
-                SLOT(handlePing(QString)));
+    QVERIFY(con.connect(con.baseService(), "/org/kde/selftest", "org.kde.selftest", "ping", &spy,
+                        SLOT(handlePing(QString))));
 
     QDBusMessage msg =
         QDBusMessage::createTargetedSignal(con.baseService(), "/org/kde/selftest",
@@ -151,8 +153,8 @@ void tst_QDBusConnection::sendSignalToOtherName()
 
     QDBusConnection con = QDBusConnection::sessionBus();
 
-    con.connect(con.baseService(), "/org/kde/selftest", "org.kde.selftest", "ping", &spy,
-                SLOT(handlePing(QString)));
+    QVERIFY(con.connect(con.baseService(), "/org/kde/selftest", "org.kde.selftest", "ping", &spy,
+                        SLOT(handlePing(QString))));
 
     QDBusMessage msg =
         QDBusMessage::createTargetedSignal("some.other.service", "/org/kde/selftest",
@@ -230,8 +232,8 @@ void tst_QDBusConnection::connect()
     if (!QCoreApplication::instance())
         return;         // cannot receive signals in this thread without QCoreApplication
 
-    con.connect(con.baseService(), "/org/kde/selftest", "org.kde.selftest", "ping", &spy,
-                 SLOT(handlePing(QString)));
+    QVERIFY(con.connect(con.baseService(), "/org/kde/selftest", "org.kde.selftest", "ping", &spy,
+                        SLOT(handlePing(QString))));
 
     QDBusMessage msg = QDBusMessage::createSignal("/org/kde/selftest", "org.kde.selftest",
                                                   "ping");
@@ -1093,6 +1095,122 @@ void tst_QDBusConnection::connectSignal()
     recv.signalsReceived = 0;
     QVERIFY(!con.connect(con.baseService(), signal.path(), signal.interface(),
                         signal.member(), "s", &recv, SLOT(oneSlot(QString))));
+    QVERIFY(con.send(signal));
+    QTest::qWait(100);
+    QCOMPARE(recv.argumentReceived, signal.arguments().at(0).toString());
+    QCOMPARE(recv.signalsReceived, 1);
+}
+
+void tst_QDBusConnection::connectSignalPMF()
+{
+    if (!QCoreApplication::instance())
+        QSKIP("Test requires a QCoreApplication");
+
+    QDBusConnection con = QDBusConnection::sessionBus();
+
+    QDBusMessage signal = QDBusMessage::createSignal("/", "org.qtproject.TestCase",
+                                                     "oneSignal");
+    signal << "one parameter";
+
+    SignalReceiver recv;
+    void (SignalReceiver:: *pmf)(const QString &);
+    pmf = &SignalReceiver::oneSlot;
+    QDBusConnection::Connection c;
+    QVERIFY((c = con.connect(con.baseService(), signal.path(), signal.interface(),
+                             signal.member(), QStringList(), &recv, pmf)));
+    QVERIFY(con.send(signal));
+    QTest::qWait(100);
+    QCOMPARE(recv.argumentReceived, signal.arguments().at(0).toString());
+    QCOMPARE(recv.signalsReceived, 1);
+
+    // disconnect and retry
+    recv.argumentReceived.clear();
+    recv.signalsReceived = 0;
+    QVERIFY(con.disconnect(c));
+    QVERIFY(!con.disconnect(c));
+    QVERIFY((c = con.connect(con.baseService(), signal.path(), signal.interface(),
+                             signal.member(), QStringList(), &recv, pmf)));
+    QVERIFY(con.send(signal));
+    QTest::qWait(100);
+    QCOMPARE(recv.argumentReceived, signal.arguments().at(0).toString());
+    QCOMPARE(recv.signalsReceived, 1);
+
+    // confirm that we are, indeed, a unique connection
+    recv.argumentReceived.clear();
+    recv.signalsReceived = 0;
+    QVERIFY(!con.connect(con.baseService(), signal.path(), signal.interface(),
+                         signal.member(), QStringList(), &recv, pmf));
+    QVERIFY(con.send(signal));
+    QTest::qWait(100);
+    QCOMPARE(recv.argumentReceived, signal.arguments().at(0).toString());
+    QCOMPARE(recv.signalsReceived, 1);
+}
+
+void tst_QDBusConnection::connectSignalStaticFunction()
+{
+    if (!QCoreApplication::instance())
+        QSKIP("Test requires a QCoreApplication");
+
+    QDBusConnection con = QDBusConnection::sessionBus();
+
+    QDBusMessage signal = QDBusMessage::createSignal("/", "org.qtproject.TestCase",
+                                                     "oneSignal");
+    signal << "one parameter";
+
+    SignalReceiver recv;
+    QDBusConnection::Connection c;
+    QVERIFY((c = con.connect(con.baseService(), signal.path(), signal.interface(),
+                             signal.member(), QStringList(), &recv, &SignalReceiver::staticSlot)));
+    QVERIFY(con.send(signal));
+    QTest::qWait(100);
+    QCOMPARE(recv.argumentReceived, signal.arguments().at(0).toString());
+    QCOMPARE(recv.signalsReceived, 1);
+
+    // disconnect and retry
+    recv.argumentReceived.clear();
+    recv.signalsReceived = 0;
+    QVERIFY(con.disconnect(c));
+    QVERIFY(!con.disconnect(c));
+    QVERIFY((c = con.connect(con.baseService(), signal.path(), signal.interface(),
+                             signal.member(), QStringList(), &recv, &SignalReceiver::staticSlot)));
+    QVERIFY(con.send(signal));
+    QTest::qWait(100);
+    QCOMPARE(recv.argumentReceived, signal.arguments().at(0).toString());
+    QCOMPARE(recv.signalsReceived, 1);
+}
+
+void tst_QDBusConnection::connectSignalLambda()
+{
+    if (!QCoreApplication::instance())
+        QSKIP("Test requires a QCoreApplication");
+
+    QDBusConnection con = QDBusConnection::sessionBus();
+
+    QDBusMessage signal = QDBusMessage::createSignal("/", "org.qtproject.TestCase",
+                                                     "oneSignal");
+    signal << "one parameter";
+
+    SignalReceiver recv;
+    auto lambda = [&recv](const QString &arg) {
+        recv.argumentReceived = arg;
+        ++recv.signalsReceived;
+    };
+
+    QDBusConnection::Connection c;
+    QVERIFY((c = con.connect(con.baseService(), signal.path(), signal.interface(),
+                             signal.member(), QStringList(), &recv, lambda)));
+    QVERIFY(con.send(signal));
+    QTest::qWait(100);
+    QCOMPARE(recv.argumentReceived, signal.arguments().at(0).toString());
+    QCOMPARE(recv.signalsReceived, 1);
+
+    // disconnect and retry
+    recv.argumentReceived.clear();
+    recv.signalsReceived = 0;
+    QVERIFY(con.disconnect(c));
+    QVERIFY(!con.disconnect(c));
+    QVERIFY((c = con.connect(con.baseService(), signal.path(), signal.interface(),
+                             signal.member(), QStringList(), &recv, lambda)));
     QVERIFY(con.send(signal));
     QTest::qWait(100);
     QCOMPARE(recv.argumentReceived, signal.arguments().at(0).toString());

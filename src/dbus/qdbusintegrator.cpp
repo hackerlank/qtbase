@@ -2304,12 +2304,17 @@ bool QDBusConnectionPrivate::connectSignal(const QString &service,
     return emit signalNeedsConnecting(key, hook);
 }
 
+/*!
+    \internal
+    Connects a D-Bus signal to the slot object \a slotObj. This function takes
+    ownership of that slotObj.
+*/
 QDBusConnection::Connection
 QDBusConnectionPrivate::connectSignal(const QString &service, const QString &path,
                                       const QString &interface, const QString &name,
                                       const QStringList &argumentMatch,
-                                      QObject *context, QtPrivate::QSlotObjectBase *slotObj,
-                                      const int *types)
+                                      QObject *context, void **slot,
+                                      QtPrivate::QSlotObjectBase *slotObj, const int *types)
 {
     Q_ASSERT(types);
     Q_ASSERT(slotObj);
@@ -2321,8 +2326,12 @@ QDBusConnectionPrivate::connectSignal(const QString &service, const QString &pat
     for (const int *p = types; *p; ++p, ++typeCount) {
         if (*p != QDBusMetaTypeId::message()) {
             const char *sig = QDBusMetaType::typeToSignature(*p);
-            if (Q_UNLIKELY(!sig))
+            if (Q_UNLIKELY(!sig)) {
+                lastError = QDBusError(QDBusError::InvalidArgs,
+                                       QString::fromLatin1("Type '%1' has not been registered with qDBusRegisterMetaType.")
+                                       .arg(QLatin1String(QMetaType::typeName(*p))));
                 return QDBusConnection::Connection();
+            }
             hook.signature += QLatin1String(sig);
         }
     }
@@ -2341,18 +2350,24 @@ QDBusConnectionPrivate::connectSignal(const QString &service, const QString &pat
     QString key = name + QLatin1Char(':') + interface;
     slotObj->ref();
     Q_ASSERT(thread() != QThread::currentThread());
-    emit signalNeedsConnecting(key, hook);
-    return QDBusConnection::Connection(slotObj);
+    if (emit signalNeedsConnecting(key, hook, slot))
+        return QDBusConnection::Connection(slotObj);
+
+    slotObj->destroyIfLastRef();
+    return QDBusConnection::Connection();
 }
 
-bool QDBusConnectionPrivate::addSignalHook(const QString &key, const SignalHook &hook)
+bool QDBusConnectionPrivate::addSignalHook(const QString &key, const SignalHook &hook, void **slot)
 {
+    Q_ASSERT(hook.slotObj || hook.midx != -1);
+    Q_ASSERT(!slot || hook.slotObj);        // if slot is non-null, so must be hook.slotObj
+
     QDBusWriteLocker locker(ConnectAction, this);
 
     // avoid duplicating:
     QDBusConnectionPrivate::SignalHookHash::ConstIterator it = signalHooks.constFind(key);
     QDBusConnectionPrivate::SignalHookHash::ConstIterator end = signalHooks.constEnd();
-    if (hook.midx != -1) {
+    if (hook.midx != -1 || slot) {
         for ( ; it != end && it.key() == key; ++it) {
             const QDBusConnectionPrivate::SignalHook &entry = it.value();
             if (entry.service == hook.service &&
@@ -2361,6 +2376,12 @@ bool QDBusConnectionPrivate::addSignalHook(const QString &key, const SignalHook 
                     entry.obj == hook.obj &&
                     entry.midx == hook.midx &&
                     entry.argumentMatch == hook.argumentMatch) {
+                if (slot && entry.slotObj) {
+                    // compare slot PMFs pointers too
+                    if (entry.slotObj->compare(slot))
+                        return false;
+                    continue;
+                }
                 // no need to compare the parameters if it's the same slot
                 return false;     // already there
             }
@@ -2637,7 +2658,7 @@ QDBusConnectionPrivate::watchService(const QString &service, QDBusServiceWatcher
     QStringList matchArgs = matchArgsForService(service, mode);
     auto slotObj = new SlotObject(f);
     return connectSignal(QDBusUtil::dbusService(), QString(), QDBusUtil::dbusInterface(),
-                         QDBusUtil::nameOwnerChanged(), matchArgs, obj, slotObj,
+                         QDBusUtil::nameOwnerChanged(), matchArgs, obj, nullptr, slotObj,
                          functionTypes);
 }
 

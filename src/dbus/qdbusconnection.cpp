@@ -71,6 +71,32 @@ QT_BEGIN_NAMESPACE
 
 Q_GLOBAL_STATIC(QDBusConnectionManager, _q_manager)
 
+static bool checkArgumentsForConnect(const QString &service, const QString &path,
+                                     const QString &interface, const QString &name)
+{
+    if (interface.isEmpty() && name.isEmpty())
+        return false;
+    if (!interface.isEmpty() && !QDBusUtil::isValidInterfaceName(interface)) {
+#ifndef QT_NO_DEBUG
+        qWarning("QDBusConnection::connect: interface name '%s' is not valid", interface.toLatin1().constData());
+#endif
+        return false;
+    }
+    if (!service.isEmpty() && !QDBusUtil::isValidBusName(service)) {
+#ifndef QT_NO_DEBUG
+        qWarning("QDBusConnection::connect: service name '%s' is not valid", service.toLatin1().constData());
+#endif
+        return false;
+    }
+    if (!path.isEmpty() && !QDBusUtil::isValidObjectPath(path)) {
+#ifndef QT_NO_DEBUG
+        qWarning("QDBusConnection::connect: object path '%s' is not valid", path.toLatin1().constData());
+#endif
+        return false;
+    }
+    return true;
+}
+
 struct QDBusConnectionManager::ConnectionRequestData
 {
     enum RequestType {
@@ -777,29 +803,40 @@ bool QDBusConnection::connect(const QString &service, const QString &path, const
 
     if (!receiver || !slot || !d || !d->connection)
         return false;
-    if (interface.isEmpty() && name.isEmpty())
+    if (!checkArgumentsForConnect(service, path, interface, name))
         return false;
-    if (!interface.isEmpty() && !QDBusUtil::isValidInterfaceName(interface)) {
-#ifndef QT_NO_DEBUG
-        qWarning("QDBusConnection::connect: interface name '%s' is not valid", interface.toLatin1().constData());
-#endif
-        return false;
-    }
-    if (!service.isEmpty() && !QDBusUtil::isValidBusName(service)) {
-#ifndef QT_NO_DEBUG
-        qWarning("QDBusConnection::connect: service name '%s' is not valid", service.toLatin1().constData());
-#endif
-        return false;
-    }
-    if (!path.isEmpty() && !QDBusUtil::isValidObjectPath(path)) {
-#ifndef QT_NO_DEBUG
-        qWarning("QDBusConnection::connect: object path '%s' is not valid", path.toLatin1().constData());
-#endif
-        return false;
-    }
 
     return d->connectSignal(service, path, interface, name, argumentMatch, signature, receiver, slot);
 }
+
+/*!
+    \internal
+    \since 5.8
+    Used by the template connect() functions.
+*/
+QDBusConnection::Connection
+QDBusConnection::connectImpl(const QString &service, const QString &path, const QString &interface,
+                             const QString &name, const QStringList &argumentMatch,
+                             QObject *receiver, void **slot, QtPrivate::QSlotObjectBase *slotObj,
+                             const int *types)
+{
+    if (!receiver || !d || !d->connection)
+        return Connection();
+    if (!checkArgumentsForConnect(service, path, interface, name))
+        return Connection();
+    if (!types) {
+        qWarning("QDBusConnection::connect: cannot connect to receiver when some types aren't "
+                 "declared as metatypes. Please declare and register them before connecting.");
+        return Connection();
+    } else {
+        // check that all types are known
+    }
+
+    return d->connectSignal(service, path, interface, name, argumentMatch, receiver,
+                            slot, slotObj, types);
+}
+
+
 
 /*!
     Disconnects the signal specified by the \a service, \a path, \a interface
@@ -854,6 +891,22 @@ bool QDBusConnection::disconnect(const QString &service, const QString &path, co
         return false;
 
     return d->disconnectSignal(service, path, interface, name, argumentMatch, signature, receiver, slot);
+}
+
+/*!
+    \overload
+    \since 5.8
+
+    Disconnects the connection \a connection established with the template
+    overloads of connect().
+
+    Returns \c true if the disconnection was successful, false otherwise.
+ */
+bool QDBusConnection::disconnect(const QDBusConnection::Connection &connection)
+{
+    if (!d)
+        return false;
+    return d->disconnectSignal(connection);
 }
 
 /*!

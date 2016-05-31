@@ -49,7 +49,6 @@
 
 QT_BEGIN_NAMESPACE
 
-
 namespace QDBus
 {
     enum CallMode {
@@ -194,6 +193,7 @@ public:
     bool disconnect(const QString &service, const QString &path, const QString &interface,
                     const QString &name, const QStringList &argumentMatch, const QString& signature,
                     QObject *receiver, const char *slot);
+    bool disconnect(const Connection &connection);
 
     bool registerObject(const QString &path, QObject *object,
                         RegisterOptions options = ExportAdaptors);
@@ -227,6 +227,81 @@ public:
     static QT_DEPRECATED_X("This function no longer works, use QDBusContext instead")
     QDBusConnection sender();
 #endif
+
+#ifdef Q_QDOC
+    QDBusConnection::Connection connect(const QString &service, const QString &path, const QString &interface,
+                                        const QString &name, const QStringList &argumentMatch,
+                                        const QObject *receiver, PointerToMemberFunction method);
+    QDBusConnection::Connection connect(const QString &service, const QString &path, const QString &interface,
+                                        const QString &name, const QStringList &argumentMatch,
+                                        const QObject *context, Functor functor);
+#elif !defined(QT_NO_QOBJECT)
+    //Connect a D-Bus signal to a pointer to qobject member function
+    template <typename Func2>
+    Connection connect(const QString &service, const QString &path, const QString &interface,
+                       const QString &name, const QStringList &argumentMatch,
+                       typename QtPrivate::FunctionPointer<Func2>::Object *receiver, Func2 slot)
+    {
+        using namespace QtPrivate;
+        typedef FunctionPointer<Func2> SlotType;
+        typedef QSlotObject<Func2, typename SlotType::Arguments, void> SlotObject;
+        typedef typename SlotType::template ChangeClass<QObject>::Type StoredFunc2;
+        StoredFunc2 storedSlot = static_cast<StoredFunc2>(slot);
+
+        const int *types = ConnectionTypes<typename SlotType::Arguments>::types();
+        if (SlotType::ArgumentCount == 0)
+            types = reinterpret_cast<const int *>(1);
+
+        return connectImpl(service, path, interface, name, argumentMatch,
+                           receiver, reinterpret_cast<void **>(&storedSlot),
+                           new SlotObject(slot), types);
+    }
+
+    // Connect a D-Bus signal to a static member or non-member function
+    template <typename Func2>
+    typename QtPrivate::QEnableIf<int(QtPrivate::FunctionPointer<Func2>::ArgumentCount) >= 0 &&
+                                  !QtPrivate::FunctionPointer<Func2>::IsPointerToMemberFunction, Connection>::Type
+            connect(const QString &service, const QString &path, const QString &interface,
+                    const QString &name, const QStringList &argumentMatch,
+                    QObject *context, Func2 slot)
+    {
+        using namespace QtPrivate;
+        typedef FunctionPointer<Func2> SlotType;
+        typedef QStaticSlotObject<Func2, typename SlotType::Arguments, void> SlotObject;
+
+        const int *types = ConnectionTypes<typename SlotType::Arguments>::types();
+        if (SlotType::ArgumentCount == 0)
+            types = reinterpret_cast<const int *>(1);
+
+        return connectImpl(service, path, interface, name, argumentMatch,
+                           context, nullptr, new SlotObject(slot), types);
+    }
+
+    // Connect a D-Bus signal to a functor
+    template <typename Func2>
+    typename QtPrivate::QEnableIf<int(QtPrivate::FunctionPointer<Func2>::ArgumentCount) == -1, Connection>::Type
+            connect(const QString &service, const QString &path, const QString &interface,
+                    const QString &name, const QStringList &argumentMatch,
+                    QObject *context, Func2 slot)
+    {
+        using namespace QtPrivate;
+        typedef FunctionPointer<decltype(&Func2::operator())> SlotType;
+        typedef QFunctorSlotObject<Func2, SlotType::ArgumentCount, typename SlotType::Arguments, void> SlotObject;
+
+        const int *types = ConnectionTypes<typename SlotType::Arguments>::types();
+        if (SlotType::ArgumentCount == 0)
+            types = reinterpret_cast<const int *>(1);
+
+        return connectImpl(service, path, interface, name, argumentMatch,
+                           context, nullptr, new SlotObject(slot), types);
+    }
+
+private:
+    Connection connectImpl(const QString &service, const QString &path, const QString &interface,
+                           const QString &name, const QStringList &argumentMatch,
+                           QObject *receiver, void **slot, QtPrivate::QSlotObjectBase *slotObj,
+                           const int *types);
+#endif // !Q_QDOC && !QT_NO_QOBJECT
 
 protected:
     explicit QDBusConnection(QDBusConnectionPrivate *dd);

@@ -126,6 +126,30 @@ public:
     };
     Q_DECLARE_FLAGS(ConnectionCapabilities, ConnectionCapability)
 
+    class Connection {
+        void *d_ptr;
+        explicit Connection(void *data) : d_ptr(data) {  }
+        friend class QDBusConnectionPrivate;
+    public:
+        ~Connection();
+        Connection() : d_ptr(nullptr) {}
+        Connection(const Connection &other);
+        Connection &operator=(const Connection &other);
+#ifdef Q_QDOC
+        operator bool() const;
+#else
+        typedef void *Connection::*RestrictedBool;
+        operator RestrictedBool() const { return d_ptr ? &Connection::d_ptr : nullptr; }
+#endif
+
+        inline Connection(Connection &&o) : d_ptr(o.d_ptr) { o.d_ptr = nullptr; }
+        inline Connection &operator=(Connection &&other)
+        { qSwap(d_ptr, other.d_ptr); return *this; }
+
+        void swap(QDBusConnection::Connection &other) Q_DECL_NOTHROW
+        { qSwap(d_ptr, other.d_ptr); }
+    };
+
     explicit QDBusConnection(const QString &name);
     QDBusConnection(const QDBusConnection &other);
 #ifdef Q_COMPILER_RVALUE_REFS
@@ -212,6 +236,7 @@ private:
     QDBusConnectionPrivate *d;
 };
 Q_DECLARE_SHARED_NOT_MOVABLE_UNTIL_QT6(QDBusConnection)
+Q_DECLARE_SHARED(QDBusConnection::Connection)
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(QDBusConnection::RegisterOptions)
 Q_DECLARE_OPERATORS_FOR_FLAGS(QDBusConnection::VirtualObjectRegisterOptions)

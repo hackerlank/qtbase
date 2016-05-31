@@ -108,10 +108,14 @@ public:
                            const QDBusMessage &msg, const QVector<int> &types, int f = 0)
         : QMetaCallEvent(0, id, 0, sender, -1), connection(c), message(msg), metaTypes(types), flags(f)
         { }
+    QDBusCallDeliveryEvent(const QDBusConnection &c, QtPrivate::QSlotObjectBase *slotObj,
+                           QObject *sender, const QDBusMessage &msg, const QVector<int> &types, int f = 0)
+        : QMetaCallEvent(slotObj, sender, -1), connection(c), message(msg), metaTypes(types), flags(f)
+        { }
 
     void placeMetaCall(QObject *object) Q_DECL_OVERRIDE
     {
-        QDBusConnectionPrivate::d(connection)->deliverCall(object, flags, message, metaTypes, id());
+        QDBusConnectionPrivate::d(connection)->deliverCall(object, flags, message, metaTypes, id(), slotObject());
     }
 
 private:

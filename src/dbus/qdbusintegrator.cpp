@@ -761,6 +761,83 @@ static int findSlot(const QMetaObject *mo, const QByteArray &name, int flags,
 }
 
 /*!
+    \class QDBusConnection::Connection
+    \inmodule QtDBus
+
+    Represents a handle to a signal-slot connection. It can be used to
+    disconnect that connection, or check if the connection was successful
+
+    \sa QMetaObject::Connection, QDBusConection::disconnect()
+*/
+
+/*!
+    \fn QDBusConnection::Connection::Connection()
+
+    Creates an empty Connection object that is equivalent to a connection that
+    did not succeed.
+*/
+
+/*!
+    Disposes of this object and frees resources, if any.
+*/
+QDBusConnection::Connection::~Connection()
+{
+    auto slotObj = static_cast<QtPrivate::QSlotObjectBase *>(d_ptr);
+    if (slotObj)
+        slotObj->destroyIfLastRef();
+}
+
+/*!
+    Copies \a other.
+ */
+QDBusConnection::Connection::Connection(const Connection &other)
+    : d_ptr(other.d_ptr)
+{
+    auto slotObj = static_cast<QtPrivate::QSlotObjectBase *>(d_ptr);
+    if (slotObj)
+        slotObj->ref();
+}
+
+/*!
+    \fn QDBusConnection::Connection::Connection(Connection &&other)
+
+    Moves the content from the \a other object into this object.
+*/
+
+/*!
+    Copies \a other.
+ */
+QDBusConnection::Connection &QDBusConnection::Connection::operator=(const Connection &other)
+{
+    auto slotObj = static_cast<QtPrivate::QSlotObjectBase *>(d_ptr);
+    auto otherSlotObj = static_cast<QtPrivate::QSlotObjectBase *>(other.d_ptr);
+    otherSlotObj->ref();
+    slotObj->destroyIfLastRef();
+    d_ptr = other.d_ptr;
+    return *this;
+}
+
+/*!
+    \fn QDBusConnection::Connection &QDBusConnection::Connection::operator=(Connection &&other)
+
+    Moves the content from the \a other object into this object and returns this object.
+*/
+
+/*!
+    \fn QDBusConnection::Connection::operator bool() const
+
+    Returns true if the connection succeeded. Note that, unlike
+    QMetaObject::Connection, if the connection is later disconnected, the
+    result from this function will not be updated.
+*/
+
+/*!
+    \fn void QDBusConnection::Connection::swap(QDBusConnection &other)
+
+    Swaps the contents of this Connection object with that of the \a other object.
+*/
+
+/*!
     \internal
     Enables or disables the delivery of incoming method calls and signals. If
     \a enable is true, this will also cause any queued, pending messages to be
@@ -778,12 +855,10 @@ static QDBusCallDeliveryEvent * const DIRECT_DELIVERY = (QDBusCallDeliveryEvent 
 
 QDBusCallDeliveryEvent* QDBusConnectionPrivate::prepareReply(QDBusConnectionPrivate *target,
                                                              QObject *object, int idx,
+                                                             QtPrivate::QSlotObjectBase *slotObj,
                                                              const QVector<int> &metaTypes,
                                                              const QDBusMessage &msg)
 {
-    Q_ASSERT(object);
-    Q_UNUSED(object);
-
     int n = metaTypes.count() - 1;
     if (metaTypes[n] == QDBusMetaTypeId::message())
         --n;
@@ -801,6 +876,8 @@ QDBusCallDeliveryEvent* QDBusConnectionPrivate::prepareReply(QDBusConnectionPriv
     // prepare for the call
     if (target == object)
         return DIRECT_DELIVERY;
+    if (slotObj)
+        return new QDBusCallDeliveryEvent(QDBusConnection(target), slotObj, target, msg, metaTypes);
     return new QDBusCallDeliveryEvent(QDBusConnection(target), idx, target, msg, metaTypes);
 }
 
@@ -814,11 +891,11 @@ void QDBusConnectionPrivate::activateSignal(const QDBusConnectionPrivate::Signal
     // Slots can have less parameters than there are on the message
     // Slots can optionally have one final parameter that is a QDBusMessage
     // Slots receive read-only copies of the message (i.e., pass by value or by const-ref)
-    QDBusCallDeliveryEvent *call = prepareReply(this, hook.obj, hook.midx, hook.params, msg);
+    QDBusCallDeliveryEvent *call = prepareReply(this, hook.obj, hook.midx, hook.slotObj, hook.params, msg);
     if (call == DIRECT_DELIVERY) {
         // short-circuit delivery
         Q_ASSERT(this == hook.obj);
-        deliverCall(this, 0, msg, hook.params, hook.midx);
+        deliverCall(this, 0, msg, hook.params, hook.midx, hook.slotObj);
         return;
     }
     if (call)
@@ -900,21 +977,22 @@ bool QDBusConnectionPrivate::activateCall(QObject* object, int flags, const QDBu
         object->setProperty(cachePropertyName, QVariant::fromValue(slotCache));
 
         // found the slot to be called
-        deliverCall(object, flags, msg, slotData.metaTypes, slotData.slotIdx);
+        deliverCall(object, flags, msg, slotData.metaTypes, slotData.slotIdx, nullptr);
         return true;
     } else if (cacheIt->slotIdx == -1) {
         // negative cache
         return false;
     } else {
         // use the cache
-        deliverCall(object, flags, msg, cacheIt->metaTypes, cacheIt->slotIdx);
+        deliverCall(object, flags, msg, cacheIt->metaTypes, cacheIt->slotIdx, nullptr);
         return true;
     }
     return false;
 }
 
-void QDBusConnectionPrivate::deliverCall(QObject *object, int /*flags*/, const QDBusMessage &msg,
-                                         const QVector<int> &metaTypes, int slotIdx)
+void QDBusConnectionPrivate::deliverCall(QObject *object, int /*flags */, const QDBusMessage &msg,
+                                         const QVector<int> &metaTypes, int slotIdx,
+                                         QtPrivate::QSlotObjectBase *slotObj)
 {
     Q_ASSERT_X(!object || QThread::currentThread() == object->thread(),
                "QDBusConnection: internal threading error",
@@ -989,16 +1067,24 @@ void QDBusConnectionPrivate::deliverCall(QObject *object, int /*flags*/, const Q
 
     // make call:
     bool fail;
-    if (!object) {
+    if (!object && !slotObj) {
         fail = true;
     } else {
         // FIXME: save the old sender!
         QDBusContextPrivate context(QDBusConnection(this), msg);
-        QDBusContextPrivate *old = QDBusContextPrivate::set(object, &context);
+        QDBusContextPrivate *old = nullptr;
+        if (object)
+            old = QDBusContextPrivate::set(object, &context);
 
         QPointer<QObject> ptr = object;
-        fail = object->qt_metacall(QMetaObject::InvokeMetaMethod,
-                                   slotIdx, params.data()) >= 0;
+        if (slotObj) {
+            slotObj->call(object, params.data());
+            fail = false;
+        } else {
+            fail = object->qt_metacall(QMetaObject::InvokeMetaMethod,
+                                       slotIdx, params.data()) >= 0;
+        }
+
         // the object might be deleted in the slot
         if (!ptr.isNull())
             QDBusContextPrivate::set(object, old);
@@ -1051,6 +1137,8 @@ QDBusConnectionPrivate::QDBusConnectionPrivate(QObject *p)
             this, &QDBusConnectionPrivate::addSignalHook, Qt::BlockingQueuedConnection);
     connect(this, &QDBusConnectionPrivate::signalNeedsDisconnecting,
             this, &QDBusConnectionPrivate::removeSignalHook, Qt::BlockingQueuedConnection);
+    connect(this, &QDBusConnectionPrivate::signalNeedsDisconnectingByTarget,
+            this, &QDBusConnectionPrivate::removeSignalHookByTarget, Qt::BlockingQueuedConnection);
 
     rootNode.flags = 0;
 
@@ -1896,7 +1984,7 @@ void QDBusConnectionPrivate::processFinishedCall(QDBusPendingCallPrivate *call)
         // The slot receives read-only copies of the message (i.e., pass by value or by const-ref)
 
         QDBusCallDeliveryEvent *e = prepareReply(connection, call->receiver, call->methodIdx,
-                                                 call->metaTypes, msg);
+                                                 nullptr, call->metaTypes, msg);
         if (e)
             connection->postEventToThread(MessageResultReceivedAction, call->receiver, e);
         else
@@ -2216,6 +2304,47 @@ bool QDBusConnectionPrivate::connectSignal(const QString &service,
     return emit signalNeedsConnecting(key, hook);
 }
 
+QDBusConnection::Connection
+QDBusConnectionPrivate::connectSignal(const QString &service, const QString &path,
+                                      const QString &interface, const QString &name,
+                                      const QStringList &argumentMatch,
+                                      QObject *context, QtPrivate::QSlotObjectBase *slotObj,
+                                      const int *types)
+{
+    Q_ASSERT(types);
+    Q_ASSERT(slotObj);
+
+    QDBusConnectionPrivate::SignalHook hook;
+
+    // begin by building the signature from the metatypes
+    int typeCount = 0;
+    for (const int *p = types; *p; ++p, ++typeCount) {
+        if (*p != QDBusMetaTypeId::message()) {
+            const char *sig = QDBusMetaType::typeToSignature(*p);
+            if (Q_UNLIKELY(!sig))
+                return QDBusConnection::Connection();
+            hook.signature += QLatin1String(sig);
+        }
+    }
+
+    hook.service = service;
+    hook.path = path;
+    hook.obj = context;
+    hook.slotObj = slotObj;
+    hook.argumentMatch = argumentMatch;
+    hook.params.resize(typeCount + 1);
+    hook.params[0] = QMetaType::Void;   // return type
+    std::copy(types, types + typeCount, hook.params.begin() + 1);
+
+    hook.matchRule = buildMatchRule(service, path, interface, name, argumentMatch, hook.signature);
+
+    QString key = name + QLatin1Char(':') + interface;
+    slotObj->ref();
+    Q_ASSERT(thread() != QThread::currentThread());
+    emit signalNeedsConnecting(key, hook);
+    return QDBusConnection::Connection(slotObj);
+}
+
 bool QDBusConnectionPrivate::addSignalHook(const QString &key, const SignalHook &hook)
 {
     QDBusWriteLocker locker(ConnectAction, this);
@@ -2223,22 +2352,26 @@ bool QDBusConnectionPrivate::addSignalHook(const QString &key, const SignalHook 
     // avoid duplicating:
     QDBusConnectionPrivate::SignalHookHash::ConstIterator it = signalHooks.constFind(key);
     QDBusConnectionPrivate::SignalHookHash::ConstIterator end = signalHooks.constEnd();
-    for ( ; it != end && it.key() == key; ++it) {
-        const QDBusConnectionPrivate::SignalHook &entry = it.value();
-        if (entry.service == hook.service &&
-            entry.path == hook.path &&
-            entry.signature == hook.signature &&
-            entry.obj == hook.obj &&
-            entry.midx == hook.midx &&
-            entry.argumentMatch == hook.argumentMatch) {
-            // no need to compare the parameters if it's the same slot
-            return false;     // already there
+    if (hook.midx != -1) {
+        for ( ; it != end && it.key() == key; ++it) {
+            const QDBusConnectionPrivate::SignalHook &entry = it.value();
+            if (entry.service == hook.service &&
+                    entry.path == hook.path &&
+                    entry.signature == hook.signature &&
+                    entry.obj == hook.obj &&
+                    entry.midx == hook.midx &&
+                    entry.argumentMatch == hook.argumentMatch) {
+                // no need to compare the parameters if it's the same slot
+                return false;     // already there
+            }
         }
     }
 
     signalHooks.insertMulti(key, hook);
-    connect(hook.obj, &QObject::destroyed, this, &QDBusConnectionPrivate::objectDestroyed,
-            Qt::ConnectionType(Qt::BlockingQueuedConnection | Qt::UniqueConnection));
+
+    if (hook.obj)
+        connect(hook.obj, &QObject::destroyed, this, &QDBusConnectionPrivate::objectDestroyed,
+                Qt::ConnectionType(Qt::BlockingQueuedConnection | Qt::UniqueConnection));
 
     MatchRefCountHash::iterator mit = matchRefCounts.find(hook.matchRule);
 
@@ -2294,10 +2427,16 @@ bool QDBusConnectionPrivate::disconnectSignal(const QString &service,
     return emit signalNeedsDisconnecting(key, hook);
 }
 
+bool QDBusConnectionPrivate::disconnectSignal(const QDBusConnection::Connection &c)
+{
+    Q_ASSERT(thread() != QThread::currentThread());
+    return emit signalNeedsDisconnectingByTarget(static_cast<const QtPrivate::QSlotObjectBase *>(c.d_ptr));
+}
+
 bool QDBusConnectionPrivate::removeSignalHook(const QString &key, const SignalHook &hook)
 {
     // remove it from our list:
-    QDBusWriteLocker locker(ConnectAction, this);
+    QDBusWriteLocker locker(DisconnectAction, this);
     QDBusConnectionPrivate::SignalHookHash::Iterator it = signalHooks.find(key);
     QDBusConnectionPrivate::SignalHookHash::Iterator end = signalHooks.end();
     for ( ; it != end && it.key() == key; ++it) {
@@ -2315,6 +2454,23 @@ bool QDBusConnectionPrivate::removeSignalHook(const QString &key, const SignalHo
     }
 
     // the slot was not found
+    return false;
+}
+
+bool QDBusConnectionPrivate::removeSignalHookByTarget(const QtPrivate::QSlotObjectBase *slotObj)
+{
+    QDBusWriteLocker locker(DisconnectAction, this);
+    auto it = signalHooks.begin();
+    auto end = signalHooks.end();
+    for ( ; it != end; ++it) {
+        if (it->slotObj == slotObj) {
+            // found the correct entry
+            removeSignalHookNoLock(it);
+            return true;
+        }
+    }
+
+    // not found
     return false;
 }
 

@@ -425,6 +425,7 @@ public:
     ~QMetaCallEvent();
 
     inline int id() const { return method_offset_ + method_relative_; }
+    inline QtPrivate::QSlotObjectBase *slotObject() { return slotObj_; }
     inline const QObject *sender() const { return sender_; }
     inline int signalId() const { return signalId_; }
     inline void **args() const { return args_; }

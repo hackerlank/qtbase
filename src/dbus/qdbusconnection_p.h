@@ -124,13 +124,48 @@ public:
 
     struct SignalHook
     {
-        inline SignalHook() : obj(0), midx(-1) { }
+        inline SignalHook() : obj(nullptr), slotObj(nullptr), midx(-1) { }
+        SignalHook(const SignalHook &other)
+            : service(other.service),
+              path(other.path),
+              signature(other.signature),
+              obj(other.obj),
+              slotObj(other.slotObj),
+              params(other.params),
+              argumentMatch(other.argumentMatch),
+              matchRule(other.matchRule),
+              midx(other.midx)
+        {
+            if (slotObj)
+                slotObj->ref();
+        }
+
+        SignalHook(SignalHook &&other)
+            : service(std::move(other.service)),
+              path(std::move(other.path)),
+              signature(std::move(other.signature)),
+              obj(std::move(other.obj)),
+              slotObj(std::move(other.slotObj)),
+              params(std::move(other.params)),
+              argumentMatch(std::move(other.argumentMatch)),
+              matchRule(std::move(other.matchRule)),
+              midx(std::move(other.midx))
+        {
+            other.slotObj = nullptr;
+        }
+
+        SignalHook &operator=(const SignalHook &other) = delete;
+
+        ~SignalHook()
+        { if (slotObj) slotObj->destroyIfLastRef(); }
+
         QString service, path, signature;
         QObject* obj;
-        int midx;
+        QtPrivate::QSlotObjectBase *slotObj;
         QVector<int> params;
         QStringList argumentMatch;
         QByteArray matchRule;
+        int midx;
     };
 
     enum TreeNodeType {
@@ -223,6 +258,12 @@ public:
     bool disconnectSignal(const QString &service, const QString &path, const QString& interface,
                           const QString &name, const QStringList &argumentMatch, const QString &signature,
                           QObject *receiver, const char *slot);
+    QDBusConnection::Connection
+    connectSignal(const QString &service, const QString &path, const QString &interface,
+                  const QString &name, const QStringList &argumentMatch,
+                  QObject *context, QtPrivate::QSlotObjectBase *slotObj,
+                  const int *types);
+    bool disconnectSignal(const QDBusConnection::Connection &c);
     void registerObject(const ObjectTreeNode *node);
     void unregisterObject(const QString &path, QDBusConnection::UnregisterMode mode);
     void connectRelay(const QString &service,
@@ -257,7 +298,7 @@ private:
     void sendInternal(QDBusPendingCallPrivate *pcall, void *msg, int timeout);
     void sendError(const QDBusMessage &msg, QDBusError::ErrorType code);
     void deliverCall(QObject *object, int flags, const QDBusMessage &msg,
-                     const QVector<int> &metaTypes, int slotIdx);
+                     const QVector<int> &metaTypes, int slotIdx, QtPrivate::QSlotObjectBase *slotObj);
 
     SignalHookHash::Iterator removeSignalHookNoLock(SignalHookHash::Iterator it);
     void collectAllObjects(ObjectTreeNode &node, QSet<QObject *> &set);
@@ -280,6 +321,7 @@ public slots:
     void relaySignal(QObject *obj, const QMetaObject *, int signalId, const QVariantList &args);
     bool addSignalHook(const QString &key, const SignalHook &hook);
     bool removeSignalHook(const QString &key, const SignalHook &hook);
+    bool removeSignalHookByTarget(const QtPrivate::QSlotObjectBase *slotObj);
 
 private slots:
     void serviceOwnerChangedNoLock(const QString &name, const QString &oldOwner, const QString &newOwner);
@@ -293,6 +335,7 @@ signals:
     void messageNeedsSending(QDBusPendingCallPrivate *pcall, void *msg, int timeout = -1);
     bool signalNeedsConnecting(const QString &key, const QDBusConnectionPrivate::SignalHook &hook);
     bool signalNeedsDisconnecting(const QString &key, const QDBusConnectionPrivate::SignalHook &hook);
+    bool signalNeedsDisconnectingByTarget(const QtPrivate::QSlotObjectBase *slotObj);
     void serviceOwnerChanged(const QString &name, const QString &oldOwner, const QString &newOwner);
     void callWithCallbackFailed(const QDBusError &error, const QDBusMessage &message);
     void newServerConnection(QDBusConnectionPrivate *newConnection);
@@ -350,8 +393,8 @@ public:
                                       int idx, const QList<int> &metaTypes,
                                       const QDBusMessage &msg);
     static QDBusCallDeliveryEvent *prepareReply(QDBusConnectionPrivate *target, QObject *object,
-                                                int idx, const QVector<int> &metaTypes,
-                                                const QDBusMessage &msg);
+                                                int idx, QtPrivate::QSlotObjectBase *slotObj,
+                                                const QVector<int> &metaTypes, const QDBusMessage &msg);
     static void processFinishedCall(QDBusPendingCallPrivate *call);
 
     static QDBusConnectionPrivate *d(const QDBusConnection& q) { return q.d; }

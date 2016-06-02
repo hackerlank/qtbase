@@ -331,17 +331,21 @@ private:
 
     static void impl(int which, QSlotObjectBase *this_, QObject *r, void **a, bool *ret)
     {
+        auto that = static_cast<QPrivateSlotObject*>(this_);
         switch (which) {
             case Destroy:
-                delete static_cast<QPrivateSlotObject*>(this_);
+                delete that;
                 break;
-            case Call:
-                FuncType::template call<Args, R>(static_cast<QPrivateSlotObject*>(this_)->function,
-                                                 static_cast<typename FuncType::Object *>(QObjectPrivate::get(r)), a);
+            case Call: {
+                auto d = static_cast<typename FuncType::Object *>(QObjectPrivate::get(r));
+                FuncType::template call<Args, R>(that->function, d, a);
                 break;
-            case Compare:
-                *ret = *reinterpret_cast<const Magic *>(a) == static_cast<QPrivateSlotObject*>(this_)->function;
+            }
+            case Compare: {
+                auto magic = reinterpret_cast<const Magic *>(a);
+                *ret = (*magic == that->function);
                 break;
+            }
             case NumOperations: ;
         }
     }

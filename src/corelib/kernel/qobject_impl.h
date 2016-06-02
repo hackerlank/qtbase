@@ -114,15 +114,16 @@ namespace QtPrivate {
         StoredFunc function;
         static void impl(int which, QSlotObjectBase *this_, QObject *r, void **a, bool *ret)
         {
+            auto that = static_cast<QSlotObject*>(this_);
             switch (which) {
             case Destroy:
-                delete static_cast<QSlotObject*>(this_);
+                delete that;
                 break;
             case Call:
-                FuncType::template call<Args, R>(static_cast<QSlotObject*>(this_)->function, static_cast<typename FuncType::Object *>(r), a);
+                FuncType::template call<Args, R>(that->function, static_cast<typename FuncType::Object *>(r), a);
                 break;
             case Compare:
-                *ret = *reinterpret_cast<StoredFunc *>(a) == static_cast<QSlotObject*>(this_)->function;
+                *ret = *reinterpret_cast<StoredFunc *>(a) == that->function;
                 break;
             case NumOperations: ;
             }
@@ -138,12 +139,13 @@ namespace QtPrivate {
         Func function;
         static void impl(int which, QSlotObjectBase *this_, QObject *r, void **a, bool *ret)
         {
+            auto that = static_cast<QStaticSlotObject*>(this_);
             switch (which) {
             case Destroy:
-                delete static_cast<QStaticSlotObject*>(this_);
+                delete that;
                 break;
             case Call:
-                FuncType::template call<Args, R>(static_cast<QStaticSlotObject*>(this_)->function, r, a);
+                FuncType::template call<Args, R>(that->function, r, a);
                 break;
             case Compare:   // not implemented
             case NumOperations:
@@ -162,12 +164,13 @@ namespace QtPrivate {
         Func function;
         static void impl(int which, QSlotObjectBase *this_, QObject *r, void **a, bool *ret)
         {
+            auto that = static_cast<QFunctorSlotObject*>(this_);
             switch (which) {
             case Destroy:
-                delete static_cast<QFunctorSlotObject*>(this_);
+                delete that;
                 break;
             case Call:
-                FuncType::template call<Args, R>(static_cast<QFunctorSlotObject*>(this_)->function, r, a);
+                FuncType::template call<Args, R>(that->function, r, a);
                 break;
             case Compare: // not implemented
             case NumOperations:

@@ -93,11 +93,9 @@ QT_BEGIN_NAMESPACE
 Q_CORE_EXPORT const QVariant::Handler *qcoreVariantHandler();
 
 namespace {
+template<typename T>
 struct GuiTypesFilter {
-    template<typename T>
-    struct Acceptor {
-        static const bool IsAccepted = QModulesPrivate::QTypeModuleInfo<T>::IsGui && QtMetaTypePrivate::TypeDefinition<T>::IsAvailable;
-    };
+    static const bool IsAccepted = QModulesPrivate::QTypeModuleInfo<T>::IsGui && QtMetaTypePrivate::TypeDefinition<T>::IsAvailable;
 };
 
 static void construct(QVariant::Private *x, const void *copy)
@@ -114,7 +112,7 @@ static void clear(QVariant::Private *d)
 }
 
 // This class is a hack that customizes access to QPolygon and QPolygonF
-template<class Filter>
+template<template <typename> class Filter>
 class QGuiVariantIsNull : public QVariantIsNull<Filter> {
     typedef QVariantIsNull<Filter> Base;
 public:
@@ -134,7 +132,7 @@ static bool isNull(const QVariant::Private *d)
 }
 
 // This class is a hack that customizes access to QPixmap, QBitmap, QCursor and QIcon
-template<class Filter>
+template<template <typename> class Filter>
 class QGuiVariantComparator : public QVariantComparator<Filter> {
     typedef QVariantComparator<Filter> Base;
 public:

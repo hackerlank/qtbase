@@ -177,9 +177,9 @@ inline void v_clear(QVariant::Private *d, T* = 0)
 
 }
 
-template<class Filter>
+template<template <typename> class Filter>
 class QVariantComparator {
-    template<typename T, bool IsAcceptedType = Filter::template Acceptor<T>::IsAccepted>
+    template<typename T, bool IsAcceptedType = Filter<T>::IsAccepted>
     struct FilteredComparator {
         static bool compare(const QVariant::Private *a, const QVariant::Private *b)
         {
@@ -222,7 +222,7 @@ protected:
 
 Q_CORE_EXPORT const QVariant::Handler *qcoreVariantHandler();
 
-template<class Filter>
+template<template <typename> class Filter>
 class QVariantIsNull
 {
     /// \internal
@@ -272,7 +272,7 @@ class QVariantIsNull
         }
     };
 
-    template<typename T, bool IsAcceptedType = Filter::template Acceptor<T>::IsAccepted>
+    template<typename T, bool IsAcceptedType = Filter<T>::IsAccepted>
     struct CallIsNull
     {
         static bool isNull(const QVariant::Private *d)
@@ -311,10 +311,10 @@ protected:
     const QVariant::Private *m_d;
 };
 
-template<class Filter>
+template<template <typename> class Filter>
 class QVariantConstructor
 {
-    template<typename T, bool IsAcceptedType = Filter::template Acceptor<T>::IsAccepted>
+    template<typename T, bool IsAcceptedType = Filter<T>::IsAccepted>
     struct FilteredConstructor {
         FilteredConstructor(const QVariantConstructor &tc)
         {
@@ -370,10 +370,10 @@ private:
     const void *m_copy;
 };
 
-template<class Filter>
+template<template <typename> class Filter>
 class QVariantDestructor
 {
-    template<typename T, bool IsAcceptedType = Filter::template Acceptor<T>::IsAccepted>
+    template<typename T, bool IsAcceptedType = Filter<T>::IsAccepted>
     struct FilteredDestructor {
         FilteredDestructor(QVariant::Private *d)
         {
@@ -423,10 +423,10 @@ Q_CORE_EXPORT void registerHandler(const int /* Modules::Names */ name, const QV
 }
 
 #if !defined(QT_NO_DEBUG_STREAM)
-template<class Filter>
+template<template <typename> class Filter>
 class QVariantDebugStream
 {
-    template<typename T, bool IsAcceptedType = Filter::template Acceptor<T>::IsAccepted>
+    template<typename T, bool IsAcceptedType = Filter<T>::IsAccepted>
     struct Filtered {
         Filtered(QDebug dbg, QVariant::Private *d)
         {

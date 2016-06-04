@@ -246,6 +246,11 @@ template<> struct TypeDefinition<QQuaternion> { static const bool IsAvailable = 
 #ifdef QT_NO_ICON
 template<> struct TypeDefinition<QIcon> { static const bool IsAvailable = false; };
 #endif
+
+template<typename T>
+struct QtCoreTypesAcceptor {
+    static const bool IsAccepted = QtMetaTypePrivate::TypeDefinition<T>::IsAvailable && QModulesPrivate::QTypeModuleInfo<T>::IsCore;
+};
 } //namespace QtMetaTypePrivate
 
 QT_END_NAMESPACE

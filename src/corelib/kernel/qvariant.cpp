@@ -96,32 +96,23 @@ public:
 };
 }  // namespace
 
-namespace {
-struct CoreTypesFilter {
-    template<typename T>
-    struct Acceptor {
-        static const bool IsAccepted = QModulesPrivate::QTypeModuleInfo<T>::IsCore && QtMetaTypePrivate::TypeDefinition<T>::IsAvailable;
-    };
-};
-} // annonymous
-
 namespace { // annonymous used to hide QVariant handlers
 
 static void construct(QVariant::Private *x, const void *copy)
 {
-    QVariantConstructor<CoreTypesFilter> constructor(x, copy);
+    QVariantConstructor<QtMetaTypePrivate::QtCoreTypesAcceptor> constructor(x, copy);
     QMetaTypeSwitcher::switcher<void>(constructor, x->type, 0);
 }
 
 static void clear(QVariant::Private *d)
 {
-    QVariantDestructor<CoreTypesFilter> cleaner(d);
+    QVariantDestructor<QtMetaTypePrivate::QtCoreTypesAcceptor> cleaner(d);
     QMetaTypeSwitcher::switcher<void>(cleaner, d->type, 0);
 }
 
 static bool isNull(const QVariant::Private *d)
 {
-    QVariantIsNull<CoreTypesFilter> isNull(d);
+    QVariantIsNull<QtMetaTypePrivate::QtCoreTypesAcceptor> isNull(d);
     return QMetaTypeSwitcher::switcher<bool>(isNull, d->type, 0);
 }
 
@@ -133,7 +124,7 @@ static bool isNull(const QVariant::Private *d)
  */
 static bool compare(const QVariant::Private *a, const QVariant::Private *b)
 {
-    QVariantComparator<CoreTypesFilter> comparator(a, b);
+    QVariantComparator<QtMetaTypePrivate::QtCoreTypesAcceptor> comparator(a, b);
     return QMetaTypeSwitcher::switcher<bool>(comparator, a->type, 0);
 }
 
@@ -974,7 +965,7 @@ static bool convert(const QVariant::Private *d, int t, void *result, bool *ok)
 static void streamDebug(QDebug dbg, const QVariant &v)
 {
     QVariant::Private *d = const_cast<QVariant::Private *>(&v.data_ptr());
-    QVariantDebugStream<CoreTypesFilter> stream(dbg, d);
+    QVariantDebugStream<QtMetaTypePrivate::QtCoreTypesAcceptor> stream(dbg, d);
     QMetaTypeSwitcher::switcher<void>(stream, d->type, 0);
 }
 #endif

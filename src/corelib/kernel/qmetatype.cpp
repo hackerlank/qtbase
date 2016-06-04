@@ -77,16 +77,6 @@ QT_BEGIN_NAMESPACE
 
 #define NS(x) QT_PREPEND_NAMESPACE(x)
 
-
-namespace {
-struct DefinedTypesFilter {
-    template<typename T>
-    struct Acceptor {
-        static const bool IsAccepted = QtMetaTypePrivate::TypeDefinition<T>::IsAvailable && QModulesPrivate::QTypeModuleInfo<T>::IsCore;
-    };
-};
-} // namespace
-
 /*!
     \macro Q_DECLARE_OPAQUE_POINTER(PointerType)
     \relates QMetaType
@@ -1723,7 +1713,7 @@ void QMetaType::destroy(int type, void *data)
 
 namespace {
 class TypeConstructor {
-    template<typename T, bool IsAcceptedType = DefinedTypesFilter::Acceptor<T>::IsAccepted>
+    template<typename T, bool IsAcceptedType = QtMetaTypePrivate::QtCoreTypesAcceptor<T>::IsAccepted>
     struct ConstructorImpl {
         static void *Construct(const int /*type*/, void *where, const void *copy) { return QtMetaTypePrivate::QMetaTypeFunctionHelper<T>::Construct(where, copy); }
     };
@@ -1811,7 +1801,7 @@ void *QMetaType::construct(int type, void *where, const void *copy)
 
 namespace {
 class TypeDestructor {
-    template<typename T, bool IsAcceptedType = DefinedTypesFilter::Acceptor<T>::IsAccepted>
+    template<typename T, bool IsAcceptedType = QtMetaTypePrivate::QtCoreTypesAcceptor<T>::IsAccepted>
     struct DestructorImpl {
         static void Destruct(const int /* type */, void *where) { QtMetaTypePrivate::QMetaTypeFunctionHelper<T>::Destruct(where); }
     };
@@ -1887,7 +1877,7 @@ void QMetaType::destruct(int type, void *where)
 
 namespace {
 class SizeOf {
-    template<typename T, bool IsAcceptedType = DefinedTypesFilter::Acceptor<T>::IsAccepted>
+    template<typename T, bool IsAcceptedType = QtMetaTypePrivate::QtCoreTypesAcceptor<T>::IsAccepted>
     struct SizeOfImpl {
         static int Size(const int) { return QTypeInfo<T>::sizeOf; }
     };
@@ -1950,7 +1940,7 @@ int QMetaType::sizeOf(int type)
 namespace {
 class Flags
 {
-    template<typename T, bool IsAcceptedType = DefinedTypesFilter::Acceptor<T>::IsAccepted>
+    template<typename T, bool IsAcceptedType = QtMetaTypePrivate::QtCoreTypesAcceptor<T>::IsAccepted>
     struct FlagsImpl
     {
         static quint32 Flags(const int /* type */)
@@ -2020,7 +2010,7 @@ public:
         : m_type(type)
     {}
 
-    template<typename T, bool IsAcceptedType = DefinedTypesFilter::Acceptor<T>::IsAccepted>
+    template<typename T, bool IsAcceptedType = QtMetaTypePrivate::QtCoreTypesAcceptor<T>::IsAccepted>
     struct MetaObjectImpl
     {
         static const QMetaObject *MetaObject(int /*type*/)
@@ -2209,7 +2199,7 @@ const QMetaObject *QMetaType::metaObjectForType(int type)
 
 namespace {
 class TypeInfo {
-    template<typename T, bool IsAcceptedType = DefinedTypesFilter::Acceptor<T>::IsAccepted>
+    template<typename T, bool IsAcceptedType = QtMetaTypePrivate::QtCoreTypesAcceptor<T>::IsAccepted>
     struct TypeInfoImpl
     {
         TypeInfoImpl(const uint /* type */, QMetaTypeInterface &info)

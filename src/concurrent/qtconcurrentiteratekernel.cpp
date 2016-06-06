@@ -59,7 +59,7 @@ static qint64 getticks()
 
 static double elapsed(qint64 after, qint64 before)
 {
-    return double(after - before);
+    return double(after) - before;
 }
 
 namespace QtConcurrent {

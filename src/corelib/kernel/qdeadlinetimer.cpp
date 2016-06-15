@@ -506,7 +506,7 @@ qint64 QDeadlineTimer::rawRemainingTimeNSecs() const Q_DECL_NOTHROW
 
     \code
         qint64 realTimeLeft = deadline.deadline();
-        if (realTimeLeft != (std::numeric_limits<qint64>::max)()) {
+        if (realTimeLeft != std::numeric_limits<qint64>::max()) {
             realTimeLeft -= QDeadlineTimer::current().deadline();
             // or:
             //QElapsedTimer timer;

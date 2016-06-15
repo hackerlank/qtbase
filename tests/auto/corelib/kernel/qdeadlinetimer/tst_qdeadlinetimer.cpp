@@ -504,6 +504,18 @@ void tst_QDeadlineTimer::stdchrono()
     auto steady_after = steady_clock::now();
     auto system_after = system_clock::now();
 
+#if defined(Q_OS_DARWIN) || defined(Q_OS_LINUX) || (defined(Q_CC_MSVC) && Q_CC_MSVC >= 1900)
+    {
+        // We know for these OS/compilers that the std::chrono::steady_clock uses the same
+        // reference time as QDeadlineTimer
+        qint64 before = duration_cast<nanoseconds>(steady_before.time_since_epoch()).count();
+        qint64 after = duration_cast<nanoseconds>(steady_after.time_since_epoch()).count();
+        QVERIFY2(now.deadlineNSecs() > before, QByteArray::number(now.deadlineNSecs()) +
+                 " > " + QByteArray::number(before));
+        QVERIFY2(now.deadlineNSecs() < after, QByteArray::number(now.deadlineNSecs()) +
+                 " < " + QByteArray::number(after));
+    }
+#endif
     {
         auto diff = duration_cast<milliseconds>(steady_after - now.deadline<steady_clock>());
         QVERIFY2(diff.count() > minResolution/2, QByteArray::number(qint64(diff.count())));

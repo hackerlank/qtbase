@@ -61,6 +61,11 @@
 
 QT_BEGIN_NAMESPACE
 
+#ifdef check
+// defined in Apple's /usr/include/AssertMacros.h header
+#  undef check
+#endif
+
 class QEventDispatcherUNIXPrivate;
 
 struct Q_CORE_EXPORT QSocketNotifierSetUNIX Q_DECL_FINAL

@@ -166,7 +166,7 @@ void tst_QWinOverlappedIoNotifier::waitForNotified()
                               NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
     notifier.setHandle(hFile);
     notifier.setEnabled(true);
-    QCOMPARE(notifier.waitForNotified(100, 0), false);
+    QCOMPARE(notifier.waitForNotified(QDeadlineTimer(100), 0), false);
 
     OVERLAPPED overlapped;
     ZeroMemory(&overlapped, sizeof(OVERLAPPED));
@@ -174,13 +174,13 @@ void tst_QWinOverlappedIoNotifier::waitForNotified()
     BOOL readSuccess = ReadFile(hFile, buffer.data(), buffer.size(), NULL, &overlapped);
     QVERIFY(readSuccess || GetLastError() == ERROR_IO_PENDING);
 
-    QCOMPARE(notifier.waitForNotified(3000, &overlapped), true);
+    QCOMPARE(notifier.waitForNotified(QDeadlineTimer(3000), &overlapped), true);
     CloseHandle(hFile);
     QCOMPARE(sink.notifications.count(), 1);
     QCOMPARE(sink.notifications.last().bytes, expectedBytesRead);
     QCOMPARE(sink.notifications.last().errorCode, DWORD(ERROR_SUCCESS));
     QCOMPARE(sink.notifications.last().overlapped, &overlapped);
-    QCOMPARE(notifier.waitForNotified(100, &overlapped), false);
+    QCOMPARE(notifier.waitForNotified(QDeadlineTimer(100), &overlapped), false);
 }
 
 void tst_QWinOverlappedIoNotifier::waitForAnyNotified()
@@ -194,7 +194,7 @@ void tst_QWinOverlappedIoNotifier::waitForAnyNotified()
                               NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
     notifier.setHandle(hFile);
     notifier.setEnabled(true);
-    QVERIFY(!notifier.waitForAnyNotified(100));
+    QVERIFY(!notifier.waitForAnyNotified(QDeadlineTimer(100)));
 
     OVERLAPPED overlapped1;
     ZeroMemory(&overlapped1, sizeof(OVERLAPPED));
@@ -212,14 +212,14 @@ void tst_QWinOverlappedIoNotifier::waitForAnyNotified()
     overlappedObjects << &overlapped1 << &overlapped2;
 
     for (int i = 1; i <= 2; ++i) {
-        OVERLAPPED *notifiedOverlapped = notifier.waitForAnyNotified(3000);
+        OVERLAPPED *notifiedOverlapped = notifier.waitForAnyNotified(QDeadlineTimer(3000));
         QVERIFY(overlappedObjects.contains(notifiedOverlapped));
         overlappedObjects.remove(notifiedOverlapped);
     }
 
     CloseHandle(hFile);
     QVERIFY(overlappedObjects.isEmpty());
-    QVERIFY(!notifier.waitForAnyNotified(100));
+    QVERIFY(!notifier.waitForAnyNotified(QDeadlineTimer(100)));
 }
 
 void tst_QWinOverlappedIoNotifier::brokenPipe()

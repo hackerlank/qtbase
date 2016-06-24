@@ -463,19 +463,32 @@ void QCoreApplicationPrivate::cleanupThreadData()
 #endif
 
         // need to clear the state of the mainData, just in case a new QCoreApplication comes along.
-        QMutexLocker locker(&threadData->postEventList.mutex);
-        for (int i = 0; i < threadData->postEventList.size(); ++i) {
-            const QPostEvent &pe = threadData->postEventList.at(i);
+        QVector<QPostEvent> list;
+        {
+            QMutexLocker locker(&threadData->postEventList.mutex);
+
+            // part 1: clean up with the post event mutex locked
+            for (int i = 0; i < threadData->postEventList.size(); ++i) {
+                const QPostEvent &pe = threadData->postEventList.at(i);
+                if (pe.event)
+                    --pe.receiver->d_func()->postedEvents;
+            }
+
+            list = threadData->postEventList;
+            threadData->postEventList.clear();
+            threadData->postEventList.recursion = 0;
+            threadData->quitNow = false;
+            threadData_clean = true;
+        }
+
+        // part 2: actually delete the posted events, outside mutex lock
+        for (int i = 0; i < list.size(); ++i) {
+            const QPostEvent &pe = list.at(i);
             if (pe.event) {
-                --pe.receiver->d_func()->postedEvents;
                 pe.event->posted = false;
                 delete pe.event;
             }
         }
-        threadData->postEventList.clear();
-        threadData->postEventList.recursion = 0;
-        threadData->quitNow = false;
-        threadData_clean = true;
     }
 }
 

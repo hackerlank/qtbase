@@ -54,6 +54,7 @@ private slots:
     void customEventDispatcher();
     void testQuitLock();
     void QTBUG31606_QEventDestructorDeadLock();
+    void QTBUG54282_QEventDestructorDeadlockOnAppQuit();
     void applicationEventFilters_mainThread();
     void applicationEventFilters_auxThread();
     void threadedEventDelivery_data();

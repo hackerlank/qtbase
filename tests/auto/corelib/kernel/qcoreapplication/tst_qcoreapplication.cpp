@@ -794,17 +794,18 @@ void tst_QCoreApplication::testQuitLock()
     app.exec();
 }
 
+class PostEventOnDestructorEvent : public QEvent
+{
+public:
+    QObject *someObject;
+    PostEventOnDestructorEvent(QObject *target) : QEvent(QEvent::Type(QEvent::User + 1)), someObject(target) {}
+    ~PostEventOnDestructorEvent() {
+        QCoreApplication::postEvent(someObject, new QEvent(QEvent::Type(QEvent::User+2)));
+    }
+};
 
 void tst_QCoreApplication::QTBUG31606_QEventDestructorDeadLock()
 {
-    class MyEvent : public QEvent
-    { public:
-        MyEvent() : QEvent(QEvent::Type(QEvent::User + 1)) {}
-        ~MyEvent() {
-            QCoreApplication::postEvent(qApp, new QEvent(QEvent::Type(QEvent::User+2)));
-        }
-    };
-
     int argc = 1;
     char *argv[] = { const_cast<char*>(QTest::currentAppName()) };
     TestApplication app(argc, argv);
@@ -812,12 +813,33 @@ void tst_QCoreApplication::QTBUG31606_QEventDestructorDeadLock()
     EventSpy spy;
     app.installEventFilter(&spy);
 
-    QCoreApplication::postEvent(&app, new MyEvent);
+    QCoreApplication::postEvent(&app, new PostEventOnDestructorEvent(qApp));
     QCoreApplication::processEvents();
     QVERIFY(spy.recordedEvents.contains(QEvent::User + 1));
     QVERIFY(!spy.recordedEvents.contains(QEvent::User + 2));
     QCoreApplication::processEvents();
     QVERIFY(spy.recordedEvents.contains(QEvent::User + 2));
+}
+
+void tst_QCoreApplication::QTBUG54282_QEventDestructorDeadlockOnAppQuit()
+{
+    QObject *someObject = new QObject;
+
+    {
+        int argc = 1;
+        char *argv[] = { const_cast<char*>(QTest::currentAppName()) };
+        TestApplication app(argc, argv);
+
+        EventSpy spy;
+        app.installEventFilter(&spy);
+
+        QCoreApplication::postEvent(&app, new PostEventOnDestructorEvent(someObject));
+        QVERIFY(spy.recordedEvents.isEmpty());
+
+        // if there's a deadlock, it will happen when TestApplication gets destroyed
+    }
+
+    delete someObject;
 }
 
 // this is almost identical to sendEventsOnProcessEvents

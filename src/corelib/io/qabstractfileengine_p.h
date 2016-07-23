@@ -113,7 +113,8 @@ public:
         OwnerGroup
     };
     enum FileTime {
-        CreationTime,
+        BirthTime,
+        MetadataChangeTime,
         ModificationTime,
         AccessTime
     };

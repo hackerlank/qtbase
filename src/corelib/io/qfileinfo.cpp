@@ -185,14 +185,16 @@ uint QFileInfoPrivate::getFileFlags(QAbstractFileEngine::FileFlags request) cons
 QDateTime &QFileInfoPrivate::getFileTime(QAbstractFileEngine::FileTime request) const
 {
     Q_ASSERT(fileEngine); // should never be called when using the native FS
-    if (fileTimes.size() != 3)
-        fileTimes.resize(3);
+    if (fileTimes.size() != 4)
+        fileTimes.resize(4);
     if (!cache_enabled)
         clearFlags();
     uint cf;
-    if (request == QAbstractFileEngine::CreationTime)
-        cf = CachedCTime;
-    else if (request == QAbstractFileEngine::ModificationTime)
+    if (Q_LIKELY(request == QAbstractFileEngine::ModificationTime))
+        cf = CachedBTime;
+    else if (request == QAbstractFileEngine::BirthTime)
+        cf = CachedMTime;
+    else if (request == QAbstractFileEngine::MetadataChangeTime)
         cf = CachedMTime;
     else
         cf = CachedATime;
@@ -1313,12 +1315,12 @@ QDateTime QFileInfo::created() const
     if (d->isDefaultConstructed)
         return QDateTime();
     if (d->fileEngine == 0) {
-        if (!d->cache_enabled || !d->metaData.hasFlags(QFileSystemMetaData::CreationTime))
-            if (!QFileSystemEngine::fillMetaData(d->fileEntry, d->metaData, QFileSystemMetaData::CreationTime))
-                return QDateTime();
-        return d->metaData.creationTime();
+        if (!d->cache_enabled || !d->metaData.hasFlags(QFileSystemMetaData::BirthTime))
+            if (!QFileSystemEngine::fillMetaData(d->fileEntry, d->metaData, QFileSystemMetaData::BirthTime))
+                return lastModified();
+        return d->metaData.birthTime();
     }
-    return d->getFileTime(QAbstractFileEngine::CreationTime);
+    return d->getFileTime(QAbstractFileEngine::BirthTime);
 }
 
 /*!

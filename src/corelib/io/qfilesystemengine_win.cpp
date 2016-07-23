@@ -456,7 +456,7 @@ void QFileSystemEngine::clearWinStatData(QFileSystemMetaData &data)
 {
     data.size_ = 0;
     data.fileAttribute_ =  0;
-    data.creationTime_ = FILETIME();
+    data.birthTime_ = FILETIME();
     data.lastAccessTime_ = FILETIME();
     data.lastWriteTime_ = FILETIME();
 }
@@ -895,8 +895,8 @@ bool QFileSystemEngine::fillMetaData(HANDLE fHandle, QFileSystemMetaData &data,
     FILE_BASIC_INFO fileBasicInfo;
     if (GetFileInformationByHandleEx(fHandle, FileBasicInfo, &fileBasicInfo, sizeof(fileBasicInfo))) {
         data.fillFromFileAttribute(fileBasicInfo.FileAttributes);
-        data.creationTime_.dwHighDateTime = fileBasicInfo.CreationTime.HighPart;
-        data.creationTime_.dwLowDateTime = fileBasicInfo.CreationTime.LowPart;
+        data.birthTime_.dwHighDateTime = fileBasicInfo.CreationTime.HighPart;
+        data.birthTime_.dwLowDateTime = fileBasicInfo.CreationTime.LowPart;
         data.lastAccessTime_.dwHighDateTime = fileBasicInfo.LastAccessTime.HighPart;
         data.lastAccessTime_.dwLowDateTime = fileBasicInfo.LastAccessTime.LowPart;
         data.lastWriteTime_.dwHighDateTime = fileBasicInfo.LastWriteTime.HighPart;
@@ -1369,9 +1369,15 @@ static inline QDateTime fileTimeToQDateTime(const FILETIME *time)
     return ret;
 }
 
-QDateTime QFileSystemMetaData::creationTime() const
+QDateTime QFileSystemMetaData::birthTime() const
 {
-    return fileTimeToQDateTime(&creationTime_);
+    return fileTimeToQDateTime(&birthTime_);
+}
+QDateTime QFileSystemMetaData::metadataChangeTime() const
+{
+    // Windows has no such concept, but QFileInfo::metadataChangeTime() is documented
+    // to return the same as lastModified()
+    return modificationTime();
 }
 QDateTime QFileSystemMetaData::modificationTime() const
 {

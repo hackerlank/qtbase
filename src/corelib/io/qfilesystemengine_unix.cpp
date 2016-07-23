@@ -480,7 +480,8 @@ bool QFileSystemEngine::fillMetaData(const QFileSystemEntry &entry, QFileSystemM
             data.fillFromStatBuf(statBuffer);
         else {
             entryExists = false;
-            data.creationTime_ = 0;
+            data.birthTime_ = 0;
+            data.metadataChangeTime_ = 0;
             data.modificationTime_ = 0;
             data.accessTime_ = 0;
             data.size_ = 0;

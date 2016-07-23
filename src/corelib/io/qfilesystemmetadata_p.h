@@ -125,11 +125,12 @@ public:
         Attributes          = HiddenAttribute | SizeAttribute | ExistsAttribute,
 
         // Times
-        CreationTime        = 0x01000000,   // Note: overlaps with QAbstractFileEngine::Refresh
+        BirthTime           = 0x01000000,   // Note: overlaps with QAbstractFileEngine::Refresh
         ModificationTime    = 0x02000000,
         AccessTime          = 0x04000000,
+        MetadataChangeTime  = 0x08000000,
 
-        Times               = CreationTime | ModificationTime | AccessTime,
+        Times               = BirthTime | MetadataChangeTime | ModificationTime | AccessTime,
 
         // Owner IDs
         UserId              = 0x10000000,
@@ -144,7 +145,7 @@ public:
                             | QFileSystemMetaData::DirectoryType
                             | QFileSystemMetaData::SequentialType
                             | QFileSystemMetaData::SizeAttribute
-                            | QFileSystemMetaData::Times
+                            | (QFileSystemMetaData::Times & ~QFileSystemMetaData::BirthTime)
                             | QFileSystemMetaData::OwnerIds,
 
 #if defined(Q_OS_WIN)
@@ -201,7 +202,8 @@ public:
 
     QFile::Permissions permissions() const  { return QFile::Permissions(Permissions & entryFlags); }
 
-    QDateTime creationTime() const;
+    QDateTime birthTime() const;
+    QDateTime metadataChangeTime() const;
     QDateTime modificationTime() const;
     QDateTime accessTime() const;
 
@@ -233,12 +235,13 @@ private:
     // Platform-specific data goes here:
 #if defined(Q_OS_WIN)
     DWORD fileAttribute_;
-    FILETIME creationTime_;
+    FILETIME birthTime_;
     FILETIME lastAccessTime_;
     FILETIME lastWriteTime_;
 #else
     // msec precision
-    qint64 creationTime_;
+    qint64 birthTime_;
+    qint64 metadataChangeTime_;
     qint64 modificationTime_;
     qint64 accessTime_;
 
@@ -268,8 +271,11 @@ inline QDateTime QFileSystemMetaData::fileTime(QAbstractFileEngine::FileTime tim
     case QAbstractFileEngine::AccessTime:
         return accessTime();
 
-    case QAbstractFileEngine::CreationTime:
-        return creationTime();
+    case QAbstractFileEngine::MetadataChangeTime:
+        return metadataChangeTime();
+
+    case QAbstractFileEngine::BirthTime:
+        return birthTime();
     }
 
     return QDateTime();
@@ -277,7 +283,8 @@ inline QDateTime QFileSystemMetaData::fileTime(QAbstractFileEngine::FileTime tim
 #endif
 
 #if defined(Q_OS_UNIX)
-inline QDateTime QFileSystemMetaData::creationTime() const          { return QDateTime::fromMSecsSinceEpoch(creationTime_); }
+inline QDateTime QFileSystemMetaData::birthTime() const             { return QDateTime::fromMSecsSinceEpoch(birthTime_); }
+inline QDateTime QFileSystemMetaData::metadataChangeTime() const    { return QDateTime::fromMSecsSinceEpoch(metadataChangeTime_); }
 inline QDateTime QFileSystemMetaData::modificationTime() const      { return QDateTime::fromMSecsSinceEpoch(modificationTime_); }
 inline QDateTime QFileSystemMetaData::accessTime() const            { return QDateTime::fromMSecsSinceEpoch(accessTime_); }
 
@@ -318,7 +325,7 @@ inline void QFileSystemMetaData::fillFromFileAttribute(DWORD fileAttribute,bool 
 inline void QFileSystemMetaData::fillFromFindData(WIN32_FIND_DATA &findData, bool setLinkType, bool isDriveRoot)
 {
     fillFromFileAttribute(findData.dwFileAttributes, isDriveRoot);
-    creationTime_ = findData.ftCreationTime;
+    birthTime_ = findData.ftCreationTime;
     lastAccessTime_ = findData.ftLastAccessTime;
     lastWriteTime_ = findData.ftLastWriteTime;
     if (fileAttribute_ & FILE_ATTRIBUTE_DIRECTORY) {
@@ -343,7 +350,7 @@ inline void QFileSystemMetaData::fillFromFindData(WIN32_FIND_DATA &findData, boo
 inline void QFileSystemMetaData::fillFromFindInfo(BY_HANDLE_FILE_INFORMATION &fileInfo)
 {
     fillFromFileAttribute(fileInfo.dwFileAttributes);
-    creationTime_ = fileInfo.ftCreationTime;
+    birthTime_ = fileInfo.ftCreationTime;
     lastAccessTime_ = fileInfo.ftLastAccessTime;
     lastWriteTime_ = fileInfo.ftLastWriteTime;
     if (fileAttribute_ & FILE_ATTRIBUTE_DIRECTORY) {

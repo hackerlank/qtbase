@@ -220,6 +220,29 @@ static void convertToLevelAndOption(QNativeSocketEngine::SocketOption opt,
     }
 }
 
+#ifdef SCM_RIGHTS
+QNativeSocketEngine::FileDescriptorBundle::FileDescriptorBundle(int count)
+    : buffer(CMSG_SPACE(sizeof(int) * count), Qt::Uninitialized), n(count)
+{
+    auto payload = reinterpret_cast<struct cmsghdr *>(buffer.data());
+    payload->cmsg_len = CMSG_LEN(sizeof(int) * count);
+    payload->cmsg_level = SOL_SOCKET;
+    payload->cmsg_type = SCM_RIGHTS;
+
+    descriptors = reinterpret_cast<int *>(CMSG_DATA(payload));
+    std::fill_n(descriptors, n, -1);
+}
+
+QNativeSocketEngine::FileDescriptorBundle::~FileDescriptorBundle()
+{
+    // close any file descriptors that were not taken
+    for (int i = 0; i < n; ++i) {
+        if (descriptors[i] != -1)
+            qt_safe_close(descriptors[i]);
+    }
+}
+#endif // SCM_RIGHTS
+
 /*! \internal
 
     Creates and returns a new socket descriptor of type \a socketType
@@ -1058,6 +1081,129 @@ qint64 QNativeSocketEnginePrivate::nativeSendDatagram(const char *data, qint64 l
 #endif
 
     return qint64(sentBytes);
+}
+
+qint64 QNativeSocketEnginePrivate::nativeReceiveDatagram(char *data, qint64 maxLength,
+                                                         QNativeSocketEngine::FileDescriptorBundle &fileDescriptors)
+{
+    if (fileDescriptors.count() == 0)
+        return nativeReceiveDatagram(data, maxLength, nullptr, QAbstractSocketEngine::WantNone);
+
+#ifndef SCM_RIGHTS
+    return -1;
+#else
+#  ifndef MSG_CMSG_CLOEXEC
+#    define MSG_CMSG_CLOEXEC 0
+#  endif
+
+    // due to the dynamic nature of the file descriptor array, we need to
+    // manage the data manually, instead of using SocketMessage
+    struct iovec vec;
+    struct msghdr msg;
+    memset(&msg, 0, sizeof(msg));
+    msg.msg_name = nullptr;
+    msg.msg_iov = &vec;
+    msg.msg_iovlen = 1;
+    msg.msg_control = const_cast<char *>(fileDescriptors.buffer.constData());
+    msg.msg_controllen = fileDescriptors.buffer.size();
+    vec.iov_base = data;
+    vec.iov_len = maxLength;
+
+#ifndef QT_NO_DEBUG
+    Q_ASSERT(msg.msg_controllen >= sizeof(struct cmsghdr));
+    memset(msg.msg_control, 0, sizeof(struct cmsghdr));
+#endif
+
+    ssize_t recvResult = qt_safe_recvmsg(socketDescriptor, &msg, MSG_CMSG_CLOEXEC);
+    if (recvResult == -1) {
+        switch (errno) {
+#if EWOULDBLOCK-0 && EWOULDBLOCK != EAGAIN
+        case EWOULDBLOCK:
+#endif
+        case EAGAIN:
+            // No datagram was available for reading
+            recvResult = -2;
+            break;
+        case ECONNREFUSED:
+            setError(QAbstractSocket::ConnectionRefusedError, ConnectionRefusedErrorString);
+            break;
+        default:
+            setError(QAbstractSocket::NetworkError, ReceiveDatagramErrorString);
+        }
+    } else {
+        // parse ancillary data for socket descriptors
+        struct cmsghdr *payload = CMSG_FIRSTHDR(&msg);
+        for ( ; payload; payload = CMSG_NXTHDR(&msg, payload)) {
+            if (payload->cmsg_level != SOL_SOCKET || payload->cmsg_type != SCM_RIGHTS)
+                continue;
+            // found it
+            fileDescriptors.descriptors = reinterpret_cast<int *>(CMSG_DATA(payload));
+            fileDescriptors.n = (payload->cmsg_len - CMSG_LEN(0)) / sizeof(int);
+
+            // confirm that everything is correct
+            char *end = reinterpret_cast<char *>(fileDescriptors.descriptors + fileDescriptors.n);
+            if (Q_UNLIKELY(end > fileDescriptors.buffer.constEnd())) {
+                fileDescriptors.n = 0;
+            }
+
+            if (MSG_CMSG_CLOEXEC == 0) {
+                // make all file descriptors FD_CLOEXEC (ignoring errors)
+                for (int i = 0; i <= fileDescriptors.n; ++i)
+                    fcntl(fileDescriptors.descriptors[i], F_SETFD, FD_CLOEXEC);
+            }
+
+            break;
+        }
+    }
+
+    return recvResult;
+#endif // SCM_RIGHTS
+}
+
+qint64 QNativeSocketEnginePrivate::nativeSendDatagram(const char *data, qint64 length,
+                                                      const QNativeSocketEngine::FileDescriptorBundle &fileDescriptors)
+{
+    if (fileDescriptors.count() == 0)
+        return nativeSendDatagram(data, length, QIpPacketHeader());
+
+#ifndef SCM_RIGHTS
+    return -1;
+#else
+    // due to the dynamic nature of the file descriptor array, we need to
+    // manage the data manually, instead of using SocketMessage
+    struct iovec vec;
+    struct msghdr msg;
+    memset(&msg, 0, sizeof(msg));
+    msg.msg_name = nullptr;
+    msg.msg_iov = &vec;
+    msg.msg_iovlen = 1;
+    msg.msg_control = const_cast<char *>(fileDescriptors.buffer.constData());
+    msg.msg_controllen = fileDescriptors.buffer.size();
+    vec.iov_base = const_cast<char *>(data);
+    vec.iov_len = length;
+
+    ssize_t sentBytes = qt_safe_sendmsg(socketDescriptor, &msg, 0);
+    if (sentBytes < 0) {
+        switch (errno) {
+#if EWOULDBLOCK-0 && EWOULDBLOCK != EAGAIN
+        case EWOULDBLOCK:
+#endif
+        case EAGAIN:
+            sentBytes = -2;
+            break;
+        case EMSGSIZE:
+            setError(QAbstractSocket::DatagramTooLargeError, DatagramTooLargeErrorString);
+            break;
+        case ECONNRESET:
+            setError(QAbstractSocket::RemoteHostClosedError, RemoteHostClosedErrorString);
+            break;
+        default:
+            setError(QAbstractSocket::NetworkError, SendDatagramErrorString);
+        }
+    }
+
+    return qint64(sentBytes);
+#endif // SCM_RIGHTS
 }
 
 bool QNativeSocketEnginePrivate::fetchConnectionParameters()

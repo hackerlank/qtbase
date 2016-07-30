@@ -401,6 +401,27 @@ QNativeSocketEngine::~QNativeSocketEngine()
 }
 
 /*!
+    \since 5.9
+
+    Returns true if this implementation of QNativeSocketEngine supports passing
+    file descriptors in to the remote end. This feature is supported on some
+    Unix systems and only for Unix sockets. Note that this function returning
+    true does not mean that readDatagram() or writeDatagram() will succeed in
+    passing file descriptors.
+
+    \sa readDatagram(), writeDatagram()
+*/
+bool QNativeSocketEngine::supportsPassingFileDescriptors()
+{
+#ifdef SCM_RIGHTS
+    return true;
+#else
+    return false;
+#endif
+}
+
+
+/*!
     Initializes a QNativeSocketEngine by creating a new socket of type \a
     socketType and network layer protocol \a protocol. Returns \c true on
     success; otherwise returns \c false.
@@ -869,6 +890,52 @@ qint64 QNativeSocketEngine::writeDatagram(const char *data, qint64 size, const Q
 
     return d->nativeSendDatagram(data, size, header);
 }
+
+#ifdef SCM_RIGHTS
+/*!
+    \since 5.9
+    \overload
+    Reads up to \a maxSize bytes of from the socket, stores it in \a data,
+    returning the actual number of bytes read. If any file descriptors were
+    passed from the remote end, they are stored in \a fileDescriptors.
+
+    The \a fileDescriptors vector must have been sized by the caller to the
+    maximum expected count of file descriptors to be received. If the remote
+    end transmits more file descriptors than the size of the vector, those file
+    descriptors will be closed and cannot be recovered.
+
+    Returns -1 if an error occurred. If that happens, \a fileDescriptors is
+    unchanged.
+
+    \sa hasPendingDatagrams(), supportsPassingFileDescriptors()
+*/
+qint64 QNativeSocketEngine::readDatagram(char *data, qint64 maxSize, FileDescriptorBundle &fileDescriptors)
+{
+    Q_D(QNativeSocketEngine);
+    Q_CHECK_VALID_SOCKETLAYER(QNativeSocketEngine::readDatagram(), -1);
+    Q_CHECK_STATES(QNativeSocketEngine::readDatagram(), QAbstractSocket::BoundState,
+                   QAbstractSocket::ConnectedState, -1);
+
+    return d->nativeReceiveDatagram(data, maxSize, fileDescriptors);
+}
+
+/*!
+    Writes a datagram of size \a size bytes to the socket from \a data to the
+    connected destination and the file descriptors contained in \a
+    fileDescriptor.
+
+    \sa readDatagram(), supportsPassingFileDescriptors()
+*/
+qint64 QNativeSocketEngine::writeDatagram(const char *data, qint64 size, const FileDescriptorBundle &fileDescriptors)
+{
+    Q_D(QNativeSocketEngine);
+    Q_CHECK_VALID_SOCKETLAYER(QNativeSocketEngine::writeDatagram(), -1);
+    Q_CHECK_STATES(QNativeSocketEngine::writeDatagram(), QAbstractSocket::BoundState,
+                   QAbstractSocket::ConnectedState, -1);
+
+    return d->nativeSendDatagram(data, size, fileDescriptors);
+}
+#endif
 
 /*!
     Writes a block of \a size bytes from \a data to the socket.

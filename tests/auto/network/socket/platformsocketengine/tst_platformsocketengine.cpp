@@ -37,6 +37,8 @@
 #include <qdatastream.h>
 #include <qhostaddress.h>
 #include <qdatetime.h>
+#include <qtemporaryfile.h>
+#include <qplatformdefs.h>
 
 #ifdef Q_OS_UNIX
 #include <unistd.h>
@@ -85,6 +87,7 @@ private slots:
     void receiveUrgentData();
 #endif
     void tooManySockets();
+    void fileDescriptorPassing();
 };
 
 void tst_PlatformSocketEngine::initTestCase()
@@ -675,6 +678,85 @@ void tst_PlatformSocketEngine::receiveUrgentData()
 #endif
 }
 #endif // !Q_OS_WINRT
+
+//---------------------------------------------------------------------------
+void tst_PlatformSocketEngine::fileDescriptorPassing()
+{
+    if (!PLATFORMSOCKETENGINE::supportsPassingFileDescriptors())
+        QSKIP("Passing file descriptors not supported");
+
+#ifdef SCM_RIGHTS
+    static const char fileContents[] = "Hello World";
+    QTemporaryFile tmp(QDir::tempPath() + "/tst_platformsocketengine_tmpfile");
+    QVERIFY(tmp.open());
+    QVERIFY(tmp.write(fileContents, sizeof fileContents));
+    QVERIFY(tmp.flush());
+    tmp.seek(0);
+
+    int pair[2];
+    QCOMPARE(socketpair(AF_UNIX, SOCK_STREAM, 0, pair), 0);
+
+    PLATFORMSOCKETENGINE socket[2];
+    socket[0].initialize(pair[0]);
+    socket[1].initialize(pair[1]);
+
+    {
+        // try to send one file descriptor
+        PLATFORMSOCKETENGINE::FileDescriptorBundle outbound(1);
+        QCOMPARE(outbound[0], -1);
+        QCOMPARE(outbound.count(), 1);
+        outbound[0] = tmp.handle();
+
+        qint64 sent = socket[0].writeDatagram("a", 1, outbound);
+
+        outbound.takeAt(0); // don't let FileDescriptorBundle close the file descriptor
+
+        QCOMPARE(sent, Q_INT64_C(1));
+    }
+
+    // now try to receive those file descriptors
+    PLATFORMSOCKETENGINE::FileDescriptorBundle incoming(16);
+    QCOMPARE(incoming.count(), 16);
+
+    {
+        char buf[16];
+        QCOMPARE(socket[1].readDatagram(buf, sizeof buf, incoming), Q_INT64_C(1));
+        QCOMPARE(buf[0], 'a');  // what we sent above
+    }
+
+    QCOMPARE(incoming.count(), 1);
+    QVERIFY(incoming.at(0) != -1);
+    QVERIFY(incoming.at(0) != tmp.handle());
+
+    // try to compare the files
+    QFile f;
+    QVERIFY(f.open(incoming.takeAt(0), QIODevice::ReadWrite));
+    QByteArray all = f.readAll();
+    QCOMPARE(all, QByteArray::fromRawData(fileContents, sizeof fileContents));
+
+    // see if writing to one is reflected in the other
+    char c = 'h';
+    tmp.seek(0);
+    tmp.write(&c, 1);
+    tmp.flush();
+
+    f.seek(0);
+    all = f.readAll();
+    QCOMPARE(all.at(0), 'h');
+
+#  ifdef Q_OS_UNIX
+    {
+        // confirm inode numbers
+        QT_STATBUF buf[2];
+        QCOMPARE(QT_FSTAT(tmp.handle(), buf), 0);
+        QCOMPARE(QT_FSTAT(f.handle(), buf + 1), 0);
+        QCOMPARE(buf[1].st_ino, buf[0].st_ino);
+        QCOMPARE(buf[1].st_dev, buf[0].st_dev);
+    }
+#  endif
+#endif // SCM_RIGHTS
+}
+
 
 QTEST_MAIN(tst_PlatformSocketEngine)
 #include "tst_platformsocketengine.moc"

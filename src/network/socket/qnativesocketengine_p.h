@@ -125,8 +125,30 @@ class Q_AUTOTEST_EXPORT QNativeSocketEngine : public QAbstractSocketEngine
 {
     Q_OBJECT
 public:
+    class FileDescriptorBundle {
+    public:
+        FileDescriptorBundle(int count);
+        ~FileDescriptorBundle();
+
+        int count() const { return n; }
+        int at(int i) const { return descriptors[i]; }
+        int operator[](int i) const { return descriptors[i]; }
+        int &operator[](int i) { return descriptors[i]; }
+        int takeAt(int i) { int n = -1; qSwap(n, descriptors[i]); return n; }
+
+    private:
+        Q_DISABLE_COPY(FileDescriptorBundle)
+        friend class QNativeSocketEnginePrivate;
+
+        QByteArray buffer;
+        int *descriptors;
+        int n;
+    };
+
     QNativeSocketEngine(QObject *parent = 0);
     ~QNativeSocketEngine();
+
+    static bool supportsPassingFileDescriptors();
 
     bool initialize(QAbstractSocket::SocketType type, QAbstractSocket::NetworkLayerProtocol protocol = QAbstractSocket::IPv4Protocol) Q_DECL_OVERRIDE;
     bool initialize(qintptr socketDescriptor, QAbstractSocket::SocketState socketState = QAbstractSocket::ConnectedState) Q_DECL_OVERRIDE;
@@ -163,7 +185,9 @@ public:
 
     qint64 readDatagram(char *data, qint64 maxlen, QIpPacketHeader * = 0,
                         PacketHeaderOptions = WantNone) Q_DECL_OVERRIDE;
+    qint64 readDatagram(char *data, qint64 maxlen, FileDescriptorBundle &fileDescriptors);
     qint64 writeDatagram(const char *data, qint64 len, const QIpPacketHeader &) Q_DECL_OVERRIDE;
+    qint64 writeDatagram(const char *data, qint64 len, const FileDescriptorBundle &fileDescriptors);
     qint64 bytesToWrite() const Q_DECL_OVERRIDE;
 
     qint64 receiveBufferSize() const;
@@ -274,7 +298,10 @@ public:
     qint64 nativePendingDatagramSize() const;
     qint64 nativeReceiveDatagram(char *data, qint64 maxLength, QIpPacketHeader *header,
                                  QAbstractSocketEngine::PacketHeaderOptions options);
+    qint64 nativeReceiveDatagram(char *data, qint64 maxLength, QNativeSocketEngine::FileDescriptorBundle &fileDescriptors); // only on Unix
     qint64 nativeSendDatagram(const char *data, qint64 length, const QIpPacketHeader &header);
+    qint64 nativeSendDatagram(const char *data, qint64 length,
+                              const QNativeSocketEngine::FileDescriptorBundle &fileDescriptors);
     qint64 nativeRead(char *data, qint64 maxLength);
     qint64 nativeWrite(const char *data, qint64 length);
     int nativeSelect(int timeout, bool selectForRead) const;

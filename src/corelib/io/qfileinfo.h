@@ -129,7 +129,12 @@ public:
 
     qint64 size() const;
 
+#if QT_DEPRECATED_SINCE(5, 9)
+    QT_DEPRECATED_X("Use either birthTime() or metadataChangeTime()")
     QDateTime created() const;
+#endif
+    QDateTime birthTime() const;
+    QDateTime metadataChangeTime() const;
     QDateTime lastModified() const;
     QDateTime lastRead() const;
 

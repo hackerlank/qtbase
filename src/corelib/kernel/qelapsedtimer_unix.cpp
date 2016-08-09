@@ -191,19 +191,6 @@ static inline void do_gettime(qint64 *sec, qint64 *frac, clock_t clock = regular
     *frac = ts.tv_nsec;
 }
 
-// used in qcore_unix.cpp and qeventdispatcher_unix.cpp
-struct timespec qt_gettime(Qt::TimerType timerType) Q_DECL_NOTHROW
-{
-    qint64 sec, frac;
-    do_gettime(&sec, &frac, clockForTimerType(timerType));
-
-    timespec tv;
-    tv.tv_sec = sec;
-    tv.tv_nsec = frac;
-
-    return tv;
-}
-
 void qt_nanosleep(timespec amount)
 {
     // We'd like to use clock_nanosleep.

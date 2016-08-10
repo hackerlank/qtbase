@@ -88,6 +88,7 @@ public:
 
     static QDeadlineTimer addNSecs(QDeadlineTimer dt, qint64 nsecs) Q_DECL_NOTHROW Q_DECL_PURE_FUNCTION;
     static QDeadlineTimer current(Qt::TimerType timerType = Qt::CoarseTimer) Q_DECL_NOTHROW;
+    static qint64 resolution(Qt::TimerType timerType) Q_DECL_NOTHROW;
 
     friend bool operator==(QDeadlineTimer d1, QDeadlineTimer d2) Q_DECL_NOTHROW
     { return d1.t1 == d2.t1 && d1.t2 == d2.t2; }

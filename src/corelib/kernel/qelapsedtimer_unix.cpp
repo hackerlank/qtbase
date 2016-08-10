@@ -62,6 +62,10 @@
 
 QT_BEGIN_NAMESPACE
 
+// DON'T access directly
+static struct timespec regular_clock_resolution = { 0, 0 };
+static struct timespec coarse_clock_resolution = { 0, 0 };
+
 /*
  * Design:
  *
@@ -147,8 +151,7 @@ static inline clock_t regularClock()
 static clock_t coarseMonotonicClock()
 {
 #ifdef CLOCK_MONOTONIC_COARSE
-    timespec ts;
-    if (clock_getres(CLOCK_MONOTONIC_COARSE, &ts) != -1)
+    if (clock_getres(CLOCK_MONOTONIC_COARSE, &coarse_clock_resolution) != -1)
         return CLOCK_MONOTONIC_COARSE;
 #endif
     return regularClock();
@@ -160,6 +163,14 @@ static clock_t clockForTimerType(int timerType)
         return regularClock();
     static const clock_t coarse = coarseMonotonicClock();
     return coarse;
+}
+
+static struct timespec resolutionForTimerType(int timerType)
+{
+    clock_t c = clockForTimerType(timerType);
+    if (c == regularClock())
+        return regular_clock_resolution;
+    return coarse_clock_resolution;
 }
 
 bool QElapsedTimer::isMonotonic() Q_DECL_NOTHROW
@@ -272,6 +283,14 @@ QDeadlineTimer QDeadlineTimer::current(Qt::TimerType timerType) Q_DECL_NOTHROW
     result.t2 = curnsec;
     result.type = timerType;
     return result;
+}
+
+qint64 QDeadlineTimer::resolution(Qt::TimerType timerType) Q_DECL_NOTHROW
+{
+    struct timespec res = resolutionForTimerType(timerType);
+    if (res.tv_sec == 0 && res.tv_nsec == 0)
+        return 0;
+    return res.tv_sec * Q_INT64_C(1000) * 1000 * 1000 + res.tv_nsec;
 }
 
 QT_END_NAMESPACE

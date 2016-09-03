@@ -847,10 +847,10 @@ void QTextFormat::merge(const QTextFormat &other)
 
     QTextFormatPrivate *d = this->d;
 
-    const QVector<::Property> &otherProps = other.d->props;
+    const QVector<QT_PREPEND_NAMESPACE(Property)> &otherProps = other.d->props;
     d->props.reserve(d->props.size() + otherProps.size());
     for (int i = 0; i < otherProps.count(); ++i) {
-        const ::Property &p = otherProps.at(i);
+        const QT_PREPEND_NAMESPACE(Property) &p = otherProps.at(i);
         d->insertProperty(p.key, p.value);
     }
 }

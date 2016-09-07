@@ -149,10 +149,19 @@ namespace MyNamespace {
     };
 }
 
-
-class tst_QMetaObject : public QObject
+class Intermediary : public QObject
 {
     Q_OBJECT
+    Q_CLASSINFO("Intermediary", "")
+public:
+    enum IntermediaryEnum { IntermediaryEnum1 };
+    Q_ENUM(IntermediaryEnum)
+};
+
+class tst_QMetaObject : public Intermediary
+{
+    Q_OBJECT
+    Q_CLASSINFO("ClassName", "tst_QMetaObject")
     Q_PROPERTY(EnumType value WRITE setValue READ getValue)
     Q_PROPERTY(EnumType value2 WRITE set_value READ get_value)
     Q_PROPERTY(MyStruct value3 WRITE setVal3 READ val3)
@@ -240,6 +249,8 @@ private slots:
 
     void inherits_data();
     void inherits();
+
+    void localAbsoluteMatch();
 
 signals:
     void value6Changed();
@@ -1038,7 +1049,7 @@ void tst_QMetaObject::normalizedType()
 
 void tst_QMetaObject::customPropertyType()
 {
-    QMetaProperty prop = metaObject()->property(metaObject()->indexOfProperty("value3"));
+    QMetaProperty prop = staticMetaObject.localProperty(staticMetaObject.localIndexOfProperty("value3"));
 
     QCOMPARE(prop.type(), QVariant::UserType);
     QCOMPARE(prop.userType(), 0);
@@ -1261,26 +1272,34 @@ void tst_QMetaObject::metaMethod()
 void tst_QMetaObject::indexOfMethod_data()
 {
     QTest::addColumn<QObject *>("object");
+    QTest::addColumn<const QMetaObject *>("mo");
     QTest::addColumn<QByteArray>("name");
     QTest::addColumn<bool>("isSignal");
-    QTest::newRow("indexOfMethod_data") << (QObject*)this << QByteArray("indexOfMethod_data()") << false;
-    QTest::newRow("deleteLater") << (QObject*)this << QByteArray("deleteLater()") << false;
-    QTest::newRow("value6changed") << (QObject*)this << QByteArray("value6Changed()") << true;
-    QTest::newRow("value7changed") << (QObject*)this << QByteArray("value7Changed(QString)") << true;
-    QTest::newRow("destroyed") << (QObject*)this << QByteArray("destroyed()") << true;
-    QTest::newRow("destroyed2") << (QObject*)this << QByteArray("destroyed(QObject*)") << true;
+    QTest::newRow("indexOfMethod_data") << (QObject*)this << &staticMetaObject << QByteArray("indexOfMethod_data()") << false;
+    QTest::newRow("deleteLater") << (QObject*)this << &QObject::staticMetaObject << QByteArray("deleteLater()") << false;
+    QTest::newRow("value6changed") << (QObject*)this << &staticMetaObject << QByteArray("value6Changed()") << true;
+    QTest::newRow("value7changed") << (QObject*)this << &staticMetaObject << QByteArray("value7Changed(QString)") << true;
+    QTest::newRow("destroyed") << (QObject*)this << &QObject::staticMetaObject << QByteArray("destroyed()") << true;
+    QTest::newRow("destroyed2") << (QObject*)this << &QObject::staticMetaObject << QByteArray("destroyed(QObject*)") << true;
 }
 
 void tst_QMetaObject::indexOfMethod()
 {
     QFETCH(QObject *, object);
+    QFETCH(const QMetaObject *, mo);
     QFETCH(QByteArray, name);
     QFETCH(bool, isSignal);
     int idx = object->metaObject()->indexOfMethod(name);
     QVERIFY(idx >= 0);
+    QVERIFY(idx >= mo->methodOffset());
+    int localidx = idx - mo->methodOffset();
+    QVERIFY(localidx < mo->methodCount());
     QCOMPARE(object->metaObject()->method(idx).methodSignature(), name);
     QCOMPARE(object->metaObject()->indexOfSlot(name), isSignal ? -1 : idx);
     QCOMPARE(object->metaObject()->indexOfSignal(name), !isSignal ? -1 : idx);
+    QCOMPARE(mo->localMethod(localidx).methodSignature(), name);
+    QCOMPARE(mo->localIndexOfSlot(name), isSignal ? -1 : localidx);
+    QCOMPARE(mo->localIndexOfSignal(name), !isSignal ? -1 : localidx);
 }
 
 void tst_QMetaObject::indexOfMethodPMF()
@@ -1471,6 +1490,77 @@ void tst_QMetaObject::inherits()
     QFETCH(bool, inheritsResult);
 
     QCOMPARE(derivedMetaObject->inherits(baseMetaObject), inheritsResult);
+}
+
+void tst_QMetaObject::localAbsoluteMatch()
+{
+    // method
+    {
+        int idx = staticMetaObject.indexOfMethod("localAbsoluteMatch()");
+        int localidx = staticMetaObject.localIndexOfMethod("localAbsoluteMatch()");
+        QVERIFY(idx != -1);
+        QVERIFY(localidx != -1);
+        QVERIFY(idx >= staticMetaObject.methodOffset());
+        QVERIFY(idx < staticMetaObject.methodCount());
+        QCOMPARE(localidx + staticMetaObject.methodOffset(), idx);
+    }
+    {
+        int idx = staticMetaObject.indexOfMethod("deleteLater()");
+        int localidx = staticMetaObject.localIndexOfMethod("deleteLater()");
+        QVERIFY(idx != -1);
+        QCOMPARE(localidx, -1);
+    }
+
+    // enumerator
+    {
+        int idx = staticMetaObject.indexOfEnumerator("EnumType");
+        int localidx = staticMetaObject.localIndexOfEnumerator("EnumType");
+        QVERIFY(idx != -1);
+        QVERIFY(localidx != -1);
+        QVERIFY(idx >= staticMetaObject.enumeratorOffset());
+        QVERIFY(idx < staticMetaObject.enumeratorCount());
+        QCOMPARE(localidx + staticMetaObject.enumeratorOffset(), idx);
+    }
+    {
+        int idx = staticMetaObject.indexOfEnumerator("IntermediaryEnum");
+        int localidx = staticMetaObject.localIndexOfEnumerator("IntermediaryEnum");
+        QVERIFY(idx != -1);
+        QCOMPARE(localidx, -1);
+    }
+
+    // property
+    {
+        int idx = staticMetaObject.indexOfProperty("value");
+        int localidx = staticMetaObject.localIndexOfProperty("value");
+        QVERIFY(idx != -1);
+        QVERIFY(localidx != -1);
+        QVERIFY(idx >= staticMetaObject.propertyOffset());
+        QVERIFY(idx < staticMetaObject.propertyCount());
+        QCOMPARE(localidx + staticMetaObject.propertyOffset(), idx);
+    }
+    {
+        int idx = staticMetaObject.indexOfProperty("objectName");
+        int localidx = staticMetaObject.localIndexOfProperty("objectName");
+        QVERIFY(idx != -1);
+        QCOMPARE(localidx, -1);
+    }
+
+    // classinfo
+    {
+        int idx = staticMetaObject.indexOfClassInfo("ClassName");
+        int localidx = staticMetaObject.localIndexOfClassInfo("ClassName");
+        QVERIFY(idx != -1);
+        QVERIFY(localidx != -1);
+        QVERIFY(idx >= staticMetaObject.classInfoOffset());
+        QVERIFY(idx < staticMetaObject.classInfoCount());
+        QCOMPARE(localidx + staticMetaObject.classInfoOffset(), idx);
+    }
+    {
+        int idx = staticMetaObject.indexOfClassInfo("Intermediary");
+        int localidx = staticMetaObject.localIndexOfClassInfo("Intermediary");
+        QVERIFY(idx != -1);
+        QCOMPARE(localidx, -1);
+    }
 }
 
 QTEST_MAIN(tst_QMetaObject)

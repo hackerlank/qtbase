@@ -593,10 +593,37 @@ static bool methodMatch(const QMetaObject *m, int handle,
     return true;
 }
 
+enum Recursion { ScanHierarchy, ScanLocal };
+
+/**
+ * \internal
+ * helper function for localIndexOf{Method,Slot,Signal}, returns the relative
+ * index of the method within baseObject but does not search parent objects
+ * \a MethodType might be MethodSignal or MethodSlot, or 0 to match everything.
+ */
+template <int MethodType>
+static inline int localIndexOfMethod_helper(const QMetaObject *m, const QByteArray &name,
+                                            int argc, const QArgumentType *types)
+{
+    Q_ASSERT(priv(m->d.data)->revision >= 7);
+    int i = (MethodType == MethodSignal)
+             ? (priv(m->d.data)->signalCount - 1) : (priv(m->d.data)->methodCount - 1);
+    const int end = (MethodType == MethodSlot)
+                    ? (priv(m->d.data)->signalCount) : 0;
+
+    for (; i >= end; --i) {
+        int handle = priv(m->d.data)->methodData + 5*i;
+        if (methodMatch(m, handle, name, argc, types))
+            return i;
+    }
+
+    return -1;
+}
+
 /**
 * \internal
 * helper function for indexOf{Method,Slot,Signal}, returns the relative index of the method within
-* the baseObject
+* the baseObject. This function searches the parent objects too.
 * \a MethodType might be MethodSignal or MethodSlot, or 0 to match everything.
 */
 template<int MethodType>
@@ -605,18 +632,10 @@ static inline int indexOfMethodRelative(const QMetaObject **baseObject,
                                         const QArgumentType *types)
 {
     for (const QMetaObject *m = *baseObject; m; m = m->d.superdata) {
-        Q_ASSERT(priv(m->d.data)->revision >= 7);
-        int i = (MethodType == MethodSignal)
-                 ? (priv(m->d.data)->signalCount - 1) : (priv(m->d.data)->methodCount - 1);
-        const int end = (MethodType == MethodSlot)
-                        ? (priv(m->d.data)->signalCount) : 0;
-
-        for (; i >= end; --i) {
-            int handle = priv(m->d.data)->methodData + 5*i;
-            if (methodMatch(m, handle, name, argc, types)) {
-                *baseObject = m;
-                return i;
-            }
+        int i = localIndexOfMethod_helper<MethodType>(m, name, argc, types);
+        if (i != -1) {
+            *baseObject = m;
+            return i;
         }
     }
     return -1;
@@ -642,12 +661,13 @@ int QMetaObject::indexOfConstructor(const char *constructor) const
 }
 
 /*!
-    Finds \a method and returns its index; otherwise returns -1.
+    Finds \a method and returns its index; otherwise returns -1. This function
+    searches the parent meta objects.
 
     Note that the \a method has to be in normalized form, as returned
     by normalizedSignature().
 
-    \sa method(), methodCount(), methodOffset(), normalizedSignature()
+    \sa localIndexOfMethod(), method(), methodCount(), methodOffset(), normalizedSignature()
 */
 int QMetaObject::indexOfMethod(const char *method) const
 {
@@ -660,6 +680,27 @@ int QMetaObject::indexOfMethod(const char *method) const
     if (i >= 0)
         i += m->methodOffset();
     return i;
+}
+
+/*!
+    \since 5.9
+
+    Finds \a method in the current meta object and returns its local index;
+    otherwise returns -1. This function does not search parent meta objects. If
+    this method is found, then the following equality holds:
+      localIndexOfMethod(x) == indexOfMethod(x) + methodOffset()
+
+    Note that the \a method has to be in normalized form, as returned
+    by normalizedSignature().
+
+    \sa indexOfMethod(), localMethod(), methodCount(), methodOffset(), normalizedSignature()
+*/
+int QMetaObject::localIndexOfMethod(const char *method) const
+{
+    Q_ASSERT(priv(d.data)->revision >= 7);
+    QArgumentTypeArray types;
+    QByteArray name = QMetaObjectPrivate::decodeMethodSignature(method, types);
+    return localIndexOfMethod_helper<0>(this, name, types.size(), types.constData());
 }
 
 // Parses a string of comma-separated types into QArgumentTypes.
@@ -702,7 +743,8 @@ QByteArray QMetaObjectPrivate::decodeMethodSignature(
 }
 
 /*!
-    Finds \a signal and returns its index; otherwise returns -1.
+    Finds \a signal and returns its index; otherwise returns -1. This function
+    searches the parent meta objects.
 
     This is the same as indexOfMethod(), except that it will return
     -1 if the method exists but isn't a signal.
@@ -710,7 +752,7 @@ QByteArray QMetaObjectPrivate::decodeMethodSignature(
     Note that the \a signal has to be in normalized form, as returned
     by normalizedSignature().
 
-    \sa indexOfMethod(), normalizedSignature(), method(), methodCount(), methodOffset()
+    \sa indexOfMethod(), localIndexOfSignal(), normalizedSignature(), method(), methodCount(), methodOffset()
 */
 int QMetaObject::indexOfSignal(const char *signal) const
 {
@@ -752,12 +794,35 @@ int QMetaObjectPrivate::indexOfSignalRelative(const QMetaObject **baseObject,
 }
 
 /*!
-    Finds \a slot and returns its index; otherwise returns -1.
+    \since 5.9
+
+    Finds \a signal and returns its local index; otherwise returns -1. This
+    function only searches the current meta object.
+
+    This is the same as indexOfMethod(), except that it will return
+    -1 if the method exists but isn't a signal.
+
+    Note that the \a signal has to be in normalized form, as returned
+    by normalizedSignature().
+
+    \sa localIndexOfMethod(), indexOfSignal(), normalizedSignature(), localMethod(), methodCount(), methodOffset()
+*/
+int QMetaObject::localIndexOfSignal(const char *signal) const
+{
+    Q_ASSERT(priv(d.data)->revision >= 7);
+    QArgumentTypeArray types;
+    QByteArray name = QMetaObjectPrivate::decodeMethodSignature(signal, types);
+    return localIndexOfMethod_helper<MethodSignal>(this, name, types.size(), types.constData());
+}
+
+/*!
+    Finds \a slot and returns its index; otherwise returns -1. This function
+    searches the current and parent meta objects.
 
     This is the same as indexOfMethod(), except that it will return
     -1 if the method exists but isn't a slot.
 
-    \sa indexOfMethod(), method(), methodCount(), methodOffset()
+    \sa indexOfMethod(), localIndexOfSlot(), method(), methodCount(), methodOffset()
 */
 int QMetaObject::indexOfSlot(const char *slot) const
 {
@@ -778,6 +843,25 @@ int QMetaObjectPrivate::indexOfSlotRelative(const QMetaObject **m,
                                             const QArgumentType *types)
 {
     return indexOfMethodRelative<MethodSlot>(m, name, argc, types);
+}
+
+/*!
+    \since 5.9
+
+    Finds \a slot and returns its local index; otherwise returns -1. This
+    function only searches the current meta object.
+
+    This is the same as indexOfMethod(), except that it will return
+    -1 if the method exists but isn't a slot.
+
+    \sa localIndexOfMethod(), indexOfSlot(), localMethod(), methodCount(), methodOffset()
+*/
+int QMetaObject::localIndexOfSlot(const char *slot) const
+{
+    Q_ASSERT(priv(d.data)->revision >= 7);
+    QArgumentTypeArray types;
+    QByteArray name = QMetaObjectPrivate::decodeMethodSignature(slot, types);
+    return localIndexOfMethod_helper<MethodSlot>(this, name, types.size(), types.constData());
 }
 
 int QMetaObjectPrivate::indexOfSignal(const QMetaObject *m, const QByteArray &name,
@@ -973,48 +1057,56 @@ static const QMetaObject *QMetaObject_findMetaObject(const QMetaObject *self, co
 }
 
 /*!
-    Finds enumerator \a name and returns its index; otherwise returns
-    -1.
+    Finds enumerator \a name and returns its index; otherwise returns -1. This
+    function searches the current and parent meta objects.
 
-    \sa enumerator(), enumeratorCount(), enumeratorOffset()
+    \sa enumerator(), localIndexOfEnumerator(), enumeratorCount(), enumeratorOffset()
 */
 int QMetaObject::indexOfEnumerator(const char *name) const
 {
     const QMetaObject *m = this;
     while (m) {
-        const QMetaObjectPrivate *d = priv(m->d.data);
-        for (int i = d->enumeratorCount - 1; i >= 0; --i) {
-            const char *prop = rawStringData(m, m->d.data[d->enumeratorData + 4*i]);
-            if (name[0] == prop[0] && strcmp(name + 1, prop + 1) == 0) {
-                i += m->enumeratorOffset();
-                return i;
-            }
-        }
+        int i = m->localIndexOfEnumerator(name);
+        if (i != -1)
+            return i + m->enumeratorOffset();
         m = m->d.superdata;
     }
     return -1;
 }
 
 /*!
-    Finds property \a name and returns its index; otherwise returns
-    -1.
+    \since 5.9
 
-    \sa property(), propertyCount(), propertyOffset()
+    Finds enumerator \a name and returns its local index; otherwise returns -1.
+    This function only searches the current meta object.
+
+    \sa localEnumerator(), indexOfEnumerator(), enumeratorCount(), enumeratorOffset()
+*/
+int QMetaObject::localIndexOfEnumerator(const char *name) const
+{
+    const QMetaObjectPrivate *d = priv(this->d.data);
+    for (int i = d->enumeratorCount - 1; i >= 0; --i) {
+        const char *prop = rawStringData(this, this->d.data[d->enumeratorData + 4*i]);
+        if (name[0] == prop[0] && strcmp(name + 1, prop + 1) == 0)
+            return i;
+    }
+    return -1;
+}
+
+/*!
+    Finds property \a name and returns its index; otherwise returns -1. This
+    function seaches the current and parent meta objects.
+
+    \sa property(), localIndexOfProperty(), propertyCount(), propertyOffset()
 */
 int QMetaObject::indexOfProperty(const char *name) const
 {
     const QMetaObject *m = this;
-    int l = int(strlen(name));
     while (m) {
-        const QMetaObjectPrivate *d = priv(m->d.data);
-        for (int i = d->propertyCount-1; i >= 0; --i) {
-            const char *prop = rawStringData(m, m->d.data[d->propertyData + 3*i]);
-            int proplen = stringSize(m, m->d.data[d->propertyData + 3*i]);
-            if (proplen == l && name[0] == prop[0] && memcmp(name + 1, prop + 1, l - 1) == 0) {
-                i += m->propertyOffset();
-                return i;
-            }
-        }
+        int i = m->localIndexOfProperty(name);
+        if (i != -1)
+            return i + m->propertyOffset();
+
         m = m->d.superdata;
     }
 
@@ -1030,24 +1122,65 @@ int QMetaObject::indexOfProperty(const char *name) const
 }
 
 /*!
+    Finds property \a name and returns its local index; otherwise returns -1. This
+    function seaches only the current meta object.
+
+    \sa localProperty(), indexOfProperty(), propertyCount(), propertyOffset()
+*/
+int QMetaObject::localIndexOfProperty(const char *name) const
+{
+    int l = int(strlen(name));
+    const QMetaObjectPrivate *d = priv(this->d.data);
+    for (int i = d->propertyCount-1; i >= 0; --i) {
+        const char *prop = rawStringData(this, this->d.data[d->propertyData + 3*i]);
+        int proplen = stringSize(this, this->d.data[d->propertyData + 3*i]);
+        if (proplen == l && name[0] == prop[0] && memcmp(name + 1, prop + 1, l - 1) == 0)
+            return i;
+    }
+
+    // this function does not call QAbstractDynamicMetaObject::createProperty()!
+
+    return -1;
+}
+
+/*!
     Finds class information item \a name and returns its index;
     otherwise returns -1.
 
-    \sa classInfo(), classInfoCount(), classInfoOffset()
+    \sa classInfo(), localIndexOfClassInfo(), classInfoCount(), classInfoOffset()
 */
 int QMetaObject::indexOfClassInfo(const char *name) const
 {
     int i = -1;
     const QMetaObject *m = this;
     while (m && i < 0) {
-        for (i = priv(m->d.data)->classInfoCount-1; i >= 0; --i)
-            if (strcmp(name, rawStringData(m, m->d.data[priv(m->d.data)->classInfoData + 2*i])) == 0) {
-                i += m->classInfoOffset();
-                break;
-            }
+        i = m->localIndexOfClassInfo(name);
+        if (i != -1) {
+            i += m->classInfoOffset();
+            break;
+        }
         m = m->d.superdata;
     }
     return i;
+}
+
+/*!
+    \since 5.9
+
+    Finds class information item \a name and returns its local index;
+    otherwise returns -1.
+
+    \sa localClassInfo(), indexOfClassInfo(), classInfoCount(), classInfoOffset()
+*/
+int QMetaObject::localIndexOfClassInfo(const char *name) const
+{
+    int i = -1;
+    const QMetaObject *m = this;
+    for (i = priv(m->d.data)->classInfoCount-1; i >= 0; --i) {
+        if (strcmp(name, rawStringData(m, m->d.data[priv(m->d.data)->classInfoData + 2*i])) == 0)
+            return i;
+    }
+    return -1;
 }
 
 /*!
@@ -1072,7 +1205,7 @@ QMetaMethod QMetaObject::constructor(int index) const
 /*!
     Returns the meta-data for the method with the given \a index.
 
-    \sa methodCount(), methodOffset(), indexOfMethod()
+    \sa localMethod(), methodCount(), methodOffset(), indexOfMethod()
 */
 QMetaMethod QMetaObject::method(int index) const
 {
@@ -1080,8 +1213,21 @@ QMetaMethod QMetaObject::method(int index) const
     i -= methodOffset();
     if (i < 0 && d.superdata)
         return d.superdata->method(index);
+    return localMethod(i);
+}
 
+/*!
+    \since 5.9
+
+    Returns the meta-data for the method with the given local index \a localIndex.
+    This is equal to \c{method(methodOffset() + localIndex)}.
+
+    \sa method(), methodCount(), methodOffset(), localIndexOfMethod()
+*/
+QMetaMethod QMetaObject::localMethod(int localIndex) const
+{
     QMetaMethod result;
+    int i = localIndex;
     if (i >= 0 && i < priv(d.data)->methodCount) {
         result.mobj = this;
         result.handle = priv(d.data)->methodData + 5*i;
@@ -1092,7 +1238,7 @@ QMetaMethod QMetaObject::method(int index) const
 /*!
     Returns the meta-data for the enumerator with the given \a index.
 
-    \sa enumeratorCount(), enumeratorOffset(), indexOfEnumerator()
+    \sa localEnumerator(), enumeratorCount(), enumeratorOffset(), indexOfEnumerator()
 */
 QMetaEnum QMetaObject::enumerator(int index) const
 {
@@ -1100,8 +1246,20 @@ QMetaEnum QMetaObject::enumerator(int index) const
     i -= enumeratorOffset();
     if (i < 0 && d.superdata)
         return d.superdata->enumerator(index);
+    return localEnumerator(i);
+}
 
+/*!
+    \since 5.9
+
+    Returns the meta-data for the enumerator with the given local index \a localIndex.
+
+    \sa enumerator(), enumeratorCount(), enumeratorOffset(), localIndexOfEnumerator()
+*/
+QMetaEnum QMetaObject::localEnumerator(int localIndex) const
+{
     QMetaEnum result;
+    int i = localIndex;
     if (i >= 0 && i < priv(d.data)->enumeratorCount) {
         result.mobj = this;
         result.handle = priv(d.data)->enumeratorData + 4*i;
@@ -1113,7 +1271,7 @@ QMetaEnum QMetaObject::enumerator(int index) const
     Returns the meta-data for the property with the given \a index.
     If no such property exists, a null QMetaProperty is returned.
 
-    \sa propertyCount(), propertyOffset(), indexOfProperty()
+    \sa localProperty(), propertyCount(), propertyOffset(), indexOfProperty()
 */
 QMetaProperty QMetaObject::property(int index) const
 {
@@ -1121,8 +1279,19 @@ QMetaProperty QMetaObject::property(int index) const
     i -= propertyOffset();
     if (i < 0 && d.superdata)
         return d.superdata->property(index);
+    return localProperty(i);
+}
 
+/*!
+    Returns the meta-data for the property with the given local index \a
+    localIndex. If no such property exists, a null QMetaProperty is returned.
+
+    \sa property(), propertyCount(), propertyOffset(), localIndexOfProperty()
+*/
+QMetaProperty QMetaObject::localProperty(int localIndex) const
+{
     QMetaProperty result;
+    int i = localIndex;
     if (i >= 0 && i < priv(d.data)->propertyCount) {
         int handle = priv(d.data)->propertyData + 3*i;
         int flags = d.data[handle + 2];
@@ -1191,7 +1360,7 @@ QMetaProperty QMetaObject::userProperty() const
 
     \snippet code/src_corelib_kernel_qmetaobject.cpp 0
 
-    \sa classInfoCount(), classInfoOffset(), indexOfClassInfo()
+    \sa localClassInfo(), classInfoCount(), classInfoOffset(), indexOfClassInfo()
  */
 QMetaClassInfo QMetaObject::classInfo(int index) const
 {
@@ -1199,8 +1368,25 @@ QMetaClassInfo QMetaObject::classInfo(int index) const
     i -= classInfoOffset();
     if (i < 0 && d.superdata)
         return d.superdata->classInfo(index);
+    return localClassInfo(i);
+}
 
+/*!
+    \since 5.9
+
+    Returns the meta-data for the item of class information with the
+    given local index \a localIndex.
+
+    Example:
+
+    \snippet code/src_corelib_kernel_qmetaobject.cpp 0
+
+    \sa classInfo(), classInfoCount(), classInfoOffset(), localIndexOfClassInfo()
+ */
+QMetaClassInfo QMetaObject::localClassInfo(int localIndex) const
+{
     QMetaClassInfo result;
+    int i= localIndex;
     if (i >= 0 && i < priv(d.data)->classInfoCount) {
         result.mobj = this;
         result.handle = priv(d.data)->classInfoData + 2*i;

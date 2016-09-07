@@ -390,12 +390,26 @@ struct Q_CORE_EXPORT QMetaObject
     int indexOfProperty(const char *name) const;
     int indexOfClassInfo(const char *name) const;
 
+    // no localIndexOfConstructor: always local
+    int localIndexOfMethod(const char *method) const;
+    int localIndexOfSignal(const char *signal) const;
+    int localIndexOfSlot(const char *slot) const;
+    int localIndexOfEnumerator(const char *name) const;
+    int localIndexOfProperty(const char *name) const;
+    int localIndexOfClassInfo(const char *name) const;
+
     QMetaMethod constructor(int index) const;
     QMetaMethod method(int index) const;
     QMetaEnum enumerator(int index) const;
     QMetaProperty property(int index) const;
     QMetaClassInfo classInfo(int index) const;
     QMetaProperty userProperty() const;
+
+    // no localConstructor: always local
+    QMetaMethod localMethod(int localIndex) const;
+    QMetaEnum localEnumerator(int localIndex) const;
+    QMetaProperty localProperty(int localIndex) const;
+    QMetaClassInfo localClassInfo(int localIndex) const;
 
     static bool checkConnectArgs(const char *signal, const char *method);
     static bool checkConnectArgs(const QMetaMethod &signal,

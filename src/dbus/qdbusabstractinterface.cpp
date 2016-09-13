@@ -104,6 +104,23 @@ static QDBusError checkIfValid(const QString &service, const QString &path,
     return QDBusError();
 }
 
+static QMetaProperty findProperty(const char *name, const QMetaObject *m)
+{
+    const QMetaObject *limit = &QDBusAbstractInterface::staticMetaObject;
+    forever {
+        int idx = m->localIndexOfProperty(name);
+        if (idx != -1)
+            return m->localProperty(idx);
+
+        m = m->superClass();
+        if (m == limit)
+            return QMetaProperty();
+
+        // we are not supposed to go past QDBusAbstractInterface
+        Q_ASSERT(m && m != &QObject::staticMetaObject);
+    }
+}
+
 QDBusAbstractInterfacePrivate::QDBusAbstractInterfacePrivate(const QString &serv,
                                                              const QString &p,
                                                              const QString &iface,
@@ -298,6 +315,34 @@ int QDBusAbstractInterfaceBase::qt_metacall(QMetaObject::Call _c, int _id, void 
         _id = -1;
     }
     return _id;
+}
+
+QVariant QDBusAbstractInterfaceBase::property(const char *name) const
+{
+    // find out if this is a D-Bus property
+    const QMetaObject *mo = metaObject();
+    QMetaProperty mp = findProperty(name, mo);
+    if (!mp.isValid())
+        return QObject::property(name);
+
+    int type = mp.userType();
+    QVariant ret(type, nullptr);
+    void *ptr = (type == QMetaType::QVariant) ? &ret : ret.data();
+    bool ok = d_func()->property(mp, ptr);
+    if (!ok)
+        ret.clear();
+    return ret;
+}
+
+bool QDBusAbstractInterfaceBase::setProperty(const char *name, const QVariant &value)
+{
+    // find out if this is a D-Bus property
+    const QMetaObject *mo = metaObject();
+    QMetaProperty mp = findProperty(name, mo);
+    if (!mp.isValid())
+        return QObject::setProperty(name, value);
+
+    return d_func()->setProperty(mp, value);
 }
 
 /*!

@@ -68,7 +68,12 @@ class Q_DBUS_EXPORT QDBusAbstractInterfaceBase: public QObject
 {
 public:
     int qt_metacall(QMetaObject::Call, int, void**) Q_DECL_OVERRIDE;
+
+    // these are non-virtual overrides from QObject
+    QVariant property(const char *name) const;
+    bool setProperty(const char *name, const QVariant &value);
 protected:
+    // ### Qt 6: make private and friend QDBusAbstractInterface
     QDBusAbstractInterfaceBase(QDBusAbstractInterfacePrivate &dd, QObject *parent);
 private:
     Q_DECLARE_PRIVATE(QDBusAbstractInterface)

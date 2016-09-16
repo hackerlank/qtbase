@@ -39,11 +39,11 @@ int runConfigure( int argc, char** argv )
 {
     Configure app( argc, argv );
     if (!app.isOk())
-        return 3;
+        return 1;
 
     app.parseCmdLine();
     if (!app.isOk())
-        return 3;
+        return 2;
 
     // Read license now, and exit if it doesn't pass.
     // This lets the user see the command-line options of configure
@@ -58,27 +58,27 @@ int runConfigure( int argc, char** argv )
     // Bootstrapped includes. Needed by qmake.
     app.generateHeaders();
     if (!app.isOk())
-        return 3;
+        return 4;
 
     // Bootstrap qmake. Needed by config tests.
     app.buildQmake();
     if (!app.isOk())
-        return 3;
+        return 5;
 
     // Generate qdevice.pri
     app.generateQDevicePri();
     if (!app.isOk())
-        return 3;
+        return 6;
 
     // Prepare the config test build directory.
     app.prepareConfigTests();
     if (!app.isOk())
-        return 3;
+        return 7;
 
     // run qmake based configure
     app.configure();
     if (!app.isOk())
-        return 3;
+        return 8;
 
     return 0;
 }

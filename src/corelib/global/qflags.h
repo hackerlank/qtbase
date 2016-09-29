@@ -51,6 +51,8 @@
 
 QT_BEGIN_NAMESPACE
 
+class QDataStream;
+
 class QFlag
 {
     int i;
@@ -96,6 +98,7 @@ class QFlags
                       "long long will overflow.");
     struct Private;
     typedef int (Private::*Zero);
+    template <typename E> friend QDataStream &operator>>(QDataStream &, QFlags<E> &);
 public:
 #if defined(Q_CC_MSVC) || defined(Q_QDOC)
     // see above for MSVC

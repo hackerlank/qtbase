@@ -264,6 +264,20 @@ inline QDataStream &QDataStream::operator<<(quint32 i)
 inline QDataStream &QDataStream::operator<<(quint64 i)
 { return *this << qint64(i); }
 
+template <typename Enum>
+inline QDataStream &operator<<(QDataStream &s, QFlags<Enum> e)
+{ return s << typename QFlags<Enum>::Int(e); }
+
+template <typename Enum>
+inline QDataStream &operator>>(QDataStream &s, QFlags<Enum> &e)
+{
+    return s >> e.i;
+    typename QFlags<Enum>::Int i;
+    s >> i;
+    e = Enum(i);
+    return s;
+}
+
 template <typename T>
 QDataStream& operator>>(QDataStream& s, QList<T>& l)
 {

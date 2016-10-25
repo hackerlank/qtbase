@@ -82,6 +82,13 @@ public:
 };
 Q_DECLARE_SHARED(QBitmap)
 
+#ifndef QT_NO_DATASTREAM
+inline QDataStream &operator<<(QDataStream &s, const QBitmap &bm)
+{ return s << static_cast<const QPixmap &>(bm); }
+inline QDataStream &operator>>(QDataStream &s, QBitmap &bm)
+{ return s >> static_cast<QPixmap &>(bm); }
+#endif
+
 QT_END_NAMESPACE
 
 #endif // QBITMAP_H

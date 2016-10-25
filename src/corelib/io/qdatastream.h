@@ -42,6 +42,7 @@
 
 #include <QtCore/qscopedpointer.h>
 #include <QtCore/qiodevice.h>
+#include <QtCore/qlist.h>
 #include <QtCore/qpair.h>
 
 #ifdef Status
@@ -50,11 +51,10 @@
 
 QT_BEGIN_NAMESPACE
 
-
 class QByteArray;
 class QIODevice;
+class QString;
 
-template <typename T> class QList;
 template <typename T> class QLinkedList;
 template <typename T> class QVector;
 template <typename T> class QSet;
@@ -224,6 +224,12 @@ private:
 
 } // QtPrivate namespace
 
+
+// these are in qstring.cpp.
+// We need to declare them before the operator<< for QStringList below
+Q_CORE_EXPORT QDataStream &operator<<(QDataStream &, const QString &);
+Q_CORE_EXPORT QDataStream &operator>>(QDataStream &, QString &);
+
 /*****************************************************************************
   QDataStream inline functions
  *****************************************************************************/
@@ -309,6 +315,11 @@ QDataStream& operator<<(QDataStream& s, const QList<T>& l)
         s << l.at(i);
     return s;
 }
+
+inline QDataStream &operator<<(QDataStream &s, const QStringList &l)
+{ return s << static_cast<const QList<QString> &>(l); }
+inline QDataStream &operator>>(QDataStream &s, QStringList &l)
+{ return s >> static_cast<QList<QString> &>(l); }
 
 template <typename T>
 QDataStream& operator>>(QDataStream& s, QLinkedList<T>& l)
@@ -498,6 +509,16 @@ inline QDataStream& operator<<(QDataStream& s, const QPair<T1, T2>& p)
     s << p.first << p.second;
     return s;
 }
+#endif
+
+#if !defined(Q_CC_CLANG) || Q_CC_CLANG >= 309
+// Make sure that any operator<< that is not explicitly defined will cause a
+// compilation error.
+struct QYouForgotToDeclareStreamingOperators;
+template <typename T>
+QYouForgotToDeclareStreamingOperators operator<<(QDataStream &, T) = delete;
+template <typename T>
+QYouForgotToDeclareStreamingOperators operator>>(QDataStream &, T&) = delete;
 #endif
 
 #endif // QT_NO_DATASTREAM

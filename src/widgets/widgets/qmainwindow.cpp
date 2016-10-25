@@ -1307,7 +1307,7 @@ QByteArray QMainWindow::saveState(int version) const
 {
     QByteArray data;
     QDataStream stream(&data, QIODevice::WriteOnly);
-    stream << QMainWindowLayout::VersionMarker;
+    stream << int(QMainWindowLayout::VersionMarker);
     stream << version;
     d_func()->layout->saveState(stream);
     return data;

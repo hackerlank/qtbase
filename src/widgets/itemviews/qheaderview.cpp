@@ -1722,7 +1722,7 @@ QByteArray QHeaderView::saveState() const
     Q_D(const QHeaderView);
     QByteArray data;
     QDataStream stream(&data, QIODevice::WriteOnly);
-    stream << QHeaderViewPrivate::VersionMarker;
+    stream << int(QHeaderViewPrivate::VersionMarker);
     stream << 0; // current version is 0
     d->write(stream);
     return data;

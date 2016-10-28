@@ -214,6 +214,13 @@
 #include <nmmintrin.h>
 #endif
 
+// AES & PCLMULQDQ instrincics
+#define QT_FUNCTION_TARGET_STRING_AES       "aes"
+#define QT_FUNCTION_TARGET_STRING_PCLMUL    "pclmul"
+#if defined(__AES__) || defined(__PCLMUL__) || (defined(QT_COMPILER_SUPPORTS_AES) && defined(QT_COMPILER_SUPPORTS_SIMD_ALWAYS))
+#include <wmmintrin.h>
+#endif
+
 // AVX intrinsics
 #define QT_FUNCTION_TARGET_STRING_AVX       "avx"
 #define QT_FUNCTION_TARGET_STRING_AVX2      "avx2"

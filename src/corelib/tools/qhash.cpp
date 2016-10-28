@@ -72,162 +72,41 @@
 
 #include <limits.h>
 
+static int siphash(uint8_t *out, const uint8_t *in, uint64_t inlen, const uint8_t *k);
+
 QT_BEGIN_NAMESPACE
 
-/*
-    The Java's hashing algorithm for strings is a variation of D. J. Bernstein
-    hashing algorithm appeared here http://cr.yp.to/cdb/cdb.txt
-    and informally known as DJB33XX - DJB's 33 Times Xor.
-    Java uses DJB31XA, that is, 31 Times Add.
+// Our 128-bit is composed of two identical 64-bit halves, each composed of
+// the 32-bit of the seed and twice the low 16-bit of the length.
+struct Key128 { quint32 d[4]; };
 
-    The original algorithm was a loop around
-        (h << 5) + h ^ c
-    (which is indeed h*33 ^ c); it was then changed to
-        (h << 5) - h ^ c
-    (so h*31^c: DJB31XX), and the XOR changed to a sum:
-        (h << 5) - h + c
-    (DJB31XA), which can save some assembly instructions.
-
-    Still, we can avoid writing the multiplication as "(h << 5) - h"
-    -- the compiler will turn it into a shift and an addition anyway
-    (for instance, gcc 4.4 does that even at -O0).
-*/
-
-#if QT_COMPILER_SUPPORTS_HERE(SSE4_2)
-static inline bool hasFastCrc32()
+static void makeKey128(Key128 &result, uint len, uint seed)
 {
-    return qCpuHasFeature(SSE4_2);
+    result.d[0] = result.d[2] = seed;
+    result.d[1] = result.d[3] = (len & 0xffffu) | ((len & 0xffffu) << 16);
 }
 
-template <typename Char>
-QT_FUNCTION_TARGET(SSE4_2)
-static uint crc32(const Char *ptr, size_t len, uint h)
+static Q_NEVER_INLINE uint hash(const uchar *p, int len, uint seed) Q_DECL_NOTHROW
 {
-    // The CRC32 instructions from Nehalem calculate a 32-bit CRC32 checksum
-    const uchar *p = reinterpret_cast<const uchar *>(ptr);
-    const uchar *const e = p + (len * sizeof(Char));
-#  ifdef Q_PROCESSOR_X86_64
-    // The 64-bit instruction still calculates only 32-bit, but without this
-    // variable GCC 4.9 still tries to clear the high bits on every loop
-    qulonglong h2 = h;
 
-    p += 8;
-    for ( ; p <= e; p += 8)
-        h2 = _mm_crc32_u64(h2, qFromUnaligned<qlonglong>(p - 8));
-    h = h2;
-    p -= 8;
-
-    len = e - p;
-    if (len & 4) {
-        h = _mm_crc32_u32(h, qFromUnaligned<uint>(p));
-        p += 4;
+    if (len == 0) {
+        // we've done this in the past, so we keep this behavior
+        return seed;
     }
-#  else
-    p += 4;
-    for ( ; p <= e; p += 4)
-        h = _mm_crc32_u32(h, qFromUnaligned<uint>(p - 4));
-    p -= 4;
-    len = e - p;
-#  endif
-    if (len & 2) {
-        h = _mm_crc32_u16(h, qFromUnaligned<ushort>(p));
-        p += 2;
-    }
-    if (sizeof(Char) == 1 && len & 1)
-        h = _mm_crc32_u8(h, *p);
-    return h;
-}
-#elif defined(__ARM_FEATURE_CRC32)
-static inline bool hasFastCrc32()
-{
-    return qCpuHasFeature(CRC32);
-}
 
-template <typename Char>
-QT_FUNCTION_TARGET(CRC32)
-static uint crc32(const Char *ptr, size_t len, uint h)
-{
-    // The crc32[whbd] instructions on Aarch64/Aarch32 calculate a 32-bit CRC32 checksum
-    const uchar *p = reinterpret_cast<const uchar *>(ptr);
-    const uchar *const e = p + (len * sizeof(Char));
+    // The siphash algorithm produces 64-bit results
+    uint8_t out[sizeof(quint64)] = { };
 
-#ifndef __ARM_FEATURE_UNALIGNED
-    if (Q_UNLIKELY(reinterpret_cast<quintptr>(p) & 7)) {
-        if ((sizeof(Char) == 1) && (reinterpret_cast<quintptr>(p) & 1) && (e - p > 0)) {
-            h = __crc32b(h, *p);
-            ++p;
-        }
-        if ((reinterpret_cast<quintptr>(p) & 2) && (e >= p + 2)) {
-            h = __crc32h(h, *reinterpret_cast<const uint16_t *>(p));
-            p += 2;
-        }
-        if ((reinterpret_cast<quintptr>(p) & 4) && (e >= p + 4)) {
-            h = __crc32w(h, *reinterpret_cast<const uint32_t *>(p));
-            p += 4;
-        }
-    }
-#endif
-
-    for ( ; p + 8 <= e; p += 8)
-        h = __crc32d(h, *reinterpret_cast<const uint64_t *>(p));
-
-    len = e - p;
-    if (len == 0)
-        return h;
-    if (len & 4) {
-        h = __crc32w(h, *reinterpret_cast<const uint32_t *>(p));
-        p += 4;
-    }
-    if (len & 2) {
-        h = __crc32h(h, *reinterpret_cast<const uint16_t *>(p));
-        p += 2;
-    }
-    if (sizeof(Char) == 1 && len & 1)
-        h = __crc32b(h, *p);
-    return h;
-}
-#else
-static inline bool hasFastCrc32()
-{
-    return false;
-}
-
-static uint crc32(...)
-{
-    Q_UNREACHABLE();
-    return 0;
-}
-#endif
-
-static inline uint hash(const uchar *p, int len, uint seed) Q_DECL_NOTHROW
-{
-    uint h = seed;
-
-    if (hasFastCrc32())
-        return crc32(p, size_t(len), h);
-
-    for (int i = 0; i < len; ++i)
-        h = 31 * h + p[i];
-
-    return h;
+    // and takes 128-bit keys
+    Key128 k;
+    makeKey128(k, len, seed);
+    siphash(out, p, len, reinterpret_cast<uchar *>(&k));
+    return qFromUnaligned<uint>(out);
 }
 
 uint qHashBits(const void *p, size_t len, uint seed) Q_DECL_NOTHROW
 {
     return hash(static_cast<const uchar*>(p), int(len), seed);
-}
-
-static inline uint hash(const QChar *p, int len, uint seed) Q_DECL_NOTHROW
-{
-    uint h = seed;
-
-    if (hasFastCrc32())
-        return crc32(p, size_t(len), h);
-
-    for (int i = 0; i < len; ++i)
-        h = 31 * h + p[i].unicode();
-
-    return h;
 }
 
 uint qHash(const QByteArray &key, uint seed) Q_DECL_NOTHROW
@@ -237,12 +116,12 @@ uint qHash(const QByteArray &key, uint seed) Q_DECL_NOTHROW
 
 uint qHash(const QString &key, uint seed) Q_DECL_NOTHROW
 {
-    return hash(key.unicode(), key.size(), seed);
+    return hash(reinterpret_cast<const uchar *>(key.unicode()), key.size() * sizeof(QChar), seed);
 }
 
 uint qHash(const QStringRef &key, uint seed) Q_DECL_NOTHROW
 {
-    return hash(key.unicode(), key.size(), seed);
+    return hash(reinterpret_cast<const uchar *>(key.unicode()), key.size() * sizeof(QChar), seed);
 }
 
 uint qHash(const QBitArray &bitArray, uint seed) Q_DECL_NOTHROW
@@ -2665,3 +2544,12 @@ uint qHash(long double key, uint seed) Q_DECL_NOTHROW
 */
 
 QT_END_NAMESPACE
+
+// Disable extra optimizations, particularly the vectorizers
+#if defined(Q_CC_INTEL) && !defined(Q_CC_MSVC)
+#  pragma GCC optimization_level 2
+#elif defined(Q_CC_GNU) && !defined(Q_CC_CLANG)
+#  pragma GCC optimize("O2")
+#endif
+
+#include "../../3rdparty/siphash/siphash12.c"

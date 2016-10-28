@@ -1,0 +1,26 @@
+From ed87ebf8d1dfe5f4da4b742a01c1a87ee9602ab2 Mon Sep 17 00:00:00 2001
+From: Thiago Macieira <thiago.macieira@intel.com>
+Date: Wed, 23 Nov 2016 21:11:22 -0800
+Subject: [PATCH 1/1] Make SipHash be 1-2 instead of 2-4
+---
+ src/3rdparty/siphash/siphash12.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/3rdparty/siphash/siphash24.c b/src/3rdparty/siphash/siphash24.c
+index 6b2b8a0..43cc7ac 100644
+--- a/src/3rdparty/siphash/siphash24.c
++++ b/src/3rdparty/siphash/siphash24.c
+@@ -19,8 +19,8 @@
+ #include <string.h>
+ 
+ /* default: SipHash-2-4 */
+-#define cROUNDS 2
+-#define dROUNDS 4
++#define cROUNDS 1
++#define dROUNDS 2
+ 
+ #define ROTL(x, b) (uint64_t)(((x) << (b)) | ((x) >> (64 - (b))))
+ 
+-- 
+2.10.2
+

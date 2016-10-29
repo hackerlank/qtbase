@@ -212,13 +212,17 @@
 #define QT_FUNCTION_TARGET_STRING_SSE4_2    "sse4.2"
 #if defined(__SSE4_2__) || (defined(QT_COMPILER_SUPPORTS_SSE4_2) && defined(QT_COMPILER_SUPPORTS_SIMD_ALWAYS))
 #include <nmmintrin.h>
-#endif
 
 // AES & PCLMULQDQ instrincics
-#define QT_FUNCTION_TARGET_STRING_AES       "aes"
-#define QT_FUNCTION_TARGET_STRING_PCLMUL    "pclmul"
-#if defined(__AES__) || defined(__PCLMUL__) || (defined(QT_COMPILER_SUPPORTS_AES) && defined(QT_COMPILER_SUPPORTS_SIMD_ALWAYS))
-#include <wmmintrin.h>
+#  ifdef QT_COMPILER_SUPPORTS_SSE4_2
+#    define QT_COMPILER_SUPPORTS_AES        1
+#    define QT_COMPILER_SUPPORTS_PCLMUL     1
+#  endif
+#  define QT_FUNCTION_TARGET_STRING_AES     "aes,sse4.2"
+#  define QT_FUNCTION_TARGET_STRING_PCLMUL  "pclmul,sse4.2"
+#  if defined(__AES__) || defined(__PCLMUL__) || (defined(QT_COMPILER_SUPPORTS_AES) && defined(QT_COMPILER_SUPPORTS_SIMD_ALWAYS))
+#    include <wmmintrin.h>
+#  endif
 #endif
 
 // AVX intrinsics

@@ -86,8 +86,137 @@ static void makeKey128(Key128 &result, uint len, uint seed)
     result.d[1] = result.d[3] = (len & 0xffffu) | ((len & 0xffffu) << 16);
 }
 
+#if QT_COMPILER_SUPPORTS_HERE(AES) && QT_COMPILER_SUPPORTS_HERE(SSE4_2)
+QT_FUNCTION_TARGET(AES)
+static Q_ALWAYS_INLINE void aeshashData(__m128i &state, __m128i data)
+{
+    state = _mm_xor_si128(state, data);
+    state = _mm_aesenc_si128(state, state);
+    state = _mm_aesenc_si128(state, state);
+    state = _mm_aesenc_si128(state, state);
+}
+
+QT_FUNCTION_TARGET(AES)
+static qregisteruint aeshash(const uchar *p, uint len, uint seed) Q_DECL_NOTHROW
+{
+    // This is inspired by the algorithm in the Go language. See:
+    // https://github.com/golang/go/blob/894abb5f680c040777f17f9f8ee5a5ab3a03cb94/src/runtime/asm_386.s#L902
+    // https://github.com/golang/go/blob/894abb5f680c040777f17f9f8ee5a5ab3a03cb94/src/runtime/asm_amd64.s#L903
+    const auto hash16bytes = [](__m128i &state0, __m128i data) {
+        __m128i s0 = _mm_unpacklo_epi8(state0, data);   // mix the state and the data
+        __m128i s1 = _mm_unpackhi_epi8(state0, data);
+        s0 = _mm_aesenc_si128(s0, state0);
+        s0 = _mm_aesenc_si128(s0, state0);
+        s1 = _mm_aesenc_si128(s1, state0);
+        s1 = _mm_aesenc_si128(s1, state0);
+        state0 = _mm_xor_si128(s0, s1);
+    };
+
+    __m128i key;
+    {
+        // same as makeKey128 above, but produces the result directly in an __m128i
+        uint replicated_len = (len & 0xffffu) | ((len & 0xffffu) << 16);
+        __m128i mseed = _mm_cvtsi32_si128(seed);
+#  ifdef __SSE4_1__
+        key = _mm_insert_epi32(mseed, replicated_len, 1);
+#  else
+        __m128i mlen = _mm_cvtsi32_si128(replicated_len);
+        mlen = _mm_slli_si128(mlen, 4);
+        key = _mm_or_si128(mseed, mlen);
+#  endif
+        key = _mm_unpacklo_epi64(key, key);
+    }
+    __m128i state0 = key;
+    auto src = reinterpret_cast<const __m128i *>(p);
+
+    if (len < 16)
+        goto lt16;
+    if (len < 32)
+        goto lt32;
+
+    // rounds of 32 bytes
+    {
+        // state1 = ~state0;
+        __m128i any = _mm_undefined_si128();
+        __m128i one = _mm_cmpeq_epi64(any, any);
+        __m128i state1 = _mm_xor_si128(state0, one);
+
+        // do simplified rounds of 32 bytes, keeping 256 bits of state
+        const auto srcend = src + (len / 32);
+        while (src < srcend) {
+            __m128i data0 = _mm_loadu_si128(src);
+            __m128i data1 = _mm_loadu_si128(src + 1);
+            data0 = _mm_xor_si128(data0, state0);
+            data1 = _mm_xor_si128(data1, state1);
+            state0 = _mm_aesenc_si128(state0, data0);
+            state0 = _mm_aesenc_si128(state0, data0);
+            state1 = _mm_aesenc_si128(state1, data1);
+            state1 = _mm_aesenc_si128(state1, data1);
+            src += 2;
+        }
+        state0 = _mm_xor_si128(state0, state1);
+    }
+
+    // do we still have 16 or more bytes?
+    if (len & 0x10) {
+lt32:
+        __m128i data = _mm_loadu_si128(src);
+        hash16bytes(state0, data);
+        ++src;
+    }
+    len &= 0xf;
+
+lt16:
+    if (len) {
+        // load the last chunk of data
+        // We're going to load 16 bytes and mask zero the part we don't care
+        // (the hash of a short string is different from the hash of a longer
+        // including NULLs at the end because the length is in the key)
+        // WARNING: this may produce valgrind warnings, but it's safe
+
+        __m128i data;
+
+        if (Q_LIKELY(quintptr(src + 1) & 0xff0)) {
+            // same page, we definitely can't fault:
+            // load all 16 bytes and mask off the bytes past the end of the source
+            static const qint8 maskarray[] = {
+                -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+                 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+            };
+            __m128i mask = _mm_loadu_si128(reinterpret_cast<const __m128i *>(maskarray + 15 - len));
+            data = _mm_loadu_si128(src);
+            data = _mm_and_si128(data, mask);
+        } else {
+            // too close to the end of the page, it could fault:
+            // load 16 bytes ending at the data end, then shuffle them to the beginning
+            static const qint8 shufflecontrol[] = {
+                 1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15,
+                -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1
+            };
+            __m128i control = _mm_loadu_si128(reinterpret_cast<const __m128i *>(shufflecontrol + 15 - len));
+            p = reinterpret_cast<const uchar *>(src - 1);
+            data = _mm_loadu_si128(reinterpret_cast<const __m128i *>(p + len));
+            data = _mm_shuffle_epi8(data, control);
+        }
+
+        hash16bytes(state0, data);
+    }
+
+    // extract state0
+#  ifdef Q_PROCESSOR_X86_64
+    return _mm_cvtsi128_si64(state0);
+#  else
+    return _mm_cvtsi128_si32(state0);
+#  endif
+}
+#endif
+
 static Q_NEVER_INLINE uint hash(const uchar *p, int len, uint seed) Q_DECL_NOTHROW
 {
+#if QT_COMPILER_SUPPORTS_HERE(AES)
+    if (qCpuHasFeature(AES))
+        return aeshash(p, len, seed);
+#endif
 
     if (len == 0) {
         // we've done this in the past, so we keep this behavior

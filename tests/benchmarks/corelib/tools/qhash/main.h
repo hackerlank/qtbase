@@ -59,3 +59,42 @@ QT_BEGIN_NAMESPACE
 uint qHash(const JavaString &);
 QT_END_NAMESPACE
 
+struct Crc32String : QString
+{
+    Crc32String() {}
+    Crc32String(const QString &s) : QString(s) {}
+};
+
+QT_BEGIN_NAMESPACE
+uint qHash(const Crc32String &, uint seed = 0);
+QT_END_NAMESPACE
+
+struct SipHashString : QString
+{
+    SipHashString() = default;
+    SipHashString(const QString &s) : QString(s) {}
+};
+
+QT_BEGIN_NAMESPACE
+uint qHash(const SipHashString &, uint seed = 0);
+QT_END_NAMESPACE
+
+struct AllansSipHashString : QString
+{
+    AllansSipHashString() = default;
+    AllansSipHashString(const QString &s) : QString(s) {}
+};
+
+QT_BEGIN_NAMESPACE
+uint qHash(const AllansSipHashString &, uint seed = 0);
+QT_END_NAMESPACE
+
+struct AesHashString : QString
+{
+    AesHashString() = default;
+    AesHashString(const QString &s) : QString(s) {}
+};
+
+QT_BEGIN_NAMESPACE
+uint qHash(const AesHashString &, uint seed = 0);
+QT_END_NAMESPACE

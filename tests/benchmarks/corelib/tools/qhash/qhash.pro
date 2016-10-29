@@ -1,5 +1,5 @@
 TARGET = tst_hash
-QT = core testlib
+QT = core-private testlib
 INCLUDEPATH += .
 SOURCES += main.cpp outofline.cpp
-CONFIG += release
+#CONFIG += release

@@ -539,7 +539,7 @@ qint64 QNetworkDiskCache::expire()
         QFileInfo info = it.fileInfo();
         QString fileName = info.fileName();
         if (fileName.endsWith(CACHE_POSTFIX)) {
-            cacheItems.insert(info.created(), path);
+            cacheItems.insert(info.lastRead(), path);
             totalSize += info.size();
         }
     }

@@ -1320,6 +1320,16 @@
 #  define QT_WARNING_DISABLE_DEPRECATED
 #endif
 
+// Use as:
+// QT_WARNING_DISABLE((GCC("-Wsuggest-override")) (CLANG("-Wstrict-aliasing"))
+//                    (CLANG("-Winconsistent-missing-override")) (INTEL(111)) (MSVC(4127)))
+#define QT_WARNING_DO_DISABLE(name)             QT_WARNING_DISABLE_ ## name
+#define QT_WARNING_DISABLE(seq) QT_CONCAT(QT_WARNING_DISABLE_1 seq, _END)
+#define QT_WARNING_DISABLE_1(x) QT_WARNING_DO_DISABLE(x) QT_WARNING_DISABLE_2
+#define QT_WARNING_DISABLE_2(x) QT_WARNING_DO_DISABLE(x) QT_WARNING_DISABLE_1
+#define QT_WARNING_DISABLE_1_END
+#define QT_WARNING_DISABLE_2_END
+
 /*
    Proper for-scoping in MIPSpro CC
 */

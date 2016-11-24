@@ -92,6 +92,11 @@
 #define QT_STRINGIFY2(x) #x
 #define QT_STRINGIFY(x) QT_STRINGIFY2(x)
 
+/* These two concatenate two preprocessor tokens together */
+#define QT_CONCAT2(x, y) x ## y
+#define QT_CONCAT(x, y) QT_CONCAT2(x, y)
+
+
 #if defined (__ELF__)
 #  define Q_OF_ELF
 #endif

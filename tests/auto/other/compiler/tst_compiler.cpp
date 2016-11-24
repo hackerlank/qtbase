@@ -681,10 +681,8 @@ void tst_Compiler::cxx11_atomics()
 }
 
 QT_WARNING_PUSH
-QT_WARNING_DISABLE_CLANG("-Wignored-attributes")
-QT_WARNING_DISABLE_CLANG("-Wunused-local-typedefs")
-QT_WARNING_DISABLE_GCC("-Wattributes")
-QT_WARNING_DISABLE_GCC("-Wunused-local-typedefs")
+QT_WARNING_DISABLE((CLANG("-Wignored-attributes")) (CLANG("-Wunused-local-typedefs"))
+                   (GCC("-Wattributes")) (GCC("-Wunused-local-typedefs")))
 
 #ifndef __has_cpp_attribute
 #  define __has_cpp_attribute(x) 0
